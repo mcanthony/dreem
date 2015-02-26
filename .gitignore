@@ -5,3 +5,4 @@ apidocs/
 *.marks
 sauce_connect.log
 node_modules/
+sauceconnect_rspec.log

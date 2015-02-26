@@ -19,8 +19,10 @@ if (ENV['SAUCE'])
   puts 'Running tests on Saucelabs...'
   require 'sauce_helper'
 elsif (ENV['FIREFOX'])
+  puts 'Running tests on Firefox...'
   #nothing to do, this is the default
 else
+  puts 'Running tests on Chrome...'
   Capybara.register_driver :selenium_chrome do |app|
     Capybara::Selenium::Driver.new(app, :browser => :chrome)
   end
