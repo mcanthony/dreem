@@ -49,7 +49,7 @@ var fs = require('fs')
 var modproto = require('module').Module.prototype
 var _compile = modproto._compile
 modproto._compile = function(content, filename){
-	fs.write(3, filename, function(){})
+	process.stderr.write('\x0F'+filename+'\n', function(){})
 	return _compile.call(this, content, filename)
 }
 
@@ -720,30 +720,36 @@ Monitor = (function(){
 		subarg.push('-count')
 		subarg.push(this.restart_count++)
 
-		var stdio = [process.stdin, process.stdout,'pipe','pipe']
+		var stdio = [process.stdin, process.stdout,'pipe']
 		this.was_exception = false
 		this.watcher.watch(subarg[0])
+
 		this.child = child_process.spawn(process.execPath, subarg, {
 			stdio: stdio
 		})
 
 		this.child.stderr.on('data', function(err){
 			// we haz exception, wait for filechange
+			var data = err.toString()
+			if(data.indexOf('\x0F')!= -1){
+				var files = data.split('\x0F')
+				for(var i = 0;i<files.length;i++){
+					var file = files[i].replace(/\n/,'')
+					if(file){
+						this.watcher.watch(file)
+					}
+				}
+				return
+			}
+
 			this.was_exception = true
-			var excep = err.toString()
-			var m = excep.match(/^(\/[^\:]+)\:(\d+)\n/)
-			var ln = excep.split(/\n/)
+			var m = data.match(/^(\/[^\:]+)\:(\d+)\n/)
+			var ln = data.split(/\n/)
 			if(m){ // open error in code editor
 				if(this.args['-notify']) Spawner.notify(ln[1]+'\n'+ln[2],ln[3])
 				if(this.args['-edit']) Spawner.editor(m[1],m[2])
 			}
 			process.stdout.write(err)
-		}.bind(this))
-
-		this.child.stdio[3].on('data', function(m){
-			// receiving dependencies here
-			var file = m.toString()
-			this.watcher.watch(file)
 		}.bind(this))
 
 		this.child.on('close', function(code){
