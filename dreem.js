@@ -81,22 +81,17 @@ var dr = (function(){
 		}
 
 		BusClient.prototype.send = function(msg){
+			msg = JSON.stringify(msg)
 			if(this.queue) this.queue.push(msg)
 			else this.socket.send(msg)
 		}
 
 		BusClient.prototype.color = function(data){
-			this.send(JSON.stringify({
-				type:'color',
-				value:data
-			}))
+			this.send({type:'color', value:data})
 		}
 
 		BusClient.prototype.log = function(data){
-			this.send(JSON.stringify({
-				type:'log',
-				value:data
-			}))
+			this.send({type:'log', value:data})
 		}
 
 		// todo use event mechanism
@@ -165,10 +160,10 @@ var dr = (function(){
 		  				console.error(err.toString())
 		  			})
 		  			// send all errors to the server so it can open them in the editor
-		  			dr.busclient.send(JSON.stringify({
+		  			dr.busclient.send({
 		  				type:'error',
 		  				errors:error
-		  			}))
+		  			})
 		  			return
 		  		}
 		  		// something fun

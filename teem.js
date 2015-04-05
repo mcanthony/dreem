@@ -100,46 +100,8 @@ var Composition = (function(){
 
 		this.args = args
 		this.name = name
-
+		this.file_root = file_root
 		this.busserver = new BusServer()
-
-		var watcher = this.watcher = new FileWatcher()
-		this.watcher.onChange = function(){
-			// lets reload this app
-			this.has_error = 0
-			this.compiler.start()
-		}.bind(this)
-
-		this.compiler = new dr.Compiler()
-
-		this.compiler.reader = function(name, callback){
-			if(name.indexOf('.') === -1) name += ".dre"
-			var full_path = path.join(file_root, name) 
-
-			fs.readFile(full_path, function(err, data){
-				if(err) return callback(err)
-
-				watcher.watch(full_path)
-
-				return callback(null, data, full_path)
-			})
-		}
-
-		function showErrors(errors, prefix){
-			var w = 0
-			errors.forEach(function(err){
-				console.color("~br~"+prefix+" Error ~y~" + err.path + "~bg~" + (err.line!==undefined?":"+ err.line + (err.col?":" + err.col:""):"")+"~~ "+err.message+"\n")
-				if(!err.path) w++
-			})
-
-			if(args['-notify']){
-				Spawner.notify('Exception',errors[w].message)
-			}
-			if(args['-edit']){
-				if(fs.existsSync(errors[w].path))
-					Spawner.editor(errors[w].path, errors[w].line, errors[w].col - 1)
-			}
-		}
 
 		this.busserver.onMessage = function(msg){
 			if(msg.type == 'color'){
@@ -152,16 +114,64 @@ var Composition = (function(){
 				msg.errors.forEach(function(err){
 					if(err.path) err.path = file_root + err.path
 				})
-				showErrors(msg.errors, 'Client')
+				this.showErrors(msg.errors, 'Client')
 			}
-		}
+		}.bind(this)
 
-		if(name !== null) this.compiler.execute(name, function(err, output){
+		this.watcher = new FileWatcher()
+		this.watcher.onChange = function(){
+			// lets reload this app
+			this.onChange()
+		}.bind(this)
+	}
+
+	Composition.prototype.showErrors = function(errors, prefix){
+		var w = 0
+		errors.forEach(function(err){
+			console.color("~br~"+prefix+" Error ~y~" + err.path + "~bg~" + (err.line!==undefined?":"+ err.line + (err.col?":" + err.col:""):"")+"~~ "+err.message+"\n")
+			if(!err.path) w++
+		})
+
+		if(this.args['-notify']){
+			Spawner.notify('Exception',errors[w].message)
+		}
+		if(this.args['-edit']){
+			if(fs.existsSync(errors[w].path))
+				Spawner.editor(errors[w].path, errors[w].line, errors[w].col - 1)
+		}
+	}
+
+	Composition.prototype.onChange = function(){
+	}
+
+
+	Composition.prototype.reload = function(callback){
+		
+		var compiler = new dr.Compiler()
+
+		compiler.reader = function(name, callback){
+			if(name.indexOf('.') === -1) name += ".dre"
+			var full_path = path.join(this.file_root, name) 
+
+			fs.readFile(full_path, function(err, data){
+				if(err) return callback(err)
+
+				this.watcher.watch(full_path)
+
+				return callback(null, data, full_path)
+			}.bind(this))
+		}.bind(this)
+
+		if(this.name === null) return callback(null,null)
+
+		compiler.execute(this.name, function(err, pkg){
 			if(err){
 				if(!Array.isArray(err)) err = [err]
-				showErrors(err, 'Server')
+				this.showErrors(err, 'Server')
+				callback(err)
 			}
-		})
+			else callback(null, pkg)
+		}.bind(this))
 	}
 
 	Composition.prototype.request = function(req, res){
@@ -587,21 +597,36 @@ console.color = colorize(function(v){
 	process.stdout.write(v)
 })
 
-SubProc = (function(){
+DaliGen = (function(){
 	// lets monitor all our dependencies and terminate if they change
 
-	function SubProc(args){
+	function DaliGen(args){
 		this.args = args
+
+		// lets load up a composition
+		var file = 'dalitest.dre'
+		if(args['-dali'] !== true) file = args['-dali']
+		var comp = new Composition(args, path.resolve(__dirname), file)
+		var child
+		comp.onChange = function(){
+			if(child) child.kill()
+			child = null
+			comp.reload(function(err, pkg){
+				if(err) return
+				// output dali application
+				var code = 'var dreem_classes = ' + JSON.stringify(pkg.classes) + '\n'
+				code += 'var dreem_root = ' + JSON.stringify(pkg.root) + '\n'
+				code += 'var methods = []\n' + pkg.methods + '\n'
+				code += fs.readFileSync('dalihead.js')
+				fs.writeFileSync('dalitest.js', code)
+				child = child_process.spawn('dalirun',['dalitest.js'])
+				console.log('Written new new dalitest.js')
+			})
+		}
+		comp.onChange()
 	}
 
-	SubProc.prototype.start = function(){
-		if(this.args['-clear']){
-			console.color("\033[2J\033[;H -- Process restarted at ~bg~" + new Date() + '~~ --\n')
-		}
-		// boot up server
-		this.server = new Server(this.args)
-	}
-	return SubProc
+	return DaliGen
 })()
 
 function Promisify(call){
@@ -697,7 +722,7 @@ Monitor = (function(){
 				if(this.child){
 					this.child.kill('SIGHUP')
 					setTimeout(function(){
-						this.child.kill('SIGTERM')
+						if(this.child) this.child.kill('SIGTERM')
 					}.bind(this), 50)
 				}
 				else{
@@ -775,8 +800,12 @@ if(moni.args['-h'] || moni.args['-help'] || moni.args['--h']|| moni.args['--help
 	return process.exit(0)
 }
 if(!moni.isMonitor()){
-	var subproc = new SubProc(moni.args)
-	subproc.start()
+	if(moni.args['-dali']){
+		new DaliGen(moni.args)
+	}
+	else{
+		new Server(moni.args)
+	}
 }
 else{
 	moni.start()
