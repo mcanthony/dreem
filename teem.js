@@ -962,6 +962,11 @@ Monitor = (function(){
 			}
 		}.bind(this)
 
+		this.start()
+	}
+
+	/* Internal. start the monitored process again*/
+	Monitor.prototype.start = function(){
 		var subarg = process.argv.slice(1)
 
 		subarg.push('-nomoni')

@@ -179,11 +179,6 @@ var dr = (function(){
 
 		// the mixins
 		var mixins = []
-		if(jsxml.with){
-			jsxml.with.split(/,\s*/).forEach(function(cls){
-				mixins.push(dr.buildDreemClass(table, cls, classjsxml, methods))
-			})
-		}
 
 		// the baseclasses?
 		if(jsxml.extends){ // we cant extend from more than one class
@@ -195,6 +190,12 @@ var dr = (function(){
 				// the buildDreemClass is recursive so definition order doesnt matter
 				if(i == 0) baseclass = dr.buildDreemClass(table, cls, classjsxml, methods)
 				else mixins.push(dr.buildDreemClass(table, cls, classjsxml, methods))
+			})
+		}
+
+		if(jsxml.with){
+			jsxml.with.split(/,\s*/).forEach(function(cls){
+				mixins.push(dr.buildDreemClass(table, cls, classjsxml, methods))
 			})
 		}
 
