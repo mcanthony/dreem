@@ -397,7 +397,8 @@ var dr = (function(){
 			setter:1,
 			getter:1,
 			layout:1,
-			node:1
+			node:1,
+			state:1
 		}
 
 		/* Supported languages, these are lazily loaded */
