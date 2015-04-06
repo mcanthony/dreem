@@ -110,9 +110,10 @@ var dr = (function(){
 		document.onreadystatechange = function () {
 		  if (document.readyState == "complete") {
 		  	// find the first view tag
-		  	var v = document.getElementsByTagName('view')[0]
+		  	var views = document.getElementsByTagName('view')
+		  	if(!views || views.length == 0) return console.log('No views to process!')
 		  	// lets pass our innerHtml to our compiler
-		  	compile(v.innerHTML, function(error, pkg){
+		  	compile(views[0].innerHTML, function(error, pkg){
 				if(error) return
 				// something fun
 				dr.busclient.color('~br~D~bb~R~bm~E~bg~E~by~M~~ client has successfully parsed!\n')
