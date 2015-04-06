@@ -986,7 +986,10 @@ var dr = (function(){
 				var ch = source.charCodeAt(pos++)
 				if(ch == 60){ // <
 					var next = source.charCodeAt(pos)
-					if(next == 32 || next == 9 || next == 10 || next == 12 || (next >=48 && next <= 57)) continue
+					if(next == 32 || next == 9 || next == 10 || next == 12 || next ==  37 || 
+						next == 40 || next == 41 || next == 45 || 
+						next == 35 || next == 36 || next == 92 || next == 94 || 
+						(next >=48 && next <= 57)) continue
 					// lets emit textnode since last
 					if(start != pos - 1) this.onText(source.slice(start, pos - 1), start, pos - 1)
 					if(next == 33){ // <!
