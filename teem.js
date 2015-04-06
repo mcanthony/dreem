@@ -22,53 +22,92 @@
  SOFTWARE.
 
 Teem server, for commandline node teem.js --help
-
-For client side dev use this commandline
-node teem.js -edit -notify -devtools -delay -browser dreem_web.html
-
 */
 
-function help_screen(){
-	console.color('~by~Teem~~ Server ~bm~2.0~~\n')
-	console.color('commandline: node teem.js <flags>\n')
-	console.color('~bc~-web htmlfile.html~~ Short for -edit -notify -devtools -delay -browser htmlfile.html\n')	
-	console.color('~bc~-port ~br~[port]~~ Server port\n')
-	console.color('~bc~-nomoni ~~ Start process without monitor\n')
-	console.color('~bc~-iface ~br~[interface]~~ Server interface\n')
-	console.color('~bc~-browser~~ Opens webbrowser on default app\n')
-	console.color('~bc~-notify~~ Shows errors in system notification\n')
-	console.color('~bc~-devtools~~ Automatically opens devtools in the browser\n')
-	console.color('~bc~-close~~ Auto closes your tab when reloading the server\n')
-	console.color('~bc~-delay~~ Delay reloads your pages when reloading the server\n')
-	console.color('~bc~-restart~~ Auto restarts after crash (Handy for client dev, not server dev)\n')
-	console.color('~bc~-edit~~ Automatically open an exception in your code editor at the right line\n')
+/* Entry point */
+function main(){
+	var args = {}
+	var argv = process.argv
+	for(var lastkey='', arg, i = 0; i<argv.length; i++){
+		arg = argv[i]
+		if(arg.charAt(0) == '-') lastkey = arg, args[lastkey] = true
+		else args[lastkey] = arg
+	}
+
+	if(args['-web']){
+		args['-edit'] = true
+		args['-notify'] = true
+		args['-devtools'] = true
+		args['-delay'] = true
+		args['-browser'] = args['-web']
+	}
+
+	if(args['-h'] || args['-help'] || args['--h']|| args['--help']){
+		console.color('~by~Teem~~ Server ~bm~2.0~~\n')
+		console.color('commandline: node teem.js <flags>\n')
+		console.color('~bc~-web htmlfile.html~~ Short for -edit -notify -devtools -delay -browser htmlfile.html\n')	
+		console.color('~bc~-port ~br~[port]~~ Server port\n')
+		console.color('~bc~-nomoni ~~ Start process without monitor\n')
+		console.color('~bc~-iface ~br~[interface]~~ Server interface\n')
+		console.color('~bc~-browser~~ Opens webbrowser on default app\n')
+		console.color('~bc~-notify~~ Shows errors in system notification\n')
+		console.color('~bc~-devtools~~ Automatically opens devtools in the browser\n')
+		console.color('~bc~-close~~ Auto closes your tab when reloading the server\n')
+		console.color('~bc~-delay~~ Delay reloads your pages when reloading the server\n')
+		console.color('~bc~-restart~~ Auto restarts after crash (Handy for client dev, not server dev)\n')
+		console.color('~bc~-edit~~ Automatically open an exception in your code editor at the right line\n')
+		return process.exit(0)
+	}
+
+	if(args['-nomoni']){
+		if(args['-dali']){
+			new DaliGen(args)
+		}
+		else{
+			new Server(args)
+		}
+	}
+	else{
+		new Monitor(args)
+	}
 }
 
-// self dependency watcher
+/* Hook the nodeJS module loader to send encoded dependency-filenames to our outer process (Monitor)*/
 var fs = require('fs')
 var modproto = require('module').Module.prototype
 var _compile = modproto._compile
 modproto._compile = function(content, filename){
-	process.stderr.write('\x0F'+filename+'\n', function(){})
+	if(process.argv.indexOf('-nomoni') != -1)
+		process.stderr.write('\x0F'+filename+'\n', function(){})
 	return _compile.call(this, content, filename)
 }
 
-// shared dreem compiler
+/* dreem compiler */
 var dr = require('./dreem.js')
 
-// builtins
+/* dependencies */
 var crypto = require('crypto')
 var http = require('http')
 var child_process = require('child_process')
 var os = require('os')
 var path = require('path')
 
-// A group of sockets with a broadcast function
+/**
+ * @class BusServer {}
+ * Packs together websockets and parses/stringifies JSON
+ */
 var BusServer = (function(){
+    /**
+      * @constructor
+      */
 	function BusServer(){
 		this.sockets = []
 	}
-
+    /**
+      * @method addWebSocket
+      * adds a WebSocket to the BusServer
+      * @param {WebSocket} sock socket to add
+      */
 	BusServer.prototype.addWebSocket = function(sock){
 		this.sockets.push(sock)
 		var self = this
@@ -81,9 +120,20 @@ var BusServer = (function(){
 		}
 	}
 
+    /**
+      * @event onMessage
+      * Called when a new message appears on any of the sockets
+      * @param {Object} message
+      * @param {WebSocket} socket
+      */
 	BusServer.prototype.onMessage = function(message, socket){
 	}
 
+    /**
+      * @method broadcast
+      * Send a message to all connected sockets
+      * @param {Object} message
+      */
 	BusServer.prototype.broadcast = function(message){
 		message = JSON.stringify(message)
 		for(var i = 0;i<this.sockets.length;i++){
@@ -94,13 +144,25 @@ var BusServer = (function(){
 	return BusServer
 })()
 
-// Composition 
+/**
+ * @class Composition {}
+ * Holder of the dreem <composition> for the server
+ * Manages all iOT objects and the BusServer for each Composition
+ */
 var Composition = (function(){
+
+    /**
+      * @construtor
+      * @param {Object} args Process arguments
+      * @param {String} file_root File server root
+      * @param {String} name Name of the composition .dre
+      */	
 	function Composition(args, file_root, name){
 
 		this.args = args
 		this.name = name
 		this.file_root = file_root
+
 		this.busserver = new BusServer()
 
 		this.busserver.onMessage = function(msg){
@@ -125,13 +187,19 @@ var Composition = (function(){
 		}.bind(this)
 	}
 
+    /**
+      * @method showErrors
+      * Shows error array and responds with notifications/opening editors
+      * @param {Array} errors
+      * @param {String} prefix Output prefix
+      */
 	Composition.prototype.showErrors = function(errors, prefix){
 		var w = 0
 		errors.forEach(function(err){
 			console.color("~br~"+prefix+" Error ~y~" + err.path + "~bg~" + (err.line!==undefined?":"+ err.line + (err.col?":" + err.col:""):"")+"~~ "+err.message+"\n")
 			if(!err.path) w++
 		})
-
+		if(!errors[w]) return
 		if(this.args['-notify']){
 			Spawner.notify('Exception',errors[w].message)
 		}
@@ -141,15 +209,24 @@ var Composition = (function(){
 		}
 	}
 
+    /**
+      * @event onChange
+      * Called when any of the dependent files change for this composition
+      */
 	Composition.prototype.onChange = function(){
 	}
 
 
+    /**
+      * @method reload
+      * Reloads the composition and gives callback with either errors or resulting package
+      * @param {Function} callback(error, package)
+      */
 	Composition.prototype.reload = function(callback){
 		
 		var compiler = new dr.Compiler()
 
-		compiler.reader = function(name, callback){
+		compiler.onRead = function(name, callback){
 			if(name.indexOf('.') === -1) name += ".dre"
 			var full_path = path.join(this.file_root, name) 
 
@@ -174,6 +251,12 @@ var Composition = (function(){
 		}.bind(this))
 	}
 
+    /**
+      * @method request
+      * Handle server request for this Composition
+      * @param {Request} req
+	  * @param {Response} res
+      */
 	Composition.prototype.request = function(req, res){
 		var app = req.url.split('/')[1] || 'default'
 		// ok so, we need to serve the right view.
@@ -185,6 +268,11 @@ var Composition = (function(){
 })()
 
 // mime type lookup
+
+/**
+  * @class MimeTypes
+  * MimeType lookup table
+  */
 var MimeTypes = {
 	htm: "text/html",
 	html: "text/html",
@@ -198,13 +286,27 @@ var MimeTypes = {
 	gif: "image/gif"
 }
 MimeTypes.regex = new RegExp("\\.(" + Object.keys(MimeTypes).join("|") + ")$")
+/**
+  * @method fromFileName
+  * Looks up mimetype by filename
+  * @param {String] name Name of file
+  */
 MimeTypes.fromFilename = function( name ){
 	var ext = name.match(this.regex)
 	return ext && this[ ext[1] ] || "text/plain"
 }
 
-// the server class
+/**
+ * @class Server {}
+ * Main NodeJS HTTP server with support for WebSockets, static file handling and 
+ * Composition objects
+ */
 var Server = (function(){
+
+	/** 
+	  * @constructor 
+	  * @param {Object} args Process arguments
+	  */
 	function Server(args){
 		this.compositions = {}
 
@@ -260,6 +362,11 @@ var Server = (function(){
 		}.bind(this))
 	}
 
+	/** 
+	  * @method broadcast
+	  * Send a message to all my connected websockets and those on the compositions
+	  * @param {Object} msg JSON Serializable message to send
+	  */
 	Server.prototype.broadcast = function(msg){
 		this.busserver.broadcast(msg)
 		for(var k in this.compositions){
@@ -267,9 +374,24 @@ var Server = (function(){
 		}
 	}
 
+	/** 
+	  * @attribute {String} default_comp
+	  * Default composition name 
+	  */
 	Server.prototype.default_comp = null
+
+	/** 
+	  * @attribute {String} file_root
+	  * Root of the file serevr
+	  */
 	Server.prototype.file_root = path.resolve(__dirname)
 
+	/** 
+	  * @method bgetComposition
+	  * Find composition object by url 
+	  * @param {String} url 
+	  * @return {Composition|undefined} 
+	  */
 	Server.prototype.getComposition = function(url){
 		if(url.indexOf('.')!== -1) return
 		var path = url.split('/')
@@ -278,6 +400,13 @@ var Server = (function(){
 		return this.compositions[name]
 	}
 
+	/** 
+	  * @method upgrade
+	  * Handle protocol upgrade to WebSocket
+	  * @param {Request} req 
+	  * @param {Socket} sock
+	  * @param {Object} head 
+	  */
 	Server.prototype.upgrade = function(req, sock, head){
 		// lets connect the sockets to the app
 		var sock = new WebSocket(req, sock, head)
@@ -287,16 +416,23 @@ var Server = (function(){
 		else composition.busserver.addWebSocket(sock)
 	}
 
+	/** 
+	  * @method request
+	  * Handle main http server request
+	  * @param {Request} req 
+	  * @param {Response} res
+	  */
 	Server.prototype.request = function(req, res){
 		// lets delegate to
 		var host = req.headers.host
 		var url = req.url
 		var composition = this.getComposition(url)
 
+		// if we are a composition request, send it to composition
 		if(composition) return composition.request(req, res)
 
+		// otherwise handle as static file
 		var file = path.join(this.file_root, req.url)
-		// We seem to have a resource request, lets be a good static fileserver
 		fs.stat(file, function(err, stat){
 			if(err || !stat.isFile()){
 				res.writeHead(403)
@@ -318,225 +454,271 @@ var Server = (function(){
 	}
 
 	// the websocket class
-	var WebSocket = (function(){
-		function WebSocket(req, socket){
-			var version = req.headers['sec-websocket-version']
-			if(version != 13){
-				console.log("Incompatible websocket version requested (need 13) " + version)
-				return socket.destroy()
-			}
+	return Server
+})()
 
-			this.socket = socket
+/**
+ * @class WebSocket
+ * Clean and simple websocket implementation for node
+ */
+var WebSocket = (function(){
 
-		 	// calc key
-			var key = req.headers['sec-websocket-key']
-			var sha1 = crypto.createHash('sha1');
-			sha1.update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
-			var ack = 'HTTP/1.1 101 Switching Protocols\r\n'+
-				'Upgrade: websocket\r\n'+
-				'Connection: Upgrade\r\n'+
-				'Sec-WebSocket-Accept: ' + sha1.digest('base64') +'\r\n\r\n'
-
-			this.socket.write(ack)
-
-			this.max = 100000000
-			this.header = new Buffer(14) // header
-			this.output = new Buffer(10000) // output
-			this.state = this.opcode // start in the opcode state
-			this.expected = 1 // the bytes expected for the next state
-			this.written = 0 // how much we have written in the output buffers
-			this.read = 0 // the bytes we've read
-			this.input = 0 // the input buffer received from the socket
-			this.maskoff = 0 // the offset in the mask
-			this.maskcount = 0 // mask counter
-			this.paylen = 0 // payload length
-
-			// 10 second ping frames
-			var pf = new Buffer(2)
-			pf[0] = 9 | 128
-			pf[1] = 0
-
-			this.ping_interval = setInterval(function(){
-				if(!this.socket) clearInterval(this.ping_interval)
-				else this.socket.write(pf)
-			}.bind(this), 10000)		
-
-			this.socket.on('data', function(data){
-				this.input = data
-				this.read = 0
-				while(this.state());
-			}.bind(this))
-
-			this.socket.on('close', function(){
-				this.close()
-			}.bind(this))
+	/** 
+	  * @constructor 
+	  * @param {Request} req The node request object to construct from
+	  * @param {Socket} socket The socket object to connect to
+	  */
+	function WebSocket(req, socket){
+		var version = req.headers['sec-websocket-version']
+		if(version != 13){
+			console.log("Incompatible websocket version requested (need 13) " + version)
+			return socket.destroy()
 		}
 
-		// events
-		WebSocket.prototype.onMessage = function(pkt){
-		}
+		this.socket = socket
 
-		WebSocket.prototype.onClose = function(){
-		}
+	 	// calc key
+		var key = req.headers['sec-websocket-key']
+		var sha1 = crypto.createHash('sha1');
+		sha1.update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
+		var ack = 'HTTP/1.1 101 Switching Protocols\r\n'+
+			'Upgrade: websocket\r\n'+
+			'Connection: Upgrade\r\n'+
+			'Sec-WebSocket-Accept: ' + sha1.digest('base64') +'\r\n\r\n'
 
-		WebSocket.prototype.onError = function(){
-		}
+		this.socket.write(ack)
 
-		WebSocket.prototype.error = function(t){
-			console.log("Error on websocket " + t)
-			this.onError(t)
+		this.max = 100000000 // maximum receive buffer size (10 megs)
+		this.header = new Buffer(14) // header
+		this.output = new Buffer(10000) // output
+		this.state = this.opcode // start in the opcode state
+		this.expected = 1 // the bytes expected for the next state
+		this.written = 0 // how much we have written in the output buffers
+		this.read = 0 // the bytes we've read
+		this.input = 0 // the input buffer received from the socket
+		this.maskoff = 0 // the offset in the mask
+		this.maskcount = 0 // mask counter
+		this.paylen = 0 // payload length
+
+		// 10 second ping frames
+		var pf = new Buffer(2)
+		pf[0] = 9 | 128
+		pf[1] = 0
+
+		this.ping_interval = setInterval(function(){
+			if(!this.socket) clearInterval(this.ping_interval)
+			else this.socket.write(pf)
+		}.bind(this), 10000)		
+
+		// Main socket data loop, uses state function to parse
+		this.socket.on('data', function(data){
+			this.input = data
+			this.read = 0
+			while(this.state());
+		}.bind(this))
+
+		this.socket.on('close', function(){
 			this.close()
-		}
+		}.bind(this))
+	}
 
-		// write data
-		WebSocket.prototype.send = function(data){
-			if(!this.socket) return
-			var head
-			var buf = new Buffer(data)
-			if(buf.length < 126){
-				head = new Buffer(2)
-				head[1] = buf.length
-			} 
-			else if (buf.length<=65535){
-				head = new Buffer(4)
-				head[1] = 126
-				head.writeUInt16BE(buf.length, 2)
-			} 
-			else {
-				head = new Buffer(10)
-				head[1] = 127
-				head[2] = head[3] = head[4] = head[5] = 0
-				head.writeUInt32BE(buf.length, 6)
-			}
-			head[0] = 128 | 1
-			this.socket.write(head)
-			this.socket.write(buf)
-		}
+	/** 
+	  * @event onMessage 
+	  * @param {String} message The incoming message
+	  */
+	WebSocket.prototype.onMessage = function(message){
+	}
 
-		WebSocket.prototype.close = function(){
-			if(this.socket){
-				this.onClose()
-				this.socket.destroy()
-				clearInterval(this.ping_interval)
-			}
-			this.socket = undefined
-		}
-		// state methods
-		WebSocket.prototype.head = function(){
-			var se = this.expected
-			while(this.expected > 0 && this.read < this.input.length && this.written < this.header.length){
-				this.header[this.written++] = this.input[this.read++], this.expected--
-			}
-			if(this.written > this.header.length) return this.err("unexpected data in header"+ se + s.toString())
-			return this.expected != 0
-		}
+	/** 
+	  * @event onClose
+	  */
+	WebSocket.prototype.onClose = function(){
+	}
 
-		WebSocket.prototype.data = function(){
-			while(this.expected > 0 && this.read < this.input.length){
-				this.output[this.written++] = this.input[this.read++] ^ this.header[this.maskoff + (this.maskcount++&3)]
-				this.expected--
-			}
-			if(this.expected) return false
-			this.onMessage(this.output.toString('utf8', 0, this.written))
+	/** 
+	  * @event onError
+	  * @param {String} error The error
+	  */
+	WebSocket.prototype.onError = function(error){
+	}
+
+	WebSocket.prototype.error = function(t){
+		console.log("Error on websocket " + t)
+		this.onError(t)
+		this.close()
+	}
+
+	/** 
+	  * @method send
+	  * Send message on socket
+	  * @param {String|Buffer} data Data to send
+	  */
+	WebSocket.prototype.send = function(data){
+		if(!this.socket) return
+		var head
+		var buf = new Buffer(data)
+		if(buf.length < 126){
+			head = new Buffer(2)
+			head[1] = buf.length
+		} 
+		else if (buf.length<=65535){
+			head = new Buffer(4)
+			head[1] = 126
+			head.writeUInt16BE(buf.length, 2)
+		} 
+		else {
+			head = new Buffer(10)
+			head[1] = 127
+			head[2] = head[3] = head[4] = head[5] = 0
+			head.writeUInt32BE(buf.length, 6)
+		}
+		head[0] = 128 | 1
+		this.socket.write(head)
+		this.socket.write(buf)
+	}
+
+	/** 
+	  * @method close
+	  * Close socket
+	  */
+	WebSocket.prototype.close = function(){
+		if(this.socket){
+			this.onClose()
+			this.socket.destroy()
+			clearInterval(this.ping_interval)
+		}
+		this.socket = undefined
+	}
+
+	/* Internal head state */
+	WebSocket.prototype.head = function(){
+		var se = this.expected
+		while(this.expected > 0 && this.read < this.input.length && this.written < this.header.length){
+			this.header[this.written++] = this.input[this.read++], this.expected--
+		}
+		if(this.written > this.header.length) return this.err("unexpected data in header"+ se + s.toString())
+		return this.expected != 0
+	}
+
+	/* Internal data state */
+	WebSocket.prototype.data = function(){
+		while(this.expected > 0 && this.read < this.input.length){
+			this.output[this.written++] = this.input[this.read++] ^ this.header[this.maskoff + (this.maskcount++&3)]
+			this.expected--
+		}
+		if(this.expected) return false
+		this.onMessage(this.output.toString('utf8', 0, this.written))
+		this.expected = 1
+		this.written = 0
+		this.state = this.opcode
+		return true
+	}
+
+	/* Internal mask state*/
+	WebSocket.prototype.mask = function(){
+		if(this.head()) return false
+		if(!this.paylen){
 			this.expected = 1
 			this.written = 0
 			this.state = this.opcode
 			return true
 		}
+		this.maskoff = this.written - 4
+		this.written = this.maskcount = 0
+		this.expected = this.paylen
+		if(this.paylen > this.max) return this.error("buffer size request too large " + l + " > " + max)
+		if(this.paylen > this.output.length) this.output = new Buffer(this.paylen)
+		this.state = this.data
+		return true
+	}
 
-		WebSocket.prototype.mask = function(){
-			if(this.head()) return false
-			if(!this.paylen){
-				this.expected = 1
-				this.written = 0
-				this.state = this.opcode
-				return true
-			}
-			this.maskoff = this.written - 4
-			this.written = this.maskcount = 0
-			this.expected = this.paylen
-			if(this.paylen > this.max) return this.error("buffer size request too large " + l + " > " + max)
-			if(this.paylen > this.output.length) this.output = new Buffer(this.paylen)
-			this.state = this.data
-			return true
-		}
+	/* Internal len8 state*/
+	WebSocket.prototype.len8 = function(){
+		if(this.head()) return false
+		this.paylen = this.header.readUInt32BE(this.written - 4)
+		this.expected = 4
+		this.state = this.mask
+		return true
+	}
 
-		WebSocket.prototype.len8 = function(){
-			if(this.head()) return false
-			this.paylen = this.header.readUInt32BE(this.written - 4)
+	/* Internal len2 state*/
+	WebSocket.prototype.len2 = function(){
+		if(this.head()) return 
+		this.paylen = this.header.readUInt16BE(this.written - 2)
+		this.expected = 4
+		this.state = this.mask
+		return true
+	}
+
+	/* Internal len1 state*/
+	WebSocket.prototype.len1 = function(){
+		if(this.head()) return false
+		if(!(this.header[this.written  - 1] & 128)) return this.error("only masked data")
+		var type = this.header[this.written - 1] & 127
+		if(type < 126){
+			this.paylen = type
 			this.expected = 4
+			this.state = this.mask
+		}
+		else if(type == 126){
+			this.expected = 2
+			this.state = this.len2
+		}
+		else if(type == 127){
+			this.expected = 8
+			this.state = this.len8
+		}
+		return true
+	}
+
+	/* Internal pong state*/
+	WebSocket.prototype.pong = function(){
+		if(this.head()) return false
+		if(this.header[this.written - 1] & 128){
+			this.expected = 4
+			this.paylen = 0
 			this.state = this.mask
 			return true
 		}
+		this.expected = 1
+		this.written = 0 
+		this.state = this.opcode
+		return true
+	}
 
-		WebSocket.prototype.len2 = function(){
-			if(this.head()) return 
-			this.paylen = this.header.readUInt16BE(this.written - 2)
-			this.expected = 4
-			this.state = this.mask
-			return true
-		}
-
-		WebSocket.prototype.len1 = function(){
-			if(this.head()) return false
-			if(!(this.header[this.written  - 1] & 128)) return this.error("only masked data")
-			var type = this.header[this.written - 1] & 127
-			if(type < 126){
-				this.paylen = type
-				this.expected = 4
-				this.state = this.mask
-			}
-			else if(type == 126){
-				this.expected = 2
-				this.state = this.len2
-			}
-			else if(type == 127){
-				this.expected = 8
-				this.state = this.len8
-			}
-			return true
-		}
-
-		WebSocket.prototype.pong = function(){
-			if(this.head()) return false
-			if(this.header[this.written - 1] & 128){
-				this.expected = 4
-				this.paylen = 0
-				this.state = this.mask
-				return true
-			}
+	WebSocket.prototype.opcode = function(){
+		if(this.head()) return
+		var frame = this.header[0] & 128
+		var type = this.header[0] & 15
+		if(type == 1){
+			if(!frame) return this.error("only final frames supported")
 			this.expected = 1
-			this.written = 0 
-			this.state = this.opcode
+			this.state = this.len1
 			return true
 		}
-
-		WebSocket.prototype.opcode = function(){
-			if(this.head()) return
-			var frame = this.header[0] & 128
-			var type = this.header[0] & 15
-			if(type == 1){
-				if(!frame) return this.error("only final frames supported")
-				this.expected = 1
-				this.state = this.len1
-				return true
-			}
-			if(type == 8) return this.close()
-			if(type == 10){
-				this.expected = 1
-				this.state = this.pong
-				return true
-			}
-			return this.error("opcode not supported " + t)
+		if(type == 8) return this.close()
+		if(type == 10){
+			this.expected = 1
+			this.state = this.pong
+			return true
 		}
+		return this.error("opcode not supported " + t)
+	}
 
-		return WebSocket
-	})()
-
-	return Server
+	return WebSocket
 })()
 
+/**
+ * @class Spawner
+ * Exernal utility spawning api
+ */
 var Spawner = {
+	/**
+	 * @method browser
+	 * Opens a webbrowser on the specified url 
+	 * @param {String} url Url to open
+	 * @param {Bool} withdevtools Open developer tools too (gives focus on OSX)
+	 */
 	browser:function(url, withdevtools){
 		if(process.platform == 'darwin'){
 			// Spawn google chrome
@@ -555,9 +737,16 @@ var Spawner = {
 		}
 
 	},
+	/**
+	 * @method editor
+	 * Opens a code editor on the file / line /columnt
+	 * @param {String} file File to open
+	 * @param {Int} line Line to set cursor to
+	 * @param {Int} file File to open
+	 */
 	editor:function(file, line, col){
 		if(process.platform == 'darwin'){
-			// Spawn google chrome
+			// Only support sublime for now
 			child_process.spawn(
 				"/Applications/Sublime\ Text.app/Contents/SharedSupport/bin/subl",
 				[file + ':' + line + (col!==undefined?':'+col:'')])
@@ -566,6 +755,13 @@ var Spawner = {
 			console.log("Sorry your platform "+process.platform+" is not supported for editor spawn")
 		}
 	},
+	/**
+	 * @method notify
+	 * Opens a tray notification
+	 * @param {String} body Body of the notification
+	 * @param {String} title Title of notification
+	 * @param {String} subtitle Subtitle
+	 */
 	notify:function(body, title, subtitle){
 		if(process.platform == 'darwin'){
 			child_process.spawn("osascript",
@@ -577,7 +773,23 @@ var Spawner = {
 	}
 }
 
-// Ansi color formatting function
+/*
+Create a colorization function (ANSI output) use ~rb~ to set color in string
+r - red
+g - green
+b - blue
+y - yellow
+m - magenta
+c - cyan
+w - white
+br - bold red
+bg - bold green
+bb - bold blue
+by - bold yellow
+bm - bold magenta
+bc - bold cyan
+bw - bold white
+*/
 function colorize(output) {
 	var colors = {
 		bl:"30",bo:"1",r:"0;31",g:"0;32",y:"0;33",b:"0;34",m:"0;35",c:"0;36",
@@ -597,6 +809,10 @@ console.color = colorize(function(v){
 	process.stdout.write(v)
 })
 
+/**
+ * @class DaliGen
+ * Class to create dali JS app (testing)
+ */
 DaliGen = (function(){
 	// lets monitor all our dependencies and terminate if they change
 
@@ -604,6 +820,7 @@ DaliGen = (function(){
 		this.args = args
 
 		// lets load up a composition
+		console.log("Running in DaliGen mode")
 		var file = 'dalitest.dre'
 		if(args['-dali'] !== true) file = args['-dali']
 		var comp = new Composition(args, path.resolve(__dirname), file)
@@ -629,6 +846,7 @@ DaliGen = (function(){
 	return DaliGen
 })()
 
+/* Promisify turns a node-callback using function into a promise using function*/
 function Promisify(call){
 	return function(){
 		var arg = Array.prototype.slice.call(arguments)
@@ -642,8 +860,17 @@ function Promisify(call){
 	}
 }
 
+/**
+ * @class FileWatcher
+ * Reliable and most importantly FAST responding file monitoring API
+ * Node.JS builtin has a huge lag and can be unreliable
+ * It also scales cleanly with number of files in terms of polling overhead
+ */
 FileWatcher = (function(){
 
+	/**
+	 * @constructor
+	 */
 	function FileWatcher(){
 		this.files = {}
 		this.timeout = 100
@@ -655,9 +882,14 @@ FileWatcher = (function(){
 
 	fs.statPromise = Promisify(fs.stat)
 
+	/**
+	 * @event onChange
+	 * @param {String} file File that changed
+	 */
 	FileWatcher.prototype.onChange = function(file){
 	}
 
+	/* Internal poll method */
 	FileWatcher.prototype.poll = function(file){
 		var stats = []
 		var names = []
@@ -688,6 +920,10 @@ FileWatcher = (function(){
 		})
 	}
 
+	/**
+	 * @method watch
+	 * @param {String} file File to watch
+	 */
 	FileWatcher.prototype.watch = function(file){
 		if(!(file in this.files)) this.files[file] = null
 	}
@@ -695,50 +931,37 @@ FileWatcher = (function(){
 	return FileWatcher
 })()
 
+/**
+ * @class Monitor
+ * Monitor class executes ourselves as a subprocess, receives the dependency file names
+ * from the child process and manages restart/killing when files change
+ */
 Monitor = (function(){
-	function Monitor(argv){
+	/**
+	 * @constructor
+	 * Parses the arguments
+	 * @param {Array} argv Pass process.argv
+	 */
+	function Monitor(args){
 		// lets process args into hash
-		this.args = {}
+		this.args = args
 		this.restart_count = 0
-		for(var lastkey='', arg, i = 0; i<argv.length; i++){
-			arg = argv[i]
-			if(arg.charAt(0) == '-') lastkey = arg, this.args[lastkey] = true
-			else this.args[lastkey] = arg
-		}
 
-		if(this.args['-web']){
-			this.args['-edit'] = true
-			this.args['-notify'] = true
-			this.args['-devtools'] = true
-			this.args['-delay'] = true
-			this.args['-browser'] = this.args['-web']
-		}
+		this.watcher = new FileWatcher()
+		this.watcher.onChange = function(file){
+			console.color('~g~Got filechange: ~y~'+file+'~~ restarting server\n')
+			// lets restart this.child
+			if(this.child){
+				this.child.kill('SIGHUP')
+				setTimeout(function(){
+					if(this.child) this.child.kill('SIGTERM')
+				}.bind(this), 50)
+			}
+			else{
+				this.start()
+			}
+		}.bind(this)
 
-		if(this.isMonitor()){
-			this.watcher = new FileWatcher()
-			this.watcher.onChange = function(file){
-				console.color('~g~Got filechange: ~y~'+file+'~~ restarting server\n')
-				// lets restart this.child
-				if(this.child){
-					this.child.kill('SIGHUP')
-					setTimeout(function(){
-						if(this.child) this.child.kill('SIGTERM')
-					}.bind(this), 50)
-				}
-				else{
-					this.start()
-				}
-			}.bind(this)
-		}
-	}
-
-	Monitor.prototype.restart_delay = 1000
-
-	Monitor.prototype.isMonitor = function(){
-		return !this.args['-nomoni']
-	}
-
-	Monitor.prototype.start = function(){
 		var subarg = process.argv.slice(1)
 
 		subarg.push('-nomoni')
@@ -789,24 +1012,17 @@ Monitor = (function(){
 					this.start()
 				}.bind(this), this.restart_delay)
 			}
-		}.bind(this))
+		}.bind(this))		
 	}
+
+	/**
+	 * @attribute restart_delay
+	 * When in infinite restart loop, wait atleast this long (ms)
+	 */
+	Monitor.prototype.restart_delay = 1000
+
 	return Monitor
 })()
 
-var moni = new Monitor(process.argv)
-if(moni.args['-h'] || moni.args['-help'] || moni.args['--h']|| moni.args['--help']){
-	help_screen()
-	return process.exit(0)
-}
-if(!moni.isMonitor()){
-	if(moni.args['-dali']){
-		new DaliGen(moni.args)
-	}
-	else{
-		new Server(moni.args)
-	}
-}
-else{
-	moni.start()
-}
+/* Start it up */
+main()

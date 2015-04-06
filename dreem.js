@@ -29,7 +29,220 @@ var dr = (function(){
 	
 	var dr = {}
 
-	// Auto connecting websocket with a queue
+	/* Called when we are in the browser, at the end of this file*/
+	dr.browserMain = function(){
+
+		function showErrors(error){
+			if(!error) return
+			if(!Array.isArray(error)) error = [error]
+			error.forEach(function(err){
+				console.error(err.toString())
+			})
+			// send all errors to the server so it can open them in the editor
+			dr.busclient.send({
+				type:'error',
+				errors:error
+			})
+		}
+
+		// Browser side usage of Compiler
+		function compile(dreemhtml, callback){
+
+			var compiler = new dr.Compiler()
+
+			compiler.onRead = function(file, callback){
+				// ourself is read from the html we pass in
+				if(file === location.pathname) return callback(null, dreemhtml, file)
+
+				if(file.indexOf('.') === -1) file += '.dre'
+
+				// load JS via script tag, just cause its cleaner in a browser.
+				if(file.indexOf('.js') === file.length-3){
+					var script = document.createElement('script')
+					script.src = file
+					script.onload = function(){
+						callback(null, '', file) // just return empty string
+					}
+					script.onerror = function(e){
+						callback(new dr.Error('File not found '+file))
+					}
+					document.head.appendChild(script)
+					return
+				}
+				// otherwise we XHR
+				var xhr = new XMLHttpRequest()
+				xhr.open("GET", file, true)
+				xhr.onreadystatechange = function(){
+					if(xhr.readyState == 4){
+						if(xhr.status != 200) return callback(new dr.Error('Error loading file ' + file + ' return ' + xhr.status))
+						return callback(null, xhr.responseText, file)
+					}
+				}
+				xhr.send()
+			}
+
+			compiler.execute(location.pathname,function(error, pkg){
+				if(error) return showErrors(error)
+				callback(error, pkg)
+			})
+		}
+
+		// Our always available websocket connection to the server
+		dr.busclient = new dr.BusClient(location.href)
+
+		// receive server messages, such as file changes
+		dr.busclient.onMessage = function(message){
+			if(message.type == 'filechange'){
+				location.href = location.href // reload on filechange
+			}
+			else if(message.type == 'close'){
+				window.close() // close the window
+			}
+			else if(message.type == 'delay'){ // a delay refresh message
+				console.log('Got delay refresh from server!')
+				setTimeout(function(){
+					location.href = location.href
+				},1500)
+			}
+		}
+
+		// Only start processing dreem tags when the document is ready
+		document.onreadystatechange = function () {
+		  if (document.readyState == "complete") {
+		  	// find the first view tag
+		  	var v = document.getElementsByTagName('view')[0]
+		  	// lets pass our innerHtml to our compiler
+		  	compile(v.innerHTML, function(error, pkg){
+				if(error) return
+				// something fun
+				dr.busclient.color('~br~D~bb~R~bm~E~bg~E~by~M~~ client has successfully parsed!\n')
+				// ok so we have a dreem pkg file
+				console.log('This is the dreem package:', pkg)
+				// lets first make our methods
+				try{
+					var methods = []
+					new Function('methods', pkg.methods)(methods)
+				}
+				catch(e){
+					showErrors(new dr.Error('Exception in evaluating methods '+e.message))
+					return
+				}
+				
+				// alright lets build all our dreemclasses
+				var classtable = {}
+
+				// build up all the dreem classes
+				for(var cls in pkg.classes){
+					dr.buildDreemClass(classtable, cls, pkg.classes, methods)
+				}
+				console.log('Built class table:',classtable)
+				// just walk the root dreem code
+				// replace this with instancing and such
+				console.log('This is the root datastructure')
+				dr.walkDreemJSXML(pkg.root)
+		  	})
+		  }
+		}
+		// lets start the websocket connection
+	}
+
+	/**
+	 * Example traversal of package datastructure
+	 * Build a dreem class from the XML structure and the methods
+	 */
+	function Builtin_placeholder(){}
+	function Baseclass_placeholder(){}
+
+	dr.walkDreemJSXML = function(node, indent){
+		if(!indent) indent = ''
+		if(node.tag.indexOf('$') == -1) console.log(indent + '<' + node.tag + '>')
+		if(node.child)for(var i =0;i<node.child.length;i++){
+			dr.walkDreemJSXML(node.child[i], indent + '  ')
+		}
+	}
+
+	dr.buildDreemClass = function(table, name, classjsxml, methods){
+		if(name in dr.Compiler.prototype.builtin){
+			// we have to return a builtin class...
+			return Builtin_placeholder
+		}
+
+		if(table[name]) return table[name]
+
+		// a new DreemClass
+		function Class(){}
+
+		var baseclass = Baseclass_placeholder // base class
+		var jsxml = classjsxml[name]
+
+		if(!jsxml) throw new Error('Cannot find class '+name)
+
+		// the mixins
+		var mixins = []
+		if(jsxml.with){
+			jsxml.with.split(/,\s*/).forEach(function(cls){
+				mixins.push(dr.buildDreemClass(table, cls, classjsxml, methods))
+			})
+		}
+
+		// the baseclasses?
+		if(jsxml.extends){ // we cant extend from more than one class
+			jsxml.extends.split(/,\s*/).forEach(function(cls, i){
+				// WARNIGN we cant inherit from more than one class
+				// so we inherit from the first one and add the second one as a mixin
+				// this is pretty bad actually, shouldnt do multiple inheritance
+				// only one baseclass and mixins
+				// the buildDreemClass is recursive so definition order doesnt matter
+				if(i == 0) baseclass = dr.buildDreemClass(table, cls, classjsxml, methods)
+				else mixins.push(dr.buildDreemClass(table, cls, classjsxml, methods))
+			})
+		}
+
+		var proto = Class.prototype = Object.create(baseclass.prototype)
+
+		for(var i = 0;i<mixins.length; i++){
+			var mixin = mixins[i].prototype
+			var keys = Object.keys(mixin)
+			for(var j = 0;j<keys.length;j++){
+				var key = keys[j]
+				proto[key] = mixin[key] // make fancier
+			}
+		}
+
+		// set the tagname
+		proto.tagname = jsxml.name
+
+		// process methods
+		var children = jsxml.child
+		if(children) for(var i = 0;i<children.length;i++){
+			var child = children[i]
+			var method
+			if(child.method_id !== undefined){ // we have a methodID, look it up
+				method = methods[child.method_id]
+				if(!method) throw new Error('Cannot find method id' + child.method_id)
+			}
+			if(child.tag == 'method'){
+				proto[child.name] = method
+			}
+			else if(child.tag == 'handler'){
+				// make handler, no idea how to do that
+			}
+			else if(child.tag == 'getter'){
+				proto.__defineGetter__(child.name, method)
+			}
+			else if(child.tag == 'setter'){
+				proto.__defineSetter__(child.name, method)
+			}
+		}
+
+		// store class
+		return table[name] = Class
+	}
+
+	/**
+	 * @class dr.BusClient
+	 * Auto (re)connecting always writable socket
+	 */
 	dr.BusClient = (function(){
 		function BusClient(url){
 			this.url = url
@@ -37,6 +250,10 @@ var dr = (function(){
 			this.reconnect()
 		}
 
+		/**
+		 * @method disconnect
+		 * Disconnect from the server
+		 */
 		BusClient.prototype.disconnect = function(){
 			if(this.socket){
 				this.socket.onclose = undefined
@@ -48,6 +265,7 @@ var dr = (function(){
 			}
 		}
 
+		/* Reconnect to server (used internally and automatically)*/
 		BusClient.prototype.reconnect = function(){
 			this.disconnect()
 			if(!this.queue) this.queue = []
@@ -80,105 +298,60 @@ var dr = (function(){
 			}.bind(this)
 		}
 
+		/**
+		 * @method send
+		 * Send a message to the server
+		 * @param {Object} msg JSON.stringifyable message to send
+		 */
 		BusClient.prototype.send = function(msg){
 			msg = JSON.stringify(msg)
 			if(this.queue) this.queue.push(msg)
 			else this.socket.send(msg)
 		}
 
+		/**
+		 * @method color
+		 * Causes a console.color on the server
+		 * @param {String} data Data to send
+		 */
 		BusClient.prototype.color = function(data){
 			this.send({type:'color', value:data})
 		}
 
+		/**
+		 * @method color
+		 * Causes a console.log on the server
+		 * @param {String} data Data to send
+		 */
 		BusClient.prototype.log = function(data){
 			this.send({type:'log', value:data})
 		}
 
-		// todo use event mechanism
+		/**
+		 * @event onMessage
+		 * Called when a message arrives from the server
+		 * @param {Object} message The received message
+		 */
+
 		BusClient.prototype.onMessage = function(message){
 		}
 
 		return BusClient
 	})()
 
-	// Browser boot code
-	if(typeof process !== 'object'){
-		// compile a dreemstring and return all dependencies + dreem XML in a JSON-ifyable object structure 
-		dr.compile  = function(dreemhtml, callback){
-
-			var compiler = new dr.Compiler()
-
-			compiler.reader = function(file, callback){
-				if(file === location.pathname) return callback(null, dreemhtml, file)
-
-				if(!file.indexOf) debugger
-				if(file.indexOf('.') === -1) file += '.dre'
-				var xhr = new XMLHttpRequest()
-				xhr.open("GET", file, true)
-				xhr.onreadystatechange = function(){
-					if(xhr.readyState == 4){
-						if(xhr.status != 200) return callback(new dr.Error('Error loading file ' + file + ' return ' + xhr.status))
-						return callback(null, xhr.responseText, file)
-					}
-				}
-				xhr.send()
-			}
-
-			compiler.execute(location.pathname,callback)
-		}
-
-		dr.busclient = new dr.BusClient(location.href)
-
-		// receive server messages, such as file changes
-		dr.busclient.onMessage = function(message){
-			if(message.type == 'filechange'){
-				// reload self on filechange
-				location.href = location.href
-			}
-			else if(message.type == 'close'){
-				window.close()
-			}
-			else if(message.type == 'delay'){
-				console.log('Delaying refresh!')
-				setTimeout(function(){
-					location.href = location.href
-				},1500)
-			}
-		}
-
-		document.onreadystatechange = function () {
-		  if (document.readyState == "complete") {
-		  	// find the first view tag
-		  	var v = document.getElementsByTagName('view')[0]
-		  	// lets pass our innerHtml to our compiler
-		  	dr.compile(v.innerHTML, function(error, pkg){
-
-		  		// process error array
-		  		if(error){
-		  			if(!Array.isArray(error)) error = [error]
-		  			error.forEach(function(err){
-		  				console.error(err.toString())
-		  			})
-		  			// send all errors to the server so it can open them in the editor
-		  			dr.busclient.send({
-		  				type:'error',
-		  				errors:error
-		  			})
-		  			return
-		  		}
-		  		// something fun
-				dr.busclient.color('~br~D~bb~R~bm~E~bg~E~by~M~~ client has successfully parsed!\n')
-
-
-		  	})
-		  }
-		}
-		// lets start the websocket connection
-	}
-	else module.exports = dr // otherwise we are in node.js
-
-	// Error class
+	/**
+	 * @class dr.Error
+	 * Unified Error class that holds enough information to 
+	 * find the right file at the right line
+	 */
 	dr.Error = (function(){
+		/**
+		 * @constructor
+		 * @param {String} message Message
+		 * @param {String} path Path of file
+		 * @param {Int} line Line of error
+		 * @param {Int} col Column of error
+		 */
 		function Error(message, path, line, col){
 			this.message = message
 			this.path = path
@@ -193,14 +366,27 @@ var dr = (function(){
 		return Error
 	})()
 
+	/**
+	 * @class dr.Compiler
+	 * Client and server usable dreem compiler
+	 * Parses and loads all dependencies starting from a particular
+	 * Source XML, and delivers them all compiled and bundled up 
+	 * Ready to be interpreted and turned into classes/instances
+	 * With this compiler you dont need to handle dependency loading yourself
+	 * It has an overloadable 'onRead'  that acts as the file loader interface
+	 * And this method specialized for browser or server elsewhere
+	 */
 	dr.Compiler = (function(){
 
+		/** 
+		 * @constructor
+		 */
 		function Compiler(){
 			this.filehash = {} // all the dreem files by file-key
 			this.origin_id = 0 // file id counter for json-map-back
 		}
 
-		// These tags are ignored for class loading
+		/* Built in tags that dont resolve to class files*/
 		Compiler.prototype.builtin = {
 			view:1,
 			class:1,
@@ -213,13 +399,17 @@ var dr = (function(){
 			node:1
 		}
 
-		// supported languages
+		/* Supported languages, these are lazily loaded */
 		Compiler.prototype.languages = {
 			js:{
 				lib:'lib/acorn.js',
 				compile:function(string, lib, args){
 					// this returns a compiled function or an error
-					if(!this.module) new Function('module','exports',lib.data)({},this.module = {})
+					if(!this.module){
+						//if(window.acorn) console.log('hii')
+						if(typeof window !== 'undefined' && window.acorn) this.module = window.acorn
+						else new Function('module','exports',lib.data)({},this.module = {})
+					}
 					try{ // we parse it just for errors
 						this.module.parse('function __parsetest__('+args.join(',')+'){'+string+'}')
 					}
@@ -233,7 +423,10 @@ var dr = (function(){
 				lib:'lib/coffee-script.js',
 				compile:function(string, lib, args){
 					// compile coffeescript
-					if(!this.module) new Function(lib.data).call(this.module = {})
+					if(!this.module){
+						if(typeof window !== 'undefined' && window.CoffeeScript) this.module = {CoffeeScript:window.CoffeeScript}
+						else new Function(lib.data).call(this.module = {})
+					}
 					// compile the code
 					try{
 						var out = this.module.CoffeeScript.compile(string)
@@ -247,12 +440,26 @@ var dr = (function(){
 			}
 		}
 
-		// default directory prefixes
+		/* Default class directory prefix */
 		Compiler.prototype.class_dir = 'classes/'
 
-		// overload these functions 
-		Compiler.prototype.reader = function(name, callback){ throw new Error('Abstract function') }
-		
+		/**
+		 * @event onRead
+		 * called when the compiler needs to read a file
+		 * @param {String} name Name of the file to read
+		 * @param {Function} callback Callback to call with (error, result)
+		 */
+		Compiler.prototype.onRead = function(name, callback){ throw new Error('Abstract function') }
+
+		/**
+		 * @method originError
+		 * Used to decode an origin, they are '0_3' like strings which mean
+		 * fileid_charoffset 
+		 * These origins are written into the XML JSON so its possible to resolve
+		 * a particular tag to a particular file/line when needed
+		 * @param {String} message Message for the error
+		 * @param {String} origin Origin string ('2_5') to decode
+		 */
 		Compiler.prototype.originError = function(message, origin){
 			var orig = origin.split('_')
 			var id = orig[0], offset = parseInt(orig[1])
@@ -273,10 +480,10 @@ var dr = (function(){
 			return new dr.Error(message, path, line, col)
 		}
 
-		// loads  / caches a File
+		/* Used internally, loads or caches a file*/
 		Compiler.prototype.cache = function(name, callback){
 			if(this.filehash[name]) return callback(null, this.filehash[name])
-			this.reader(name, function(err, data, fullpath){
+			this.onRead(name, function(err, data, fullpath){
 				if(err) return callback(err)
 				var file = this.filehash[name] = {
 					name: name,
@@ -289,6 +496,7 @@ var dr = (function(){
 			}.bind(this))
 		}
 
+		/* Used internally, parses a Dre file*/
 		Compiler.prototype.parseDre = function(name, callback){
 
 			this.cache(name, function(err, file){
@@ -310,6 +518,7 @@ var dr = (function(){
 			}.bind(this))
 		}
 
+		/* Concats all the childnodes of a jsonxml node*/
 		Compiler.prototype.concatCode = function(node){
 			var out = ''
 			var children = node.child
@@ -320,6 +529,12 @@ var dr = (function(){
 			return out
 		}
 
+		/*
+		 Main loader function, used internally 
+		 The loader just loads all dependencies and assembles all classes, and 
+		 gathers all compileable methods and their language types
+		 It does not compile any coffeescript / JS
+		*/
 		Compiler.prototype.loader = function(node, callback){
 			var deps = {} // dependency hash, stores the from-tags for error reporting
 			var loading = 0 // number of in flight dependencies
@@ -435,6 +650,20 @@ var dr = (function(){
 			if(!loading) errors.length? callback(errors): callback(null, output)
 		}
 
+		/**
+		 * @method execute
+		 * Execute the compiler starting from a 'rootname' .dre file
+		 * The result in the callback is a 'package' that contains 
+		 * all dreem classes 
+		 * package: {
+		 * 		js:{}, A key value list of js files
+		 * 	    methods:'' A string containing all methods compiled
+		 *      root:{} The root in JSONXML
+		 *      classes:{} A key value list of all classes as JSONXML 
+		 * }
+		 * @param {String} rootname Root dre file
+		 * @param {Callback} callback When compiler completes callback(error, result)
+		 */		
 		Compiler.prototype.execute = function(rootname, callback){
 			// load the root
 			this.parseDre(rootname, function(err, jsobj){
@@ -484,18 +713,28 @@ var dr = (function(){
 		return Compiler	
 	})()
 
-	// the HTML parser
+	/**
+	 * @class dr.HTMLParser
+	 * Very fast and simple XML/HTML parser
+	 * Modifyable to output any JS datastructure from HTML/XML you prefer
+	 */
 	dr.HTMLParser = (function(){
 
-		var void_tag = {
-			'area':1, 'base':1, 'br':1, 'col':1, 'embed':1, 'hr':1, 'img':1, 
-			'input':1, 'keygen':1, 'link':1, 'menuitem':1, 'meta':1, 'param':1, 'source':1, 'track':1, 'wbr':1
-		}
-
+		/**
+		 * @constructor
+		 * @param {Int} file_id File id to write on the ._ origin properties
+		 */
 		function HTMLParser(file_id){
 			this.file_id = file_id || 0
 		}
 
+		/**
+		 * @method reserialize
+		 * Reserialize tries to turn the JS datastructure the parser outputs back into valid XML
+		 * Warning, lightly tested
+		 * @param {Object} node A node the parser outputs
+		 * @param {String} spacing The indentation character(s) to use
+		 */
 		HTMLParser.prototype.reserialize = function(node, spacing, indent){
 			if(spacing === undefined) spacing = '\t'
 			var ret = ''
@@ -533,23 +772,27 @@ var dr = (function(){
 			return ret
 		}
 
-		// insert a new tag by name
+		/* Internal append a childnode */
 		HTMLParser.prototype.appendChild = function(node, value){
 			var i = 0
 			if(!node.child) node.child = [value]
 			else node.child.push(value)
 		}
 
+		/* Internal create a node */
 		HTMLParser.prototype.createNode = function(tag, charpos){
 			return {tag:tag, _:this.file_id + '_' + charpos}
-		} // text node
+		} 
 
-		HTMLParser.prototype.error = function(message, where){
+		/* Internal append an error message*/
+		HTMLParser.prototype.onError = function(message, where){
 			this.errors.push({message:message, where:where})
 		}
 
 		var isempty = /^[\r\n\s]+$/ // discard empty textnodes
-		HTMLParser.prototype.text = function(value, start){
+
+		/* Internal Called when encountering a textnode*/
+		HTMLParser.prototype.onText = function(value, start){
 			if(!value.match(isempty)){
 				var node = this.createNode('$text')
 				node.value = value
@@ -557,25 +800,29 @@ var dr = (function(){
 			}
 		}
 
-		HTMLParser.prototype.comment = function(value, start, end){
+		/* Internal Called when encountering a comment <!-- --> node*/
+		HTMLParser.prototype.onComment = function(value, start, end){
 			var node = this.createNode('$comment', start)
 			node.value = value
 			this.appendChild(this.node, node)
-		} // comment node <!-- -->
+		}
 
-		HTMLParser.prototype.cdata = function(value, start, end){
+		/* Internal Called when encountering a CDATA <![CDATA[ ]]> node*/
+		HTMLParser.prototype.onCDATA = function(value, start, end){
 			var node = this.createNode('$cdata', start)
 			node.value = value
 			this.appendChild(this.node, node)
-		} // cdata section <![CDATA[ ]]>
+		}
 
-		HTMLParser.prototype.process = function(value, start, end){
+		/* Internal Called when encountering a <? ?> process node*/
+		HTMLParser.prototype.onProcess = function(value, start, end){
 			var node = this.createNode('$process', start)
 			node.value = value
 			this.appendChild(this.node, node)
-		} // process <? ?>
+		}
 
-		HTMLParser.prototype.begin = function(name, start, end){
+		/* Internal Called when encountering a tag beginning <tag */
+		HTMLParser.prototype.onTagBegin = function(name, start, end){
 			var newnode = this.createNode(name, start)
 
 			this.appendChild(this.node, newnode)
@@ -586,18 +833,20 @@ var dr = (function(){
 			this.tagname = name
 			this.node = newnode
 			
-		} // begin tag
+		}
 
-		HTMLParser.prototype.end = function(start, end){
+		/* Internal Called when encountering a tag ending > */
+		HTMLParser.prototype.onTagEnd = function(start, end){
 			this.last_attr = undefined
-			if(this.tagname in void_tag || this.tagname.charCodeAt(0) == 33){
+			if(this.self_closing_tags && this.tagname in this.self_closing_tags || this.tagname.charCodeAt(0) == 33){
 				this.tagstart = this.parents.pop()
 				this.tagname = this.parents.pop()
 				this.node = this.parents.pop()
 			}
-		} // end tag, not called when self closing
+		} 
 
-		HTMLParser.prototype.close = function(name, start, end){
+		/* Internal Called when encountering a closing tag </tag> */
+		HTMLParser.prototype.onClosingTag = function(name, start, end){
 			this.last_attr = undefined
 			// attempt to match closing tag
 			if(this.tagname !== name){
@@ -616,13 +865,15 @@ var dr = (function(){
 			else{
 				this.error('Dangling closing tag </' + name + '>', start)
 			}
-		} // close tag
-		
-		HTMLParser.prototype.selfclose = function(start, end){
-			this.close(this.tagname, start)
+		} 
+
+		/* Internal Called when encountering a closing tag </close> */
+		HTMLParser.prototype.onImmediateClosingTag = function(start, end){
+			this.onClosingTag(this.tagname, start)
 		}
 
-		HTMLParser.prototype.attr = function(name, start, end){
+		/* Internal Called when encountering an attribute name name= */
+		HTMLParser.prototype.onAttrName = function(name, start, end){
 			if(name == 'tag' || name == 'child'){
 				this.error('Attribute name collision with JSON structure'+name, start)
 				name = '_' + name
@@ -633,16 +884,22 @@ var dr = (function(){
 			}
 			this.node[this.last_attr] = null
 		} 
-		// attribute name
 
-		HTMLParser.prototype.value = function(val, start, end){
+		/* Internal Called when encountering an attribute value "value" */
+		HTMLParser.prototype.onAttrValue = function(val, start, end){
 			if(this.last_attr === undefined){
 				this.error('Unexpected attribute value ' + val, start)
 			}
 			else{
 				this.node[this.last_attr] = val
 			}
-		} // attribute value
+		} 
+
+		// all magic HTML self closing tags. set this to undefined if you want XML behavior
+		HTMLParser.prototype.self_closing_tags = {
+			'area':1, 'base':1, 'br':1, 'col':1, 'embed':1, 'hr':1, 'img':1, 
+			'input':1, 'keygen':1, 'link':1, 'menuitem':1, 'meta':1, 'param':1, 'source':1, 'track':1, 'wbr':1
+		}
 
 		// todo use these
 		var entities = {
@@ -680,7 +937,37 @@ var dr = (function(){
 			"diams":9830
 		}
 
-		// HTML parser function, 110 loc and very forgiving.
+		/**
+		 * @method parse
+		 * Parse an XML/HTML document, returns JS object structure that looks like this
+		 * The implemented object serialization has one limitation: dont use attributes named
+		 * 'tag' and 'child' and dont use tags starting with $sign: <$tag>
+		 * You cant use the attribute name 'tag' and 'child'
+		 * each node is a JSON-stringifyable object
+		 * the following XML
+		 *
+		 * <tag attr='hi'>mytext</tag>
+		 *
+		 * becomes this JS object:
+		 * { 
+		 *   tag:'$root'
+		 *   child:[{
+		 *	   tag:'mytag'
+		 *     attr:'hi'
+		 *     child:[{
+		 *       tag:'$text'
+		 *       value:'mytext'
+		 *     }]
+		 *   }]	
+		 * }
+		 *
+		 * @param {String} input XML/HTML
+		 * @return {Object} JS output structure
+		 * this.errors[] is array of [errormsg,erroroffset,errormsg,erroroffset]
+		 * You will always get the JS object as far as it managed to parse
+		 * So check parserobj.errors.length after for errorhandling
+		 *
+		 */
 		HTMLParser.prototype.parse = function(source){
 			// lets create some state
 			var root = this.node = this.createNode('$root',0)
@@ -700,7 +987,7 @@ var dr = (function(){
 					var next = source.charCodeAt(pos)
 					if(next == 32 || next == 9 || next == 10 || next == 12 || (next >=48 && next <= 57)) continue
 					// lets emit textnode since last
-					if(start != pos - 1 && this.text) this.text(source.slice(start, pos - 1), start, pos - 1)
+					if(start != pos - 1) this.onText(source.slice(start, pos - 1), start, pos - 1)
 					if(next == 33){ // <!
 						after = source.charCodeAt(pos+1)
 						if(after == 45){ // <!- comment
@@ -710,7 +997,7 @@ var dr = (function(){
 								if(ch == 45 && source.charCodeAt(pos) == 45 &&
 								    source.charCodeAt(pos + 1) == 62){
 									pos += 2
-									this.comment(source.slice(start, pos - 3), start - 4, pos)
+									this.onComment(source.slice(start, pos - 3), start - 4, pos)
 									break
 								}
 								else if(pos == len) this.error("Unexpected end of files while reading <!--", start)
@@ -726,7 +1013,7 @@ var dr = (function(){
 								if(ch == 93 && source.charCodeAt(pos) == 93 &&
 								    source.charCodeAt(pos + 1) == 62){
 									pos += 2
-									this.cdata(source.slice(start, pos - 3), start - 8, pos)
+									this.onCDATA(source.slice(start, pos - 3), start - 8, pos)
 									break
 								}
 								else if(pos == len) this.error("Unexpected end of file while reading <![", start)
@@ -742,7 +1029,7 @@ var dr = (function(){
 							ch = source.charCodeAt(pos++)
 							if(ch == 63 && source.charCodeAt(pos) == 62){
 								pos++
-								this.process(source.slice(start, pos - 2), start - 1, pos)
+								this.onProcess(source.slice(start, pos - 2), start - 1, pos)
 								break
 							}
 							else if(pos == len) this.error("Unexpected end of file while reading <?", start)
@@ -755,7 +1042,7 @@ var dr = (function(){
 						while(pos < len){
 							ch = source.charCodeAt(pos++)
 							if(ch == 62){
-								this.close(source.slice(start, pos - 1), start, pos)
+								this.onClosingTag(source.slice(start, pos - 1), start, pos)
 								break
 							}
 							else if(pos == len) this.error("Unexpected end of file at </"+source.slice(start, pos), start)
@@ -773,19 +1060,19 @@ var dr = (function(){
 						if(ch == 62 || ch == 47 || ch == 10 || ch == 12 || ch ==32 || ch == 61){
 							if(start != pos - 1){
 								if(tag){ // lets emit the tagname
-									this.begin(source.slice(start, pos - 1), start - 1, pos)
+									this.onTagBegin(source.slice(start, pos - 1), start - 1, pos)
 									tag = false
 								}// emit attribute name
-								else this.attr(source.slice(start, pos - 1), start, pos)
+								else this.onAttrName(source.slice(start, pos - 1), start, pos)
 							}
 							start = pos
 							if(ch == 62){ // >
-								this.end(pos)
+								this.onTagEnd(pos)
 								break
 							}
 							else if(ch == 47 && source.charCodeAt(pos) == 62){ // />
 								pos++
-								this.selfclose(pos)
+								this.onImmediateClosingTag(pos)
 								break
 							}
 						}
@@ -795,7 +1082,7 @@ var dr = (function(){
 							while(pos < len){
 								ch = source.charCodeAt(pos++)
 								if(ch == end){
-									this.value(source.slice(start, pos - 1), start, pos)
+									this.onAttrValue(source.slice(start, pos - 1), start, pos)
 									break
 								}
 								else if(pos == len) this.error("Unexpected end of file while reading attribute", start)
@@ -813,4 +1100,10 @@ var dr = (function(){
 
 		return HTMLParser
 	})()
+
+	// call browser boot
+	if(typeof process !== 'object') dr.browserMain()
+	else module.exports = dr // otherwise we are in node.js
+
+	return dr
 })()
