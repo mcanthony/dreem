@@ -39,13 +39,14 @@ function main(){
 		args['-notify'] = true
 		args['-devtools'] = true
 		args['-delay'] = true
+		args['-nodreem'] = true
 		args['-browser'] = args['-web']
 	}
 
 	if(args['-h'] || args['-help'] || args['--h']|| args['--help']){
 		console.color('~by~Teem~~ Server ~bm~2.0~~\n')
 		console.color('commandline: node teem.js <flags>\n')
-		console.color('~bc~-web htmlfile.html~~ Short for -edit -notify -devtools -delay -browser htmlfile.html\n')	
+		console.color('~bc~-web htmlfile.html~~ Short for -edit -notify -devtools -nodreem -delay -browser htmlfile.html\n')	
 		console.color('~bc~-port ~br~[port]~~ Server port\n')
 		console.color('~bc~-nomoni ~~ Start process without monitor\n')
 		console.color('~bc~-iface ~br~[interface]~~ Server interface\n')
@@ -54,6 +55,7 @@ function main(){
 		console.color('~bc~-devtools~~ Automatically opens devtools in the browser\n')
 		console.color('~bc~-close~~ Auto closes your tab when reloading the server\n')
 		console.color('~bc~-delay~~ Delay reloads your pages when reloading the server\n')
+		console.color('~bc~-nodreem~~ Ignore dreem.js changes for server reload\n')
 		console.color('~bc~-restart~~ Auto restarts after crash (Handy for client dev, not server dev)\n')
 		console.color('~bc~-edit~~ Automatically open an exception in your code editor at the right line\n')
 		return process.exit(0)
@@ -344,7 +346,7 @@ var Server = (function(){
 
 		this.watcher = new FileWatcher()
 		this.watcher.onChange = function(file){
-			if(file.indexOf('dreem.js') !== -1){
+			if(!args['-nodreem'] && file.indexOf('dreem.js') !== -1){
 				return this.broadcast({type:'delay'})
 			}
 			this.broadcast({
@@ -949,6 +951,7 @@ Monitor = (function(){
 
 		this.watcher = new FileWatcher()
 		this.watcher.onChange = function(file){
+			if(args['-nodreem'] && file.indexOf('dreem.js') != -1) return
 			console.color('~g~Got filechange: ~y~'+file+'~~ restarting server\n')
 			// lets restart this.child
 			if(this.child){
