@@ -262,10 +262,15 @@ Dreem file parser and dependency resolver.
 
       var walk = function(node, parent, language){
         if(node.tag.charAt(0)!='$') loadClass(node.tag, node)
-        if(node.tag == 'class'){
-          if(node.type) language = node.type
+        
+        var prune = false;
+        if (node.tag == 'class') {
+          if (node.type) language = node.type
+            
           // create a new tag
           output.classes[node.name] = node
+          
+          
           // check extends and view
           if(node.extends){
             node.extends.split(/,\s*/).forEach(function(cls){
@@ -282,12 +287,15 @@ Dreem file parser and dependency resolver.
               loadJS(js, node)
             })
           }
-        }
-        // lazy load the language processor
-        if(node.tag == 'method' || node.tag=='handler' || node.tag == 'getter' || node.tag == 'setter'){
+          
+          // Remove from parent since classes will get looked up in the
+          // output.classes map
+          prune = true;
+        } else if (node.tag == 'method' || node.tag=='handler' || node.tag == 'getter' || node.tag == 'setter') {
           // potentially 'regexp' createTag or something here?
 
           if(node.type) language = node.type
+          
           // lets on-demand load the language
           var langproc = this.languages[language]
           if(!langproc){
@@ -311,9 +319,15 @@ Dreem file parser and dependency resolver.
           // clear child
           node.child = undefined
         }
-        if(node.child) for(var i = 0;i<node.child.length;i++){
-          walk(node.child[i], node, language)
+        
+        if (node.child) {
+          for (var i = 0; i < node.child.length; i++) {
+            // Prune node if so indicated
+            if (walk(node.child[i], node, language)) node.child.splice(i--, 1);
+          }
         }
+        
+        return prune;
       }.bind(this)
 
       // Require the core libraries
