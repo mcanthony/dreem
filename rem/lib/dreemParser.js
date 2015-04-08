@@ -73,20 +73,6 @@ Dreem file parser and dependency resolver.
       this.origin_id = 0 // file id counter for json-map-back
     }
 
-    /* Built in tags that dont resolve to class files*/
-    Compiler.prototype.builtin = {
-      view:1,
-      class:1,
-      method:1,
-      attribute:1,
-      handler:1,
-      setter:1,
-      getter:1,
-      layout:1,
-      node:1,
-      state:1
-    }
-
     /* Supported languages, these are lazily loaded */
     Compiler.prototype.languages = {
       js:{
@@ -225,6 +211,7 @@ Dreem file parser and dependency resolver.
       var errors = [] // the error array
       var output = {node:node, js:{}, classes:{}, methods:[]}
       var method_id = 0
+      
       var loadJS = function(file, from_node){
         // loads javascript
         if(file in output.js) return
@@ -247,7 +234,7 @@ Dreem file parser and dependency resolver.
       }.bind(this)
 
       var loadClass = function(name, from_node){
-        if(name in this.builtin) return
+        if(name in scope.MAKER.builtin) return
         if(name in output.classes) return
         
         output.classes[name] = 2 // mark tag as loading but not defined yet
@@ -329,7 +316,13 @@ Dreem file parser and dependency resolver.
         }
       }.bind(this)
 
+      // Require the core libraries
+      var coreLibs = conf.CORE_FILES, i = 0, len = coreLibs.length;
+      for (; len > i;) loadJS(coreLibs[i++], node)
+
+      // Walk JSON
       walk(node, null, 'js')
+      
       // the impossible case of no dependencies
       if(!loading) errors.length? callback(errors): callback(null, output)
     }

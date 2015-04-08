@@ -46,6 +46,8 @@ Sets up default configuration for the in browser invocation of dreem.
       /* The core framework to use. */
       MAKER_FRAMEWORK:'dreem',
       
+      CORE_FILES:[root + 'lib/one_base.js', root + 'lib/jquery-1.9.1.js', root + 'core/layout.js'],
+      
       /* The file extension for class files to load. */
       CLASS_FILE_EXTENSION:'dre'
     };

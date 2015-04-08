@@ -57,28 +57,31 @@ dreem application.
       if(lastPart.indexOf('.') === -1) file += '.' + conf.CLASS_FILE_EXTENSION
 
       // load JS via script tag, just cause its cleaner in a browser.
-      if(file.indexOf('.js') === file.length-3){
+      if (file.indexOf('.js') === file.length - 3) {
         var script = document.createElement('script')
-        script.src = file
+        script.type = 'text/javascript';
+        script.async = false;
         script.onload = function(){
           callback(null, '', file) // just return empty string
         }
         script.onerror = function(e){
           callback(new parser.Error('File not found '+file))
         }
+        script.src = file
+        
         document.head.appendChild(script)
-        return
-      }
-      // otherwise we XHR
-      var xhr = new XMLHttpRequest()
-      xhr.open("GET", file, true)
-      xhr.onreadystatechange = function(){
-        if(xhr.readyState == 4){
-          if(xhr.status != 200) return callback(new parser.Error('Error loading file ' + file + ' return ' + xhr.status))
-          return callback(null, xhr.responseText, file)
+      } else {
+        // otherwise we XHR
+        var xhr = new XMLHttpRequest()
+        xhr.open("GET", file, true)
+        xhr.onreadystatechange = function(){
+          if(xhr.readyState == 4){
+            if(xhr.status != 200) return callback(new parser.Error('Error loading file ' + file + ' return ' + xhr.status))
+            return callback(null, xhr.responseText, file)
+          }
         }
+        xhr.send()
       }
-      xhr.send()
     }
 
     compiler.execute(location.pathname,function(error, pkg){
@@ -111,8 +114,8 @@ dreem application.
       var views = document.getElementsByTagName('view')
       if(!views || views.length == 0) return console.log('No views to process!')
       
-      // lets pass our innerHtml to our compiler
-      compile(views[0].innerHTML, function(error, pkg){
+      // lets pass our outerHTML to our compiler
+      compile(views[0].outerHTML, function(error, pkg){
         if (error) return
         
         // ok so we have a dreem pkg file
