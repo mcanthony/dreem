@@ -45,13 +45,9 @@ Instantiates dreem classes from package JSON.
    * Example traversal of package datastructure
    * Build a dreem class from the XML structure and the methods
    */
-  function Builtin_placeholder(){}
-  function Baseclass_placeholder(){
-    // FIXME: Should return View since that is the default baseclass when no
-    // extends is defined.
-  }
+  function Builtin_placeholder(){};
 
-  maker.walkDreemJSXML = function(node, indent){
+  maker.walkDreemJSXML = function(node, indent) {
     if (!indent) indent = ''
     if (node.tag.indexOf('$') == -1) console.log(indent + '<' + node.tag + '>')
     if (node.child) {
@@ -61,7 +57,7 @@ Instantiates dreem classes from package JSON.
     }
   }
 
-  maker.buildDreemClass = function(table, name, classjsxml, methods){
+  maker.buildDreemClass = function(table, name, classjsxml, methods) {
     if (name in maker.builtin) {
       // we have to return a builtin class...
       return Builtin_placeholder
@@ -72,7 +68,7 @@ Instantiates dreem classes from package JSON.
     // a new DreemClass
     function Class(){}
 
-    var baseclass = Baseclass_placeholder // base class
+    var baseclass = dr.view // base class
     var jsxml = classjsxml[name]
 
     if (!jsxml) throw new Error('Cannot find class '+name)
@@ -82,9 +78,8 @@ Instantiates dreem classes from package JSON.
 
     // the baseclasses?
     if (jsxml.extends) { // we cant extend from more than one class
-      // FIXME: should look for "with" for mixins.
-      jsxml.extends.split(/,\s*/).forEach(function(cls, i){
-        // WARNIGN we cant inherit from more than one class
+      jsxml.extends.split(/,\s*/).forEach(function(cls, i) {
+        // WARNING we cant inherit from more than one class
         // so we inherit from the first one and add the second one as a mixin
         // this is pretty bad actually, shouldnt do multiple inheritance
         // only one baseclass and mixins
