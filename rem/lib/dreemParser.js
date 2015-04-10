@@ -167,7 +167,7 @@ define(function(require, exports){
       for(var i = 0;i < data.length && i<offset; i++, col++){
         if(data.charCodeAt(i) == 10) line++, col = 1
       }
-      return new parser.Error(message, path, line, col)
+      return new dreemParser.Error(message, path, line, col)
     }
 
     /* Used internally, loads or caches a file*/
@@ -280,29 +280,34 @@ define(function(require, exports){
       }.bind(this)
 
       var walk = function(node, parent, language){
+
         if(node.tag.charAt(0)!='$') loadClass(node.tag, node)
         
         var prune = false;
         if (node.tag == 'class') {
-          if (node.type) language = node.type
-            
-          // create a new tag
-          output.classes[node.name] = node
+          var nameattr = node.attr && node.attr.name
+          if(!nameattr){
+            errors.push(this.originError('Class has no name ', node._))
+            return
+          }
+          if (node.attr && node.attr.type) language = node.attr.type
           
+          // create a new tag
+          output.classes[nameattr] = node
           
           // check extends and view
-          if(node.extends){
-            node.extends.split(/,\s*/).forEach(function(cls){
+          if(node.attr && node.attr.extends){
+            node.attr.extends.split(/,\s*/).forEach(function(cls){
               loadClass(cls, node)
             })
           }
-          if(node.with){
-            node.with.split(/,\s*/).forEach(function(cls){
+          if(node.attr && node.attr.with){
+            node.attr.with.split(/,\s*/).forEach(function(cls){
               loadClass(cls, node)
             })
           }
-          if(node.scriptincludes){ // load the script includes
-            node.scriptincludes.split(/,\s*/).forEach(function(js){
+          if(node.attr && node.attr.scriptincludes){ // load the script includes
+            node.attr.scriptincludes.split(/,\s*/).forEach(function(js){
               loadJS(js, node)
             })
           }
@@ -313,7 +318,7 @@ define(function(require, exports){
         } else if (node.tag == 'method' || node.tag=='handler' || node.tag == 'getter' || node.tag == 'setter') {
           // potentially 'regexp' createTag or something here?
 
-          if(node.type) language = node.type
+          if(node.attr && node.attr.type) language = node.attr.type
           
           // lets on-demand load the language
           var langproc = this.languages[language]
@@ -324,8 +329,8 @@ define(function(require, exports){
           else loadJS(langproc.lib, node)
 
           // give the method a unique but human readable name
-          var name = node.tag + '_' + node.name + '_' + node._ + '_' + language
-          if(parent && parent.tag == 'class') name = parent.name + '_' + name
+          var name = node.tag + '_' + (node.attr && node.attr.name) + '_' + node._ + '_' + language
+          if(parent && parent.tag == 'class') name = (parent.attr && parent.attr.name) + '_' + name
 
           node.method_id = output.methods.length
           output.methods.push({
@@ -452,16 +457,15 @@ define(function(require, exports){
       if(!node.tag) return child
       if(node.tag.charAt(0) !== '$'){
         ret += indent + '<' + node.tag
-        for(var k in node){
-          if(k !== 'tag' && k !== 'child' && k !== '_'){
-            var val = node[k]
-            if(ret[ret.length - 1] != ' ') ret += ' '
-            ret += k
-            var delim = "'"
-            if(val !== 1){
-              if(val.indexOf(delim) !== -1) delim = '"'
-              ret += '=' + delim + val + delim
-            }
+        var attr = node.attr
+        if(attr) for(var k in attr){
+          var val = attr[k]
+          if(ret[ret.length - 1] != ' ') ret += ' '
+          ret += k
+          var delim = "'"
+          if(val !== 1){
+            if(val.indexOf(delim) !== -1) delim = '"'
+            ret += '=' + delim + val + delim
           }
         }
         if(child) ret += '>\n' + child + indent + '</' + node.tag + '>\n'
@@ -586,7 +590,8 @@ define(function(require, exports){
       if(this.last_attr in this.node){
         this.error('Duplicate attribute ' + name + ' in tag '+this.tagname, start)
       }
-      this.node[this.last_attr] = null
+      if(!this.node.attr) this.node.attr = {}
+      this.node.attr[this.last_attr] = null
     } 
 
     /* Internal Called when encountering an attribute value "value" */
@@ -595,7 +600,7 @@ define(function(require, exports){
         this.error('Unexpected attribute value ' + val, start)
       }
       else{
-        this.node[this.last_attr] = val
+        this.node.attr[this.last_attr] = val
       }
     } 
 

@@ -124,7 +124,7 @@ define(function(require, exports){
     }
 
     // set the tagname
-    proto.tagname = klassjsxml.name
+    proto.tagname = klassjsxml.attr.name
     classTable[tagName] = Klass;
 
     // Process Children

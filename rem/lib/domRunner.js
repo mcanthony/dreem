@@ -88,7 +88,7 @@ define(function(require, exports){
     };
 
     compiler.execute(location.pathname, function(error, pkg) {
-      if (error) return showErrors(error);
+      if (error) return domRunner.showErrors(error);
       callback(error, pkg);
     });
   };
