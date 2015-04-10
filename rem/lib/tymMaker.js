@@ -34,6 +34,9 @@ define(function(require, exports){
     // Compile methods
     var methods = [];
     try {
+      // Transform this["super"]( into this.callSuper(
+      pkg.methods = pkg.methods.split('this["super"](').join('this.callSuper(');
+      
       new Function('methods', pkg.methods)(methods);
       pkg.compiledMethods = methods;
       delete pkg.methods;
@@ -61,7 +64,9 @@ define(function(require, exports){
     console.log(tagName, node);
     
     // Instantiate
-    var attrs = {}, mixins = [], instanceMixin = {};
+    var attrs = node.attr || {},
+      mixins = [], 
+      instanceMixin = {};
     
     if (children) {
       var i = 0, len = children.length, childNode, childTagName;
@@ -106,11 +111,6 @@ define(function(require, exports){
     if (!parentInstance) mixins.push(tym.SizeToViewport);
     
     var instance = new klass(parentInstance, attrs, mixins);
-    
-    /*if (children) {
-      var i = 0, len = children.length;
-      for (; len > i;) maker.walkDreemJSXML(children[i++], instance, pkg)
-    }*/
   };
   
   maker.lookupClass = function(tagName, pkg) {

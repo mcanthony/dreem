@@ -65,6 +65,8 @@ Date.now = Date.now || function() {
 
 
 JS = {
+  KEYWORD_SUPER:'callSuper',
+  
   extend: function(destination, source, overwrite) {
     if (destination && source) {
       for (var field in source) {
@@ -96,7 +98,7 @@ JS.extend(JS.Method.prototype, {
     this.module = module;
     this.name = name;
     this.callable = callable;
-    this._hasSuper = typeof callable === 'function' && callable.toString().indexOf('callSuper') !== -1;
+    this._hasSuper = typeof callable === 'function' && callable.toString().indexOf(JS.KEYWORD_SUPER) !== -1;
   },
 
   call: function() {
@@ -115,13 +117,13 @@ JS.extend(JS.Method.prototype, {
     
     return superFunc === null ? callable : function() {
       var prevValue, prevOwn, 
-        existing = this.callSuper,
+        existing = this[JS.KEYWORD_SUPER],
         doSuper = !existing || existing.__kwd__;
       
       if (doSuper) {
         prevValue = existing;
-        prevOwn = this.hasOwnProperty('callSuper');
-        var kwd = this.callSuper = superFunc(method, environment, this, arguments);
+        prevOwn = this.hasOwnProperty(JS.KEYWORD_SUPER);
+        var kwd = this[JS.KEYWORD_SUPER] = superFunc(method, environment, this, arguments);
         if (kwd) kwd.__kwd__ = true;
       }
       
@@ -129,9 +131,9 @@ JS.extend(JS.Method.prototype, {
       
       if (doSuper) {
         if (prevOwn) {
-          this.callSuper = prevValue;
+          this[JS.KEYWORD_SUPER] = prevValue;
         } else {
-          delete this.callSuper;
+          delete this[JS.KEYWORD_SUPER];
         }
       }
       
@@ -426,9 +428,9 @@ JS.Method.keywordCallSuper = function(method, env, receiver, args) {
     while (i) params[--i] = arguments[i];
     
     stackIndex--;
-    if (stackIndex === 0) delete receiver.callSuper;
+    if (stackIndex === 0) delete receiver[JS.KEYWORD_SUPER];
     var returnValue = methods[stackIndex].apply(receiver, params);
-    receiver.callSuper = _super;
+    receiver[JS.KEYWORD_SUPER] = _super;
     stackIndex++;
     
     return returnValue;
@@ -1763,7 +1765,7 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
 */
 tym.Destructible = new JS.Module('Destructible', {
     // Methods /////////////////////////////////////////////////////////////////
-    /** Destroys this Object. Subclasses must call super.
+    /** Destroys this Object. Subclasses must call callSuper.
         @returns void */
     destroy: function() {
         // See http://perfectionkills.com/understanding-delete/ for details
@@ -2221,13 +2223,13 @@ tym.Node = new JS.Class('Node', {
     /** Provides a hook for subclasses to do destruction of their internals.
         This method is called after subnodes have been destroyed but before
         the parent has been unset.
-        Subclasses should call super.
+        Subclasses should call callSuper.
         @returns void */
     destroyBeforeOrphaning: function() {},
     
     /** Provides a hook for subclasses to do destruction of their internals.
         This method is called after the parent has been unset.
-        Subclasses must call super.
+        Subclasses must call callSuper.
         @returns void */
     destroyAfterOrphaning: function() {
         this.releaseAllConstraints();
@@ -2308,7 +2310,7 @@ tym.Node = new JS.Class('Node', {
     // Methods /////////////////////////////////////////////////////////////////
     /** Called from setParent to determine where to insert a subnode in the node
         hierarchy. Subclasses will not typically override this method, but if
-        they do, they probably won't need to call super.
+        they do, they probably won't need to call callSuper.
         @param placement:string the placement path to use.
         @param subnode:tym.Node the subnode being placed.
         @returns the Node to place a subnode into. */
@@ -2485,14 +2487,14 @@ tym.Node = new JS.Class('Node', {
     },
     
     /** Called when a subnode is added to this node. Provides a hook for
-        subclasses. No need for subclasses to call super. Do not call this
+        subclasses. No need for subclasses to call callSuper. Do not call this
         method to add a subnode. Instead call addSubnode or setParent.
         @param node:Node the subnode that was added.
         @returns void */
     subnodeAdded: function(node) {},
     
     /** Called when a subnode is removed from this node. Provides a hook for
-        subclasses. No need for subclasses to call super. Do not call this
+        subclasses. No need for subclasses to call callSuper. Do not call this
         method to remove a subnode. Instead call removeSubnode or setParent.
         @param node:Node the subnode that was removed.
         @returns void */
@@ -3604,7 +3606,7 @@ tym.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
     Also provides the capability to capture contextmenu events and mouse
     wheel events.
     
-    Requires: tym.sprite.PlatformObservable super mixin.
+    Requires: tym.sprite.PlatformObservable callSuper mixin.
 */
 tym.sprite.MouseObservable = new JS.Module('sprite.MouseObservable', {
     // Class Methods and Attributes ////////////////////////////////////////////
@@ -3654,7 +3656,7 @@ tym.sprite.MouseObservable = new JS.Module('sprite.MouseObservable', {
 
 
 /** Generates Key Events and passes them on to one or more event observers.
-    Requires tym.DomObservable as a super mixin. */
+    Requires tym.DomObservable as a callSuper mixin. */
 tym.sprite.KeyObservable = new JS.Module('sprite.KeyObservable', {
     // Class Methods and Attributes ////////////////////////////////////////////
     extend: {
@@ -3763,7 +3765,7 @@ new JS.Singleton('GlobalFocus', {
     is focused or blurred, tym.global.focus will be notified via the
     'notifyFocus' and 'notifyBlur' methods.
     
-    Requires tym.sprite.DomObservable as a super mixin.
+    Requires tym.sprite.DomObservable as a callSuper mixin.
     
     Events:
         focused:object Fired when this view gets focus. The value is this view.
@@ -5503,7 +5505,7 @@ tym.Disableable = new JS.Module('Disableable', {
     provides a mechanism to smoothe over/out events so only one call to
     'doSmoothMouseOver' occurs per idle event.
     
-    Requires tym.Disableable and tym.MouseObservable super mixins.
+    Requires tym.Disableable and tym.MouseObservable callSuper mixins.
     
     Events:
         None
@@ -5578,13 +5580,13 @@ tym.MouseOver = new JS.Module('MouseOver', {
         if (this.inited && this.updateUI) this.updateUI();
     },
     
-    /** Called when the mouse is over this view. Subclasses must call super.
+    /** Called when the mouse is over this view. Subclasses must call callSuper.
         @returns void */
     doMouseOver: function(event) {
         if (!this.disabled) this.setMouseOver(true);
     },
     
-    /** Called when the mouse leaves this view. Subclasses must call super.
+    /** Called when the mouse leaves this view. Subclasses must call callSuper.
         @returns void */
     doMouseOut: function(event) {
         if (!this.disabled) this.setMouseOver(false);
@@ -5636,9 +5638,9 @@ new JS.Singleton('GlobalMouse', {
 
 /** Provides a 'mouseDown' attribute that tracks mouse up/down state.
     
-    Requires: tym.MouseOver, tym.Disableable, tym.MouseObservable super mixins.
+    Requires: tym.MouseOver, tym.Disableable, tym.MouseObservable callSuper mixins.
     
-    Suggested: tym.UpdateableUI and tym.Activateable super mixins.
+    Suggested: tym.UpdateableUI and tym.Activateable callSuper mixins.
     
     Events:
         None
@@ -5698,13 +5700,13 @@ tym.MouseDown = new JS.Module('MouseDown', {
         if (!this.disabled && this.mouseDown) this.attachToPlatform(tym.global.mouse, 'doMouseUp', 'mouseup', true);
     },
     
-    /** Called when the mouse is down on this view. Subclasses must call super.
+    /** Called when the mouse is down on this view. Subclasses must call callSuper.
         @returns void */
     doMouseDown: function(event) {
         if (!this.disabled) this.setMouseDown(true);
     },
     
-    /** Called when the mouse is up on this view. Subclasses must call super.
+    /** Called when the mouse is up on this view. Subclasses must call callSuper.
         @returns void */
     doMouseUp: function(event) {
         // Cleanup global mouse listener since the mouseUp occurred outside
@@ -6108,7 +6110,7 @@ new JS.Singleton('GlobalKeys', {
     will get called.
     
     Requires: myt.Activateable, myt.Disableable, myt.KeyObservable and 
-        myt.FocusObservable super mixins.
+        myt.FocusObservable callSuper mixins.
     
     Events:
         None
