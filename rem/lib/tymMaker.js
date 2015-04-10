@@ -59,28 +59,74 @@ Instantiates dreem classes from package JSON.
     }
     
     pkg.compiledClasses = {
-      node:dr.node,
-      view:dr.view,
-      layout:dr.layout
+      node:tym.Node,
+      view:tym.View,
+      layout:tym.Layout
     };
     
-    maker.walkDreemJSXML(pkg.root, pkg);
+    maker.walkDreemJSXML(pkg.root.child[0], null, pkg);
   };
 
-  maker.walkDreemJSXML = function(node, pkg) {
+  maker.walkDreemJSXML = function(node, parentInstance, pkg) {
     var builtin = maker.builtin,
+      compiledMethods = pkg.compiledMethods,
       tagName = node.tag,
       children = node.child;
     
-    if (!tagName.startsWith('$')) {
-      var klass = maker.lookupClass(tagName, pkg);
-      console.log(tagName)
-    }
+    var klass = maker.lookupClass(tagName, pkg);
+    console.log(tagName, node);
+    
+    // Instantiate
+    var attrs = {}, mixins = [], instanceMixin = {};
     
     if (children) {
-      var i = 0, len = children.length;
-      for (; len > i;) maker.walkDreemJSXML(children[i++], pkg)
+      var i = 0, len = children.length, childNode, childTagName;
+      for (; len > i;) {
+        childNode = children[i++];
+        childTagName = childNode.tag;
+        switch (childTagName) {
+          case 'setter':
+          case 'method':
+            var methodId = childNode.method_id;
+            if (methodId != null) {
+              var compiledMethod = compiledMethods[methodId];
+              if (compiledMethod) {
+                instanceMixin[childNode.name] = compiledMethod;
+              } else {
+                throw new Error('Cannot find method id' + methodId);
+              }
+            }
+            break;
+          case 'handler':
+            console.log('TYM HANDLER', childNode.method_id, childNode);
+            // FIXME: add handler to class definition
+            break;
+          case 'attribute':
+            console.log('TYM ATTRIBUTE', childNode);
+            // FIXME: add attribute to class definition
+            break;
+          case 'state':
+            console.log('TYM STATE', childNode);
+            // FIXME: add state to class definition
+            break;
+          case 'getter':
+            // Not supported in dreem
+            break;
+          default:
+            //maker.walkDreemJSXML(childNode, pkg);
+        }
+      }
     }
+    
+    mixins.push(instanceMixin);
+    if (!parentInstance) mixins.push(tym.SizeToViewport);
+    
+    var instance = new klass(parentInstance, attrs, mixins);
+    
+    /*if (children) {
+      var i = 0, len = children.length;
+      for (; len > i;) maker.walkDreemJSXML(children[i++], instance, pkg)
+    }*/
   };
   
   maker.lookupClass = function(tagName, pkg) {
@@ -117,27 +163,9 @@ Instantiates dreem classes from package JSON.
       );
     }
     
-    // Instantiate the Class
-    // FIXME: need dreem class constructor that is dom independent
-    function Klass(){};
-    var proto = Klass.prototype = Object.create(baseclass.prototype)
-
-    // Mix in the mixins
-    // FIXME: dreem will do this in the constructor
-    for (var i = 0; i < mixins.length; i++) {
-      var mixin = mixins[i].prototype
-      var keys = Object.keys(mixin)
-      for (var j = 0; j < keys.length; j++) {
-        var key = keys[j]
-        proto[key] = mixin[key] // make fancier
-      }
-    }
-
-    // set the tagname
-    proto.tagname = klassjsxml.name
-
     // Process Children
-    var children = klassjsxml.child;
+    var children = klassjsxml.child,
+      klassBody = {};
     if (children) {
       var i = 0, len = children.length, childNode, childTagName;
       for (; len > i;) {
@@ -146,38 +174,43 @@ Instantiates dreem classes from package JSON.
         switch (childTagName) {
           case 'setter':
           case 'method':
-            // FIXME: add method to class definition
             var methodId = childNode.method_id;
             if (methodId != null) {
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
-                proto[childNode.name] = compiledMethod;
+                klassBody[childNode.name] = compiledMethod;
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
             }
             break;
           case 'handler':
-            console.log('HANDLER', childNode.method_id, childNode);
+            console.log('TYM HANDLER', childNode.method_id, childNode);
             // FIXME: add handler to class definition
             break;
           case 'attribute':
-            console.log('ATTRIBUTE', childNode);
+            console.log('TYM ATTRIBUTE', childNode);
             // FIXME: add attribute to class definition
             break;
           case 'state':
-            console.log('STATE', childNode);
+            console.log('TYM STATE', childNode);
             // FIXME: add state to class definition
             break;
           case 'getter':
             // Not supported in dreem
             break;
           default:
-            maker.walkDreemJSXML(childNode, pkg);
+            //maker.walkDreemJSXML(childNode, pkg);
         }
       }
     }
-  
+    
+    
+    // Instantiate the Class
+    if (mixins.length > 0) klassBody.include = mixins;
+console.log(klassBody);
+    var Klass = tym[tagName] = new JS.Class(tagName, baseclass, klassBody);
+    
     // Store and return class
     return classTable[tagName] = Klass;
   }
