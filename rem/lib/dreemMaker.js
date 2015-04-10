@@ -129,6 +129,7 @@ define(function(require, exports){
 
     // Process Children
     var children = klassjsxml.child;
+
     if (!children) return Klass
 
     for (var i = 0, len = children.length; i < len; i++) { 
