@@ -1,7 +1,12 @@
 <html lang="en">
 <head>
   <title>Edit test</title>
-  <script type="text/javascript" src="../lib/domOrchestra.js"></script>
+  <script type"text/javascript">
+    window.define = { // configure define
+      MAIN:'../lib/domOrchestra.js'
+    }
+  </script>
+  <script type="text/javascript" src="../lib/define.js"></script>
 </head>
 <body>
   <view bgcolor="#cccccc" width="auto" padding="25" scrollable="true">

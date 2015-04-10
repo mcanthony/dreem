@@ -23,14 +23,15 @@
 
 Dreem client/server communication bus.
 */
-(function(scope){
-  var bus = {};
+
+define(function(require, exports){
+  dreemBus = exports;
 
   /**
    * @class bus.Client
    * Auto (re)connecting always writable socket
    */
-  bus.Client = (function(){
+  dreemBus.Client = (function(){
     function Client(url){
       this.url = url
       this.backoff = 1
@@ -124,8 +125,4 @@ Dreem client/server communication bus.
 
     return Client
   })()
-
-  if(typeof process === 'object') module.exports = bus
-
-  return scope.BUS = bus;
-})(this.DREEM)
+})

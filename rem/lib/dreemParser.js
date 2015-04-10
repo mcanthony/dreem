@@ -23,16 +23,35 @@
 
 Dreem file parser and dependency resolver.
 */
-(function(scope){
-  var parser = {},
-    conf = scope.CONFIG;
+define(function(require, exports){
 
+  var dreemParser = exports
+
+  // Builtin modules, belongs here
+  dreemParser.builtin = {
+    /* Built in tags that dont resolve to class files */
+    // Classes
+    node:true,
+    view:true,
+    layout:true,
+    
+    // Class Definition
+    class:true,
+    
+    // Special child tags for a Class or Class instance
+    method:true,
+    attribute:true,
+    handler:true,
+    state:true,
+    setter:true,
+    getter:true
+  }
   /**
    * @class parser.Error
    * Unified Error class that holds enough information to 
    * find the right file at the right line
    */
-  parser.Error = (function(){
+  dreemParser.Error = (function(){
     /**
      * @constructor
      * @param {String} message Message
@@ -64,7 +83,7 @@ Dreem file parser and dependency resolver.
    * It has an overloadable 'onRead'  that acts as the file loader interface
    * And this method specialized for browser or server elsewhere
    */
-  parser.Compiler = (function(){
+  dreemParser.Compiler = (function(){
     /** 
      * @constructor
      */
@@ -76,7 +95,7 @@ Dreem file parser and dependency resolver.
     /* Supported languages, these are lazily loaded */
     Compiler.prototype.languages = {
       js:{
-        lib:conf.LIB_DIR + 'acorn.js',
+        lib:define.expandVariables(define.LIB_DIR) + 'acorn.js',
         compile:function(string, lib, args){
           // this returns a compiled function or an error
           if(!this.module){
@@ -94,7 +113,7 @@ Dreem file parser and dependency resolver.
         }
       },
       coffee:{
-        lib:conf.LIB_DIR + 'coffee-script.js',
+        lib:define.expandVariables(define.LIB_DIR) + 'coffee-script.js',
         compile:function(string, lib, args){
           // compile coffeescript
           if(!this.module){
@@ -172,7 +191,7 @@ Dreem file parser and dependency resolver.
       this.cache(name, function(err, file){
         if(err) return callback(err)
 
-        var htmlParser = new parser.HTMLParser(file.id)
+        var htmlParser = new dreemParser.HTMLParser(file.id)
         var jsobj = htmlParser.parse(file.data)
 
         // forward the parser errors 
@@ -234,7 +253,7 @@ Dreem file parser and dependency resolver.
       }.bind(this)
 
       var loadClass = function(name, from_node){
-        if(name in scope.MAKER.builtin) return
+        if(name in dreemParser.builtin) return
         if(name in output.classes) return
         
         output.classes[name] = 2 // mark tag as loading but not defined yet
@@ -243,7 +262,7 @@ Dreem file parser and dependency resolver.
           deps[name] = [from_node]
           loading++
           // we should make the load order deterministic by force serializing the dependency order
-          this.parseDre(conf.CLASSES_DIR + name, function(err, jsobj){
+          this.parseDre(define.expandVariables(define.CLASSES_DIR) + name, function(err, jsobj){
             if(!err) walk(jsobj, null, 'js')
             else{
               if(Array.isArray(err)) errors.push.apply(errors, err)
@@ -330,10 +349,6 @@ Dreem file parser and dependency resolver.
         return prune;
       }.bind(this)
 
-      // Require the core libraries
-      var coreLibs = conf.CORE_FILES, i = 0, len = coreLibs.length;
-      for (; len > i;) loadJS(coreLibs[i++], node)
-
       // Walk JSON
       walk(node, null, 'js')
       
@@ -373,7 +388,7 @@ Dreem file parser and dependency resolver.
 
             var compiled = lang.compile(method.source, output.js[lang.lib], method.args)
             
-            if(compiled instanceof parser.Error){ // the compiler returned an error
+            if(compiled instanceof dreemParser.Error){ // the compiler returned an error
               var err = this.originError(compiled.message, method.origin)
               err.line += compiled.line // adjust for origin
               errors.push(err)
@@ -408,7 +423,7 @@ Dreem file parser and dependency resolver.
    * Very fast and simple XML/HTML parser
    * Modifyable to output any JS datastructure from HTML/XML you prefer
    */
-  parser.HTMLParser = (function(){
+  dreemParser.HTMLParser = (function(){
     /**
      * @constructor
      * @param {Int} file_id File id to write on the ._ origin properties
@@ -792,8 +807,4 @@ Dreem file parser and dependency resolver.
 
     return HTMLParser
   })()
-
-  if(typeof process === 'object') module.exports = parser
-
-  return scope.PARSER = parser;
-})(this.DREEM)
+})

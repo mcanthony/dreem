@@ -23,52 +23,11 @@
 
 Sets up default configuration for the in browser invocation of dreem.
 */
-(function(scope){
-  // Look for config information in the enclosing scope, otherwise use a 
-  // default values.
-  var config = scope.CONFIG,
-    root = scope.DREEM_ROOT ? scope.DREEM_ROOT : '../../';
-  delete scope.DREEM_ROOT;
-  
-  if (config) {
-    delete scope.CONFIG;
-  } else {
-    config = {
-      /* Default pipeline library directory prefix */
-      LIB_PIPELINE:root + 'rem/lib/',
-      
-      /* Default library directory prefix */
-      LIB_DIR:root + 'lib/',
-      
-      /* Default class directory prefix */
-      CLASSES_DIR:root + 'classes/',
-      
-      /* The core framework to use. */
-      MAKER_FRAMEWORK:'dreem',
-      
-      CORE_FILES:[root + 'lib/one_base.js', root + 'lib/jquery-1.9.1.js', root + 'core/layout.js'],
-      
-      /* The file extension for class files to load. */
-      CLASS_FILE_EXTENSION:'dre'
-    };
-    
-    // Apply specific overrides to the default config
-    for (var key in config) {
-      if (scope[key]) {
-        config[key] = scope[key];
-        delete scope[key];
-      }
-    }
-  }
-  
-  scope.DREEM = {
-    ROOT:root,
-    CONFIG:config
-  };
-  
-  // Write out script includes
-  var pipelineIncludes = ['dreemBus.js','dreemParser.js', config.MAKER_FRAMEWORK + 'Maker.js','domRunner.js'],
-    libPipeline = config.LIB_PIPELINE,
-    i = 0, len = pipelineIncludes.length;
-  for (; len > i;) document.write('<script src="' + libPipeline + pipelineIncludes[i++] + '"></'+'script>');
-})(this)
+
+// since this file is loaded first, you can define config variables here safely
+define.CLASS_FILE_EXTENSION = "dre"
+
+define(function(require, exports){
+  var domRunner = require('./domRunner.js')
+  domRunner.run()
+})

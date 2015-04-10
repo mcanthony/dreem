@@ -56,7 +56,7 @@
     y: 'marginTop',
     z: 'z-index'
   };
-
+/*
   hackstyle = (function() {
   var monitoredJQueryStyleProps, origstyle, prop, styletap, value;
 
@@ -95,7 +95,7 @@
     }
   };
 
-}).call(this);
+}).call(this);*/
 ;
 
   window.dr = (function() {
@@ -6388,11 +6388,12 @@
      */
   })();
 
+  /*
   dr.writeCSS();
 
   $(window).on('load', function() {
     dr.initElements();
     return hackstyle(true);
   });
-
+  */
 }).call(this);
