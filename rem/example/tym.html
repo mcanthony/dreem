@@ -1,12 +1,14 @@
 <html lang="en">
 <head>
   <title>Tym Example</title>
-  <script type="text/javascript">
-    var global = this,
-      MAKER_FRAMEWORK = "tym",
-      CORE_FILES = ['../tym/dist/tym.js'];
+  <script type"text/javascript">
+    var global = this;
+    window.define = { // configure define
+      MAIN:'../lib/domRunner.js',
+      DREEM_MAKER:'$ROOT/rem/lib/tymMaker.js'
+    }
   </script>
-  <script type="text/javascript" src="../lib/domOrchestra.js"></script>
+  <script type="text/javascript" src="../lib/define.js"></script>
 </head>
 <body>
   <view width="500" height="400" bgcolor="#cccccc">

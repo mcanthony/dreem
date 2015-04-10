@@ -26,7 +26,6 @@ dreem application.
 */
 
 define(function(require, exports){
-
   var domRunner = exports
   var dreemParser = require('./dreemParser.js')
   var dreemMaker = require('$DREEM_MAKER')
@@ -110,22 +109,19 @@ define(function(require, exports){
     }
   };
 
-  domRunner.run = function(){
-
-    // Only start processing dreem tags when the document is ready
-    document.onreadystatechange = function() {
-      if (document.readyState === "complete") {
-        // find the first view tag
-        var views = document.getElementsByTagName('view');
-        if (!views || views.length === 0) return console.log('No views to process!');
-        // lets pass our outerHTML to our compiler
-        domRunner.compile(views[0].outerHTML, function(error, pkg) {
-          if (!error) {
-            console.log(pkg);
-            dreemMaker.makeFromPackage(pkg);
-          }
-        });
-      }
-    };
-  }
+  // Only start processing dreem tags when the document is ready
+  document.onreadystatechange = function() {
+    if (document.readyState === "complete") {
+      // find the first view tag
+      var views = document.getElementsByTagName('view');
+      if (!views || views.length === 0) return console.log('No views to process!');
+      // lets pass our outerHTML to our compiler
+      domRunner.compile(views[0].outerHTML, function(error, pkg) {
+        if (!error) {
+          console.log(pkg);
+          dreemMaker.makeFromPackage(pkg);
+        }
+      });
+    }
+  };
 })

@@ -23,28 +23,12 @@
 
 Instantiates dreem classes from package JSON.
 */
-(function(scope){
-  var maker = {
-      /* Built in tags that dont resolve to class files */
-      builtin: {
-        // Classes
-        node:true,
-        view:true,
-        layout:true,
-        
-        // Class Definition
-        class:true,
-        
-        // Special child tags for a Class or Class instance
-        method:true,
-        attribute:true,
-        handler:true,
-        state:true,
-        setter:true,
-        getter:true
-      }
-    },
-    parser = scope.PARSER;
+define(function(require, exports){
+  var maker = exports;
+  var domRunner = require('./domRunner.js');
+  var dreemParser = require('./dreemParser.js');
+
+  require('$ROOT/rem/tym/dist/tym.js');
 
   maker.makeFromPackage = function(pkg) {
     // Compile methods
@@ -54,7 +38,7 @@ Instantiates dreem classes from package JSON.
       pkg.compiledMethods = methods;
       delete pkg.methods;
     } catch(e) {
-      scope.RUNNER.showErrors(new parser.Error('Exception in evaluating methods ' + e.message));
+      domRunner.showErrors(new parser.Error('Exception in evaluating methods ' + e.message));
       return;
     }
     
@@ -68,7 +52,7 @@ Instantiates dreem classes from package JSON.
   };
 
   maker.walkDreemJSXML = function(node, parentInstance, pkg) {
-    var builtin = maker.builtin,
+    var builtin = dreemParser.builtin,
       compiledMethods = pkg.compiledMethods,
       tagName = node.tag,
       children = node.child;
@@ -132,7 +116,7 @@ Instantiates dreem classes from package JSON.
   maker.lookupClass = function(tagName, pkg) {
     var classTable = pkg.compiledClasses,
       compiledMethods = pkg.compiledMethods,
-      builtin = maker.builtin;
+      builtin = dreemParser.builtin;
     
     // First look for a compiled class
     if (tagName in classTable) return classTable[tagName];
@@ -214,6 +198,4 @@ console.log(klassBody);
     // Store and return class
     return classTable[tagName] = Klass;
   }
-  
-  scope.MAKER = maker;
-})(this.DREEM)
+})

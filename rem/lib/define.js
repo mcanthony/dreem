@@ -43,7 +43,7 @@ if(typeof window !== 'undefined')(function(){ // browser implementation
   define.DREEM_MAKER = '$ROOT/rem/lib/dreemMaker.js'
   define.DREEM_ROOT = '$ROOT/'
   define.LIB_DIR = '$ROOT/lib/'
-  define.CLASS_FILE_EXTENSION = "dre"
+  define.CLASS_FILE_EXTENSION = 'dre'
 
   // pulls the path out of a filename
   function filePath(file){
