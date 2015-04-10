@@ -27,79 +27,103 @@ Instantiates dreem classes from package JSON.
   var maker = {
       /* Built in tags that dont resolve to class files */
       builtin: {
-        view:1,
-        class:1,
-        method:1,
-        attribute:1,
-        handler:1,
-        setter:1,
-        getter:1,
-        layout:1,
-        node:1,
-        state:1
+        // Classes
+        node:true,
+        view:true,
+        layout:true,
+        
+        // Class Definition
+        class:true,
+        
+        // Special child tags for a Class or Class instance
+        method:true,
+        attribute:true,
+        handler:true,
+        state:true,
+        setter:true,
+        getter:true
       }
     },
     parser = scope.PARSER;
+
+  maker.makeFromPackage = function(pkg) {
+    // Compile methods
+    var methods = [];
+    try {
+      new Function('methods', pkg.methods)(methods);
+      pkg.compiledMethods = methods;
+      delete pkg.methods;
+    } catch(e) {
+      scope.RUNNER.showErrors(new parser.Error('Exception in evaluating methods ' + e.message));
+      return;
+    }
+    
+    pkg.compiledClasses = {
+      node:dr.node,
+      view:dr.view,
+      layout:dr.layout
+    };
+    
+    maker.walkDreemJSXML(pkg.root, pkg);
+  };
+
+  maker.walkDreemJSXML = function(node, pkg) {
+    var builtin = maker.builtin,
+      tagName = node.tag,
+      children = node.child;
+    
+    if (!tagName.startsWith('$')) {
+      var klass = maker.lookupClass(tagName, pkg);
+      console.log(tagName)
+    }
+    
+    if (children) {
+      var i = 0, len = children.length;
+      for (; len > i;) maker.walkDreemJSXML(children[i++], pkg)
+    }
+  };
   
-  /**
-   * Example traversal of package datastructure
-   * Build a dreem class from the XML structure and the methods
-   */
-  function Builtin_placeholder(){};
+  maker.lookupClass = function(tagName, pkg) {
+    var classTable = pkg.compiledClasses,
+      compiledMethods = pkg.compiledMethods,
+      builtin = maker.builtin;
+    
+    // First look for a compiled class
+    if (tagName in classTable) return classTable[tagName];
+    
+    // Ignore built in tags
+    if (tagName in builtin) return null;
+    
+    
+    // Try to build a class
+    var klassjsxml = pkg.classes[tagName];
+    if (!klassjsxml) throw new Error('Cannot find class ' + tagName);
+    delete pkg.classes[tagName];
 
-  maker.walkDreemJSXML = function(node, indent) {
-    if (!indent) indent = ''
-    if (node.tag.indexOf('$') == -1) console.log(indent + '<' + node.tag + '>')
-    if (node.child) {
-      for (var i = 0; i < node.child.length; i++) {
-        maker.walkDreemJSXML(node.child[i], indent + '  ')
-      }
+    // Determine base class
+    var baseclass = classTable.view;
+    if (klassjsxml.extends) { // we cant extend from more than one class
+      baseclass = maker.lookupClass(klassjsxml.extends, pkg);
     }
-  }
 
-  maker.buildDreemClass = function(table, name, classjsxml, methods) {
-    if (name in maker.builtin) {
-      // we have to return a builtin class...
-      return Builtin_placeholder
-    }
-
-    if (table[name]) return table[name]
-
-    // a new DreemClass
-    function Class(){}
-
-    var baseclass = dr.view // base class
-    var jsxml = classjsxml[name]
-
-    if (!jsxml) throw new Error('Cannot find class '+name)
-
-    // the mixins
-    var mixins = []
-
-    // the baseclasses?
-    if (jsxml.extends) { // we cant extend from more than one class
-      jsxml.extends.split(/,\s*/).forEach(function(cls, i) {
-        // WARNING we cant inherit from more than one class
-        // so we inherit from the first one and add the second one as a mixin
-        // this is pretty bad actually, shouldnt do multiple inheritance
-        // only one baseclass and mixins
-        // the buildDreemClass is recursive so definition order doesnt matter
-        if (i == 0) {
-          baseclass = maker.buildDreemClass(table, cls, classjsxml, methods)
-        } else {
-          mixins.push(maker.buildDreemClass(table, cls, classjsxml, methods))
+    // Get Mixins
+    var mixins = [],
+      mixinNames = klassjsxml.with;
+    if (mixinNames) {
+      mixinNames.split(/,\s*/).forEach(
+        function(mixinName) {
+          mixins.push(maker.lookupClass(mixinName, pkg));
         }
-      })
+      );
     }
+    
+    // Instantiate the Class
+    // FIXME: need dreem class constructor that is dom independent
+    function Klass(){};
+    var proto = Klass.prototype = Object.create(baseclass.prototype)
 
-    if (jsxml.with) {
-      jsxml.with.split(/,\s*/).forEach(function(cls) {
-        mixins.push(maker.buildDreemClass(table, cls, classjsxml, methods))
-      })
-    }
-
-    var proto = Class.prototype = Object.create(baseclass.prototype)
-
+    // Mix in the mixins
+    // FIXME: dreem will do this in the constructor
     for (var i = 0; i < mixins.length; i++) {
       var mixin = mixins[i].prototype
       var keys = Object.keys(mixin)
@@ -110,32 +134,52 @@ Instantiates dreem classes from package JSON.
     }
 
     // set the tagname
-    proto.tagname = jsxml.name
+    proto.tagname = klassjsxml.name
 
-    // process methods
-    var children = jsxml.child
+    // Process Children
+    var children = klassjsxml.child;
     if (children) {
-      for(var i = 0;i<children.length;i++) {
-        var child = children[i]
-        var method
-        if (child.method_id !== undefined) { // we have a methodID, look it up
-          method = methods[child.method_id]
-          if (!method) throw new Error('Cannot find method id' + child.method_id)
-        }
-        if (child.tag == 'method') {
-          proto[child.name] = method
-        } else if(child.tag == 'handler') {
-          // make handler, no idea how to do that
-        } else if(child.tag == 'getter') {
-          proto.__defineGetter__(child.name, method)
-        } else if(child.tag == 'setter') {
-          proto.__defineSetter__(child.name, method)
+      var i = 0, len = children.length, childNode, childTagName;
+      for (; len > i;) {
+        childNode = children[i++];
+        childTagName = childNode.tag;
+        switch (childTagName) {
+          case 'setter':
+          case 'method':
+            // FIXME: add method to class definition
+            var methodId = childNode.method_id;
+            if (methodId) {
+              var compiledMethod = compiledMethods[methodId];
+              if (compiledMethod) {
+                proto[childNode.name] = compiledMethod;
+              } else {
+                throw new Error('Cannot find method id' + methodId);
+              }
+            }
+            break;
+          case 'handler':
+            console.log('HANDLER', childNode.method_id, childNode);
+            // FIXME: add handler to class definition
+            break;
+          case 'attribute':
+            console.log('ATTRIBUTE', childNode);
+            // FIXME: add attribute to class definition
+            break;
+          case 'state':
+            console.log('STATE', childNode);
+            // FIXME: add state to class definition
+            break;
+          case 'getter':
+            // Not supported in dreem
+            break;
+          default:
+            maker.walkDreemJSXML(childNode, pkg);
         }
       }
     }
-
-    // store class
-    return table[name] = Class
+  
+    // Store and return class
+    return classTable[tagName] = Klass;
   }
   
   scope.MAKER = maker;

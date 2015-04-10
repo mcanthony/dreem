@@ -118,33 +118,10 @@ dreem application.
       
       // lets pass our outerHTML to our compiler
       compile(views[0].outerHTML, function(error, pkg) {
-        if (error) return;
-        
-        // ok so we have a dreem pkg file
-        console.log('This is the dreem package:', pkg);
-        
-        // lets first make our methods
-        try {
-          var methods = [];
-          new Function('methods', pkg.methods)(methods);
-        } catch(e) {
-          showErrors(new parser.Error('Exception in evaluating methods ' + e.message));
-          return;
+        if (!error) {
+console.log(pkg);
+          maker.makeFromPackage(pkg);
         }
-        
-        // alright lets build all our dreemclasses
-        var classtable = {};
-        
-        // build up all the dreem classes
-        for (var cls in pkg.classes) {
-          maker.buildDreemClass(classtable, cls, pkg.classes, methods);
-        }
-        console.log('Built class table:', classtable);
-        
-        // just walk the root dreem code
-        // replace this with instancing and such
-        console.log('This is the root datastructure');
-        maker.walkDreemJSXML(pkg.root);
       });
     }
   };
