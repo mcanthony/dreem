@@ -118,7 +118,7 @@ if(typeof window !== 'undefined')(function(){ // browser implementation
     if(!factory) throw new Error("Cannot find main: " + main_mod)
 
     // lets boot up
-    module = {exports:{}}
+    var module = {exports:{}}
     define.module[main_mod] = module
     factory(localRequire(filePath(main_mod)), module.exports, module)
   }
