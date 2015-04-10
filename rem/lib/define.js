@@ -43,6 +43,7 @@ if(typeof window !== 'undefined')(function(){ // browser implementation
   define.DREEM_MAKER = '$ROOT/rem/lib/dreemMaker.js'
   define.DREEM_ROOT = '$ROOT/'
   define.LIB_DIR = '$ROOT/lib/'
+  define.CLASS_FILE_EXTENSION = "dre"
 
   // pulls the path out of a filename
   function filePath(file){
@@ -117,7 +118,9 @@ if(typeof window !== 'undefined')(function(){ // browser implementation
     if(!factory) throw new Error("Cannot find main: " + main_mod)
 
     // lets boot up
-    factory(localRequire(filePath(main_mod)))
+    module = {exports:{}}
+    define.module[main_mod] = module
+    factory(localRequire(filePath(main_mod)), module.exports, module)
   }
 
   // the main dependency download queue counter
