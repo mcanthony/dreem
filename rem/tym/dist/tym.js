@@ -588,6 +588,13 @@ tym = {
             }
         }
         return result
+    },
+    
+    // Child Instantiation
+    makeChildren: function(target, json) {
+        var maker = this.maker, pkg = this.pkg,
+            i = 0, len = json.length;
+        for (; len > i;) maker.walkDreemJSXML(json[i++], target, pkg);
     }
 };
 
@@ -2160,6 +2167,10 @@ tym.Node = new JS.Class('Node', {
         }
         
         this.inited = false;
+        
+        var defaultKlassAttrValues = this.klass.defaultAttrValues;
+        if (defaultKlassAttrValues) attrs = tym.extend({}, defaultKlassAttrValues, attrs);
+        
         this.initNode(parent, attrs || {});
     },
     
@@ -2178,6 +2189,7 @@ tym.Node = new JS.Class('Node', {
         this.doBeforeAdoption();
         this.setParent(parent);
         this.doAfterAdoption();
+        this.__makeChildren();
         
         this.inited = true;
     },
@@ -2195,6 +2207,10 @@ tym.Node = new JS.Class('Node', {
         parent assigned.
         @returns void */
     doAfterAdoption: function() {},
+    
+    __makeChildren: function() {
+        if (this._instanceChildrenJson) tym.makeChildren(this, this._instanceChildrenJson);
+    },
     
     /** @overrides tym.Destructible. */
     destroy: function() {
@@ -2237,6 +2253,9 @@ tym.Node = new JS.Class('Node', {
         this.detachAllObservers();
     },
     
+    
+    // Accessors ///////////////////////////////////////////////////////////////
+    set_instanceChildrenJson: function(v) {this._instanceChildrenJson = v;},
     
     // Structural Accessors ////////////////////////////////////////////////////
     setPlacement: function(v) {this.placement = v;},

@@ -51,22 +51,39 @@ define(function(require, exports){
       layout:tym.Layout
     };
     
+    // Make pkg available to tym
+    tym.maker = maker;
+    tym.pkg = pkg;
+    
     maker.walkDreemJSXML(pkg.root.child[0], null, pkg);
   };
 
   maker.walkDreemJSXML = function(node, parentInstance, pkg) {
-    var builtin = dreemParser.builtin,
-      compiledMethods = pkg.compiledMethods,
+    var compiledMethods = pkg.compiledMethods,
       tagName = node.tag,
       children = node.child;
     
-    var klass = maker.lookupClass(tagName, pkg);
-    console.log(tagName, node);
+    var klass;
+    if (tagName.startsWith('$')) {
+      if (tagName === '$comment') {
+        // Ignore comments
+        return;
+      } else if (tagName === '$text') {
+        console.log('Body Text: ', node.value);
+        return;
+      } else {
+        console.log("Unexpected tag: ", tagName);
+        return;
+      }
+    } else {
+      klass = maker.lookupClass(tagName, pkg);
+    }
     
     // Instantiate
     var attrs = node.attr || {},
       mixins = [], 
-      instanceMixin = {};
+      instanceMixin = {},
+      instanceChildrenJson;
     
     if (children) {
       var i = 0, len = children.length, childNode, childTagName;
@@ -102,7 +119,8 @@ define(function(require, exports){
             // Not supported in dreem
             break;
           default:
-            //maker.walkDreemJSXML(childNode, pkg);
+            if (!instanceChildrenJson) attrs._instanceChildrenJson = instanceChildrenJson = [];
+            instanceChildrenJson.push(childNode);
         }
       }
     }
@@ -129,16 +147,21 @@ define(function(require, exports){
     var klassjsxml = pkg.classes[tagName];
     if (!klassjsxml) throw new Error('Cannot find class ' + tagName);
     delete pkg.classes[tagName];
-
+    
+    var klassAttrs = klassjsxml.attr || {};
+    
     // Determine base class
     var baseclass = classTable.view;
-    if (klassjsxml.extends) { // we cant extend from more than one class
-      baseclass = maker.lookupClass(klassjsxml.extends, pkg);
+    var extendsAttr = klassAttrs.extends;
+    delete klassAttrs.extends;
+    if (extendsAttr) { // we cant extend from more than one class
+      baseclass = maker.lookupClass(extendsAttr, pkg);
     }
 
     // Get Mixins
     var mixins = [],
-      mixinNames = klassjsxml.with;
+      mixinNames = klassAttrs.with;
+    delete klassAttrs.with;
     if (mixinNames) {
       mixinNames.split(/,\s*/).forEach(
         function(mixinName) {
@@ -149,9 +172,12 @@ define(function(require, exports){
     
     // Process Children
     var children = klassjsxml.child,
-      klassBody = {};
+      klassBody = {},
+      klassChildrenJson,
+      i, len, childNode, childTagName;
     if (children) {
-      var i = 0, len = children.length, childNode, childTagName;
+      i = 0;
+      len = children.length;
       for (; len > i;) {
         childNode = children[i++];
         childTagName = childNode.tag;
@@ -184,16 +210,35 @@ define(function(require, exports){
             // Not supported in dreem
             break;
           default:
-            //maker.walkDreemJSXML(childNode, pkg);
+            if (!klassChildrenJson) klassChildrenJson = [];
+            klassChildrenJson.push(childNode);
         }
       }
     }
     
+    // Setup __makeChildren method if klassChildren exist
+    if (klassChildrenJson) {
+      klassBody.__makeChildren = new Function('tym.makeChildren(this, ' + JSON.stringify(klassChildrenJson) + '); this.callSuper();');
+    }
     
     // Instantiate the Class
     if (mixins.length > 0) klassBody.include = mixins;
-console.log(klassBody);
     var Klass = tym[tagName] = new JS.Class(tagName, baseclass, klassBody);
+    
+    // Build default class attributes
+    var defaultAttrValues = {};
+    if (baseclass.defaultAttrValues) tym.extend(defaultAttrValues, baseclass.defaultAttrValues);
+    len = mixins.length;
+    if (len > 0) {
+      i = 0;
+      for (; len > i;) {
+        tym.extend(defaultAttrValues, mixins[i++].defaultAttrValues);
+      }
+    }
+    tym.extend(defaultAttrValues, klassAttrs);
+    delete defaultAttrValues.name;
+    delete defaultAttrValues.id;
+    Klass.defaultAttrValues = defaultAttrValues;
     
     // Store and return class
     return classTable[tagName] = Klass;

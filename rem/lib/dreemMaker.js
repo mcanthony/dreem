@@ -62,7 +62,8 @@ define(function(require, exports){
     
     if (!tagName.startsWith('$')) {
       var klass = dreemMaker.lookupClass(tagName, pkg);
-      console.log(tagName)
+    } else {
+      console.log("Unhandled tag: ", tagName);
     }
     
     if (children) {
