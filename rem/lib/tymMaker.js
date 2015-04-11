@@ -21,23 +21,24 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 
-Instantiates dreem classes from package JSON.
+Instantiates tym classes from package JSON.
 */
 define(function(require, exports){
-  var maker = exports;
-  var domRunner = require('./domRunner.js');
-  var dreemParser = require('./dreemParser.js');
+  var maker = exports,
+    domRunner = require('./domRunner.js'),
+    dreemParser = require('./dreemParser.js');
 
+  // Pull in the tym core
   require('$ROOT/rem/tym/dist/tym.js');
 
-  // Builtin modules, belongs here
+  /** Built in tags that dont resolve to class files or that resolve to 
+      class files defined in the core. */
   maker.builtin = {
-    /* Built in tags that dont resolve to class files */
     // Classes
     node:true,
     view:true,
     layout:true,
-    Button:true,
+    button:true,
     
     // Class Definition
     class:true,
@@ -49,34 +50,35 @@ define(function(require, exports){
     handler:true,
     state:true,
     setter:true
-  }
+  };
 
   maker.makeFromPackage = function(pkg) {
     // Compile methods
-    var methods = [];
     try {
-      // Transform this["super"]( into this.callSuper(
+      // Transform this["super"]( into this.callSuper( since .dre files
+      // use super not callSuper.
       pkg.methods = pkg.methods.split('this["super"](').join('this.callSuper(');
       
-      new Function('methods', pkg.methods)(methods);
-      pkg.compiledMethods = methods;
+      new Function('methods', pkg.methods)(pkg.compiledMethods = []);
       delete pkg.methods;
     } catch(e) {
       domRunner.showErrors(new parser.Error('Exception in evaluating methods ' + e.message));
       return;
     }
     
+    // Prefill compiled classes with classes defined in core
     pkg.compiledClasses = {
       node:tym.Node,
       view:tym.View,
       layout:tym.Layout,
-      Button:tym.Button
+      button:tym.Button
     };
     
-    // Make pkg available to tym
+    // Make pkg available to tym since child processing is initiated from there.
     tym.maker = maker;
     tym.pkg = pkg;
     
+    // Start processing from the root downward
     maker.walkDreemJSXML(pkg.root.child[0], null, pkg);
   };
 
@@ -186,38 +188,38 @@ define(function(require, exports){
   };
   
   maker.lookupClass = function(tagName, pkg) {
-    var classTable = pkg.compiledClasses,
-      compiledMethods = pkg.compiledMethods;
-    
     // First look for a compiled class
+    var classTable = pkg.compiledClasses;
     if (tagName in classTable) return classTable[tagName];
     
     // Ignore built in tags
     if (tagName in maker.builtin) return null;
-    
     
     // Try to build a class
     var klassjsxml = pkg.classes[tagName];
     if (!klassjsxml) throw new Error('Cannot find class ' + tagName);
     delete pkg.classes[tagName];
     
-    var isMixin = klassjsxml.tag === 'mixin';
-    var klassAttrs = klassjsxml.attr || {};
+    var isMixin = klassjsxml.tag === 'mixin',
+      klassAttrs = klassjsxml.attr || {};
     
     // Determine base class
     var baseclass, extendsAttr;
     if (!isMixin) {
-      baseclass = classTable.view;
       extendsAttr = klassAttrs.extends;
       delete klassAttrs.extends;
-      if (extendsAttr) baseclass = maker.lookupClass(extendsAttr, pkg);
+      if (extendsAttr) {
+        baseclass = maker.lookupClass(extendsAttr, pkg);
+      } else {
+        baseclass = classTable.view;
+      }
     }
 
     // Get Mixins
-    var mixins = [],
-      mixinNames = klassAttrs.with;
+    var mixins, mixinNames = klassAttrs.with;
     delete klassAttrs.with;
     if (mixinNames) {
+      mixins = [];
       mixinNames.split(/,\s*/).forEach(
         function(mixinName) {
           mixins.push(maker.lookupClass(mixinName, pkg));
@@ -226,7 +228,8 @@ define(function(require, exports){
     }
     
     // Process Children
-    var children = klassjsxml.child,
+    var compiledMethods = pkg.compiledMethods,
+      children = klassjsxml.child,
       klassBody = {},
       klassChildrenJson,
       klassHandlers,
@@ -289,28 +292,25 @@ define(function(require, exports){
       klassBody.__registerHandlers = new Function('tym.registerHandlers(this, ' + JSON.stringify(klassHandlers) + '); this.callSuper();');
     }
     
-    // Instantiate the Class
-    if (mixins.length > 0) klassBody.include = mixins;
-    var Klass;
-    if (isMixin) {
-      Klass = tym[tagName] = new JS.Module(tagName, klassBody);
-    } else {
-      Klass = tym[tagName] = new JS.Class(tagName, baseclass, klassBody);
-    }
+    // Instantiate the Class or Mixin
+    if (mixins) klassBody.include = mixins;
+    var Klass = tym[tagName] = isMixin ? new JS.Module(tagName, klassBody) : new JS.Class(tagName, baseclass, klassBody);
     
     // Build default class attributes
     var defaultAttrValues = {};
-    if (!isMixin && baseclass.defaultAttrValues) tym.extend(defaultAttrValues, baseclass.defaultAttrValues);
-    len = mixins.length;
-    if (len > 0) {
-      i = 0;
-      for (; len > i;) {
-        tym.extend(defaultAttrValues, mixins[i++].defaultAttrValues);
+    if (baseclass && baseclass.defaultAttrValues) tym.extend(defaultAttrValues, baseclass.defaultAttrValues);
+    if (mixins) {
+      len = mixins.length;
+      if (len > 0) {
+        i = 0;
+        for (; len > i;) {
+          tym.extend(defaultAttrValues, mixins[i++].defaultAttrValues);
+        }
       }
     }
     tym.extend(defaultAttrValues, klassAttrs);
-    delete defaultAttrValues.name;
-    delete defaultAttrValues.id;
+    delete defaultAttrValues.name; // Instances only
+    delete defaultAttrValues.id; // Instances only
     Klass.defaultAttrValues = defaultAttrValues;
     
     // Store and return class
@@ -323,4 +323,9 @@ TODO:
   - Setter return values and default behavior
   - Declared Attributes
   - Constraints
+  - Handle body text
+  - setAttribute in accessor support. Resolve conflict with Animator. Might need to 
+    change setter/getter func names to set_foo, get_foo
+  
+  - States
 */

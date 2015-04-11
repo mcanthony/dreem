@@ -2254,6 +2254,9 @@ tym.Node = new JS.Class('Node', {
         if (this.parent) this.setParent(null);
         this.destroyAfterOrphaning();
         
+        // Remove from global namespace if necessary
+        if (this.id) this.setId();
+        
         this.callSuper();
     },
     
@@ -2278,6 +2281,17 @@ tym.Node = new JS.Class('Node', {
     // Accessors ///////////////////////////////////////////////////////////////
     set_instanceChildrenJson: function(v) {this._instanceChildrenJson = v;},
     set_instanceHandlers: function(v) {this._instanceHandlers = v;},
+    
+    /** Stores this instance in the global scope under the provided id. */
+    setId: function(v) {
+        var existing = this.id;
+        if (v !== existing) {
+            delete global[existing];
+            this.id = v;
+            if (v) global[v] = this;
+            if (this.inited) this.fireNewEvent('id', v);
+        }
+    },
     
     // Structural Accessors ////////////////////////////////////////////////////
     setPlacement: function(v) {this.placement = v;},

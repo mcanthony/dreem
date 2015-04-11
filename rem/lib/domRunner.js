@@ -51,7 +51,7 @@ define(function(require, exports){
     var compiler = new dreemParser.Compiler();
 
     compiler.onRead = function(file, callback) {
-      // ourself is read from the html we pass in
+      // The current page is read from the html we pass in
       if (file === location.pathname) return callback(null, dreemhtml, file);
 
       // If no file extension use the default file extension
@@ -115,7 +115,8 @@ define(function(require, exports){
       // find the first view tag
       var views = document.getElementsByTagName('view');
       if (!views || views.length === 0) return console.log('No views to process!');
-      // lets pass our outerHTML to our compiler
+      // lets pass our outerHTML to our compiler since we also want the root
+      // view to be parsed.
       domRunner.compile(views[0].outerHTML, function(error, pkg) {
         if (!error) {
           console.log(pkg);
