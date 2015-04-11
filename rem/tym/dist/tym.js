@@ -1769,12 +1769,6 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
             this[attrName] = v;
             if (this.inited !== false && this.fireNewEvent) this.fireNewEvent(attrName, v); // !== false allows this to work with non-nodes.
         }
-    },
-    
-    /** Provides better compatibility with existing dreem syntax. This is
-        just a wrapp on this.set. */
-    setAttribute: function(attrName, v) {
-        this.set(attrName, v);
     }
 });
 

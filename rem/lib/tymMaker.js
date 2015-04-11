@@ -320,7 +320,6 @@ define(function(require, exports){
 
 /*
 TODO:
-  - Handlers
   - Setter return values and default behavior
   - Declared Attributes
   - Constraints
