@@ -62,7 +62,7 @@ define(function(require, exports){
       new Function('methods', pkg.methods)(pkg.compiledMethods = []);
       delete pkg.methods;
     } catch(e) {
-      domRunner.showErrors(new parser.Error('Exception in evaluating methods ' + e.message));
+      domRunner.showErrors(new dreemParser.Error('Exception in evaluating methods ' + e.message));
       return;
     }
     
@@ -130,12 +130,22 @@ define(function(require, exports){
         childTagName = childNode.tag;
         switch (childTagName) {
           case 'setter':
+            var methodId = childNode.method_id;
+            if (methodId != null) {
+              var compiledMethod = compiledMethods[methodId];
+              if (compiledMethod) {
+                instanceMixin[tym.AccessorSupport.generateSetterName(childNode.attr.name)] = compiledMethod;
+              } else {
+                throw new Error('Cannot find method id' + methodId);
+              }
+            }
+            break;
           case 'method':
             var methodId = childNode.method_id;
             if (methodId != null) {
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
-                instanceMixin[childNode.name] = compiledMethod;
+                instanceMixin[childNode.attr.name] = compiledMethod;
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
@@ -242,12 +252,22 @@ define(function(require, exports){
         childTagName = childNode.tag;
         switch (childTagName) {
           case 'setter':
+            var methodId = childNode.method_id;
+            if (methodId != null) {
+              var compiledMethod = compiledMethods[methodId];
+              if (compiledMethod) {
+                klassBody[tym.AccessorSupport.generateSetterName(childNode.attr.name)] = compiledMethod;
+              } else {
+                throw new Error('Cannot find method id' + methodId);
+              }
+            }
+            break;
           case 'method':
             var methodId = childNode.method_id;
             if (methodId != null) {
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
-                klassBody[childNode.name] = compiledMethod;
+                klassBody[childNode.attr.name] = compiledMethod;
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
@@ -321,6 +341,7 @@ define(function(require, exports){
 /*
 TODO:
   - Setter return values and default behavior
+  - Setter name -> function name. Verify it is correct.
   - Declared Attributes
   - Constraints
   - Handle body text

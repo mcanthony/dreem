@@ -28,6 +28,11 @@
           when 3
             @destroy()
       </handler>
+      <setter name="width" args="width">
+        console.log('setWidth on class', width);
+        this.foo();
+        this.callSuper(width);
+      </setter>
       <method name="foo" args="bar">
         console.log('foo called.');
       </method>
@@ -57,6 +62,11 @@
       <handler event="activated" args="activated">
         console.log('activated', activated);
       </handler>
+      <setter name="width" args="width">
+        console.log('setWidth on instance', width);
+        this.setOpacity(this.opacity / 2);
+        this.callSuper(width);
+      </setter>
     blah
     </item2>
   </view>

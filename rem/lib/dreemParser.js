@@ -89,7 +89,7 @@ define(function(require, exports){
             this.module.parse('function __parsetest__('+args.join(',')+'){'+string+'}')
           }
           catch(e){
-            return new parser.Error(e.message, undefined, e.loc && e.loc.line - 1, e.loc && e.loc.column)
+            return new dreemParser.Error(e.message, undefined, e.loc && e.loc.line - 1, e.loc && e.loc.column)
           }
           return string
         }
@@ -107,7 +107,7 @@ define(function(require, exports){
             var out = this.module.CoffeeScript.compile(string)
           }
           catch(e){ // we have an exception. throw it back
-            return new parser.Error(e.message, undefined, e.location && e.location.first_line, e.location && e.location.first_column)
+            return new dreemParser.Error(e.message, undefined, e.location && e.location.first_line, e.location && e.location.first_column)
           }
           // lets return the blob without the function headers
           return out.split('\n').slice(1,-2).join('\n')

@@ -60,7 +60,7 @@ define(function(require, exports){
       pkg.compiledMethods = methods;
       pkg.methods = undefined // dont delete, set to undefined
     } catch(e) {
-      domRunner.showErrors(new parser.Error('Exception in evaluating methods ' + e.message));
+      domRunner.showErrors(new dreemParser.Error('Exception in evaluating methods ' + e.message));
       return;
     }
     var dr = {}
@@ -160,7 +160,7 @@ define(function(require, exports){
           if (methodId) {
             var compiledMethod = compiledMethods[methodId];
             if (compiledMethod) {
-              proto[childNode.name] = compiledMethod;
+              proto[childNode.attr.name] = compiledMethod;
             } else {
               throw new Error('Cannot find method id' + methodId);
             }
