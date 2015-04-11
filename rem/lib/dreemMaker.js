@@ -24,7 +24,6 @@
 Instantiates dreem classes from package JSON.
 */
 define(function(require, exports){
-
   var dreemMaker = exports
   var domRunner = require('./domRunner.js')
   var dreemParser = require('./dreemParser.js')
@@ -33,6 +32,25 @@ define(function(require, exports){
   require('$LIB_DIR/one_base.js')
   require('$LIB_DIR/jquery-1.9.1.js')
   require('/core/dist/layout.js')
+  
+  // Builtin modules, belongs here
+  dreemMaker.builtin = {
+    /* Built in tags that dont resolve to class files */
+    // Classes
+    node:true,
+    view:true,
+    layout:true,
+    
+    // Class Definition
+    class:true,
+    
+    // Special child tags for a Class or Class instance
+    method:true,
+    attribute:true,
+    handler:true,
+    state:true,
+    setter:true
+  }
 
   dreemMaker.makeFromPackage = function(pkg) {
     // Compile methods
@@ -56,8 +74,7 @@ define(function(require, exports){
   };
 
   dreemMaker.walkDreemJSXML = function(node, pkg) {
-    var builtin = dreemParser.builtin,
-      tagName = node.tag,
+    var tagName = node.tag,
       children = node.child;
     
     if (!tagName.startsWith('$')) {
@@ -78,13 +95,12 @@ define(function(require, exports){
   dreemMaker.lookupClass = function(tagName, pkg) {
     var classTable = pkg.compiledClasses
     var compiledMethods = pkg.compiledMethods
-    var builtin = dreemParser.builtin; // if you only reference it once, dont make temporary copies
     
     // First look for a compiled class
     if (tagName in classTable) return classTable[tagName];
     
     // Ignore built in tags
-    if (tagName in builtin) return null;
+    if (tagName in dreemMaker.builtin) return null;
     
     // Try to build a class
     var klassjsxml = pkg.classes[tagName];

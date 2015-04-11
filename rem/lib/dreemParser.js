@@ -24,29 +24,10 @@
 Dreem file parser and dependency resolver.
 */
 define(function(require, exports){
-
   var dreemParser = exports
 
-  // Builtin modules, belongs here
-  dreemParser.builtin = {
-    /* Built in tags that dont resolve to class files */
-    // Classes
-    node:true,
-    view:true,
-    layout:true,
-    
-    // Class Definition
-    class:true,
-    mixin:true,
-    
-    // Special child tags for a Class or Class instance
-    method:true,
-    attribute:true,
-    handler:true,
-    state:true,
-    setter:true,
-    getter:true
-  }
+  var dreemMaker = require('$DREEM_MAKER')
+
   /**
    * @class parser.Error
    * Unified Error class that holds enough information to 
@@ -254,7 +235,7 @@ define(function(require, exports){
       }.bind(this)
 
       var loadClass = function(name, from_node){
-        if(name in dreemParser.builtin) return
+        if(name in dreemMaker.builtin) return
         if(name in output.classes) return
         
         output.classes[name] = 2 // mark tag as loading but not defined yet
@@ -281,7 +262,6 @@ define(function(require, exports){
       }.bind(this)
 
       var walk = function(node, parent, language){
-
         if(node.tag.charAt(0)!='$') loadClass(node.tag, node)
         
         var prune = false;
@@ -337,7 +317,7 @@ define(function(require, exports){
           output.methods.push({
             language: language,
             name:name,
-            args: node.args? node.args.split(/,\s*/): [],
+            args: node.attr && node.attr.args ? node.attr.args.split(/,\s*/) : [],
             source: this.concatCode(node),
             origin: node._
           })

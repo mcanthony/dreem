@@ -13,8 +13,8 @@
 <body>
   <view width="500" height="400" bgcolor="#cc99cc">
     <!--// Class Definitions //-->
-    <class name="item" extends="view" height="15" width="100" bgcolor="#ff0000">
-      <handler event="onclick" type="coffee">
+    <class name="item" with="Button" extends="view" height="15" width="100" bgcolor="#ff0000">
+      <handler event="activated" args="activated" type="coffee">
         @count ?= 0
         @count++
         
@@ -51,9 +51,14 @@
       <view x="50" y="5" width="10" height="10" bgcolor="#9933cc"></view>
     </foo>
     
-    <item2 bgcolor="#00ff00">asdf</item2>
+    <item2 y="200" bgcolor="#00ff00">asdf</item2>
     
-    <item>blah</item2>
+    <item y="250">
+      <handler event="activated" args="activated">
+        console.log('activated', activated);
+      </handler>
+    blah
+    </item2>
   </view>
 </body>
 <!-- The MIT License (MIT)

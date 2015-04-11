@@ -590,12 +590,26 @@ tym = {
         return result
     },
     
-    // Child Instantiation
+    // Dreem Instantiation
     makeChildren: function(target, json) {
         var maker = this.maker, pkg = this.pkg,
             i = 0, len = json.length;
         for (; len > i;) maker.walkDreemJSXML(json[i++], target, pkg);
-    }
+    },
+    
+    registerHandlers: function(target, handlers) {
+        if (handlers) {
+            var len = handlers.length;
+            if (len > 0) {
+                var i = 0, handler;
+                for (; len > i;) {
+                    handler = handlers[i++];
+                    if (handler.reference) target = tym.resolveName(handler.reference, target);
+                    target.attachTo(target, handler.name, handler.event);
+                }
+            }
+        }
+    },
 };
 
 
@@ -1755,6 +1769,12 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
             this[attrName] = v;
             if (this.inited !== false && this.fireNewEvent) this.fireNewEvent(attrName, v); // !== false allows this to work with non-nodes.
         }
+    },
+    
+    /** Provides better compatibility with existing dreem syntax. This is
+        just a wrapp on this.set. */
+    setAttribute: function(attrName, v) {
+        this.set(attrName, v);
     }
 });
 
@@ -2190,6 +2210,7 @@ tym.Node = new JS.Class('Node', {
         this.setParent(parent);
         this.doAfterAdoption();
         this.__makeChildren();
+        this.__registerHandlers();
         
         this.inited = true;
     },
@@ -2208,8 +2229,14 @@ tym.Node = new JS.Class('Node', {
         @returns void */
     doAfterAdoption: function() {},
     
+    /** @private */
     __makeChildren: function() {
         if (this._instanceChildrenJson) tym.makeChildren(this, this._instanceChildrenJson);
+    },
+    
+    /** @private */
+    __registerHandlers: function() {
+        if (this._instanceHandlers) tym.registerHandlers(this, this._instanceHandlers);
     },
     
     /** @overrides tym.Destructible. */
@@ -2256,6 +2283,7 @@ tym.Node = new JS.Class('Node', {
     
     // Accessors ///////////////////////////////////////////////////////////////
     set_instanceChildrenJson: function(v) {this._instanceChildrenJson = v;},
+    set_instanceHandlers: function(v) {this._instanceHandlers = v;},
     
     // Structural Accessors ////////////////////////////////////////////////////
     setPlacement: function(v) {this.placement = v;},
@@ -5433,7 +5461,7 @@ tym.Activateable = new JS.Module('Activateable', {
     /** Called when this view should be activated.
         @returns void */
     doActivated: function() {
-        // Subclasses to implement as needed.
+        this.fireNewEvent('activated', true);
     }
 });
 

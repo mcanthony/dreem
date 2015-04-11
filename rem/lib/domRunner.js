@@ -56,7 +56,7 @@ define(function(require, exports){
 
       // If no file extension use the default file extension
       var parts = file.split('/'), lastPart = parts[parts.length - 1];
-      if(lastPart.indexOf('.') === -1) file += '.' + define.CLASS_FILE_EXTENSION;
+      if (lastPart.indexOf('.') === -1) file += '.' + define.CLASS_FILE_EXTENSION;
 
       // load JS via script tag, just cause its cleaner in a browser.
       if (file.indexOf('.js') === file.length - 3) {

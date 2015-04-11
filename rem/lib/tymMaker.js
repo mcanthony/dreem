@@ -30,6 +30,27 @@ define(function(require, exports){
 
   require('$ROOT/rem/tym/dist/tym.js');
 
+  // Builtin modules, belongs here
+  maker.builtin = {
+    /* Built in tags that dont resolve to class files */
+    // Classes
+    node:true,
+    view:true,
+    layout:true,
+    Button:true,
+    
+    // Class Definition
+    class:true,
+    mixin:true,
+    
+    // Special child tags for a Class or Class instance
+    method:true,
+    attribute:true,
+    handler:true,
+    state:true,
+    setter:true
+  }
+
   maker.makeFromPackage = function(pkg) {
     // Compile methods
     var methods = [];
@@ -48,7 +69,8 @@ define(function(require, exports){
     pkg.compiledClasses = {
       node:tym.Node,
       view:tym.View,
-      layout:tym.Layout
+      layout:tym.Layout,
+      Button:tym.Button
     };
     
     // Make pkg available to tym
@@ -81,9 +103,10 @@ define(function(require, exports){
     
     // Instantiate
     var attrs = node.attr || {},
-      mixins = [], 
+      mixins = [],
       instanceMixin = {},
-      instanceChildrenJson;
+      instanceChildrenJson,
+      instanceHandlers;
     
     // Get Mixins
     var mixinNames = attrs.with;
@@ -117,19 +140,26 @@ define(function(require, exports){
             }
             break;
           case 'handler':
-            console.log('TYM HANDLER', childNode.method_id, childNode);
-            // FIXME: add handler to class definition
+            if (!instanceHandlers) attrs._instanceHandlers = instanceHandlers = [];
+            var methodId = childNode.method_id;
+            if (methodId != null) {
+              var compiledMethod = compiledMethods[methodId];
+              if (compiledMethod) {
+                var methodName = '__handler_' + methodId;
+                instanceMixin[methodName] = compiledMethod;
+                instanceHandlers.push({name:methodName, event:childNode.attr.event, reference:childNode.attr.reference});
+              } else {
+                throw new Error('Cannot find method id' + methodId);
+              }
+            }
             break;
           case 'attribute':
             console.log('TYM ATTRIBUTE', childNode);
-            // FIXME: add attribute to class definition
+            // FIXME: add attribute to instance definition
             break;
           case 'state':
             console.log('TYM STATE', childNode);
-            // FIXME: add state to class definition
-            break;
-          case 'getter':
-            // Not supported in dreem
+            // FIXME: add state to instance definition
             break;
           default:
             if (!instanceChildrenJson) attrs._instanceChildrenJson = instanceChildrenJson = [];
@@ -152,19 +182,18 @@ define(function(require, exports){
     mixins.push(instanceMixin);
     if (!parentInstance) mixins.push(tym.SizeToViewport); // Root View case
     
-    var instance = new klass(parentInstance, combinedAttrs, mixins);
+    new klass(parentInstance, combinedAttrs, mixins);
   };
   
   maker.lookupClass = function(tagName, pkg) {
     var classTable = pkg.compiledClasses,
-      compiledMethods = pkg.compiledMethods,
-      builtin = dreemParser.builtin;
+      compiledMethods = pkg.compiledMethods;
     
     // First look for a compiled class
     if (tagName in classTable) return classTable[tagName];
     
     // Ignore built in tags
-    if (tagName in builtin) return null;
+    if (tagName in maker.builtin) return null;
     
     
     // Try to build a class
@@ -200,6 +229,7 @@ define(function(require, exports){
     var children = klassjsxml.child,
       klassBody = {},
       klassChildrenJson,
+      klassHandlers,
       i, len, childNode, childTagName;
     if (children) {
       i = 0;
@@ -221,8 +251,18 @@ define(function(require, exports){
             }
             break;
           case 'handler':
-            console.log('TYM HANDLER', childNode.method_id, childNode);
-            // FIXME: add handler to class definition
+            if (!klassHandlers) klassHandlers = [];
+            var methodId = childNode.method_id;
+            if (methodId != null) {
+              var compiledMethod = compiledMethods[methodId];
+              if (compiledMethod) {
+                var methodName = '__handler_' + methodId;
+                klassBody[methodName] = compiledMethod;
+                klassHandlers.push({name:methodName, event:childNode.attr.event, reference:childNode.attr.reference});
+              } else {
+                throw new Error('Cannot find method id' + methodId);
+              }
+            }
             break;
           case 'attribute':
             console.log('TYM ATTRIBUTE', childNode);
@@ -231,9 +271,6 @@ define(function(require, exports){
           case 'state':
             console.log('TYM STATE', childNode);
             // FIXME: add state to class definition
-            break;
-          case 'getter':
-            // Not supported in dreem
             break;
           default:
             if (!klassChildrenJson) klassChildrenJson = [];
@@ -245,6 +282,11 @@ define(function(require, exports){
     // Setup __makeChildren method if klassChildren exist
     if (klassChildrenJson) {
       klassBody.__makeChildren = new Function('tym.makeChildren(this, ' + JSON.stringify(klassChildrenJson) + '); this.callSuper();');
+    }
+    
+    // Setup __registerHandlers method if klassHandlers exist
+    if (klassHandlers) {
+      klassBody.__registerHandlers = new Function('tym.registerHandlers(this, ' + JSON.stringify(klassHandlers) + '); this.callSuper();');
     }
     
     // Instantiate the Class
@@ -279,6 +321,7 @@ define(function(require, exports){
 /*
 TODO:
   - Handlers
-  - Attributes
+  - Setter return values and default behavior
+  - Declared Attributes
   - Constraints
 */
