@@ -37,6 +37,7 @@ define(function(require, exports){
     
     // Class Definition
     class:true,
+    mixin:true,
     
     // Special child tags for a Class or Class instance
     method:true,
@@ -284,7 +285,7 @@ define(function(require, exports){
         if(node.tag.charAt(0)!='$') loadClass(node.tag, node)
         
         var prune = false;
-        if (node.tag == 'class') {
+        if (node.tag == 'class' || node.tag == 'mixin') {
           var nameattr = node.attr && node.attr.name
           if(!nameattr){
             errors.push(this.originError('Class has no name ', node._))
@@ -330,7 +331,7 @@ define(function(require, exports){
 
           // give the method a unique but human readable name
           var name = node.tag + '_' + (node.attr && node.attr.name) + '_' + node._ + '_' + language
-          if(parent && parent.tag == 'class') name = (parent.attr && parent.attr.name) + '_' + name
+          if(parent && (parent.tag == 'class' || parent.tag == 'mixin')) name = (parent.attr && parent.attr.name) + '_' + name
 
           node.method_id = output.methods.length
           output.methods.push({

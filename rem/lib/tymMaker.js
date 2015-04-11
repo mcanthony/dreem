@@ -85,8 +85,21 @@ define(function(require, exports){
       instanceMixin = {},
       instanceChildrenJson;
     
+    // Get Mixins
+    var mixinNames = attrs.with;
+    delete attrs.with;
+    if (mixinNames) {
+      mixinNames.split(/,\s*/).forEach(
+        function(mixinName) {
+          mixins.push(maker.lookupClass(mixinName, pkg));
+        }
+      );
+    }
+    
+    var i, len, childNode, childTagName;
     if (children) {
-      var i = 0, len = children.length, childNode, childTagName;
+      i = 0;
+      len = children.length;
       for (; len > i;) {
         childNode = children[i++];
         childTagName = childNode.tag;
@@ -125,10 +138,21 @@ define(function(require, exports){
       }
     }
     
-    mixins.push(instanceMixin);
-    if (!parentInstance) mixins.push(tym.SizeToViewport);
+    // Build default attributes
+    var combinedAttrs = {};
+    len = mixins.length;
+    if (len > 0) {
+      i = 0;
+      for (; len > i;) {
+        tym.extend(combinedAttrs, mixins[i++].defaultAttrValues);
+      }
+    }
+    tym.extend(combinedAttrs, attrs);
     
-    var instance = new klass(parentInstance, attrs, mixins);
+    mixins.push(instanceMixin);
+    if (!parentInstance) mixins.push(tym.SizeToViewport); // Root View case
+    
+    var instance = new klass(parentInstance, combinedAttrs, mixins);
   };
   
   maker.lookupClass = function(tagName, pkg) {
@@ -148,14 +172,16 @@ define(function(require, exports){
     if (!klassjsxml) throw new Error('Cannot find class ' + tagName);
     delete pkg.classes[tagName];
     
+    var isMixin = klassjsxml.tag === 'mixin';
     var klassAttrs = klassjsxml.attr || {};
     
     // Determine base class
-    var baseclass = classTable.view;
-    var extendsAttr = klassAttrs.extends;
-    delete klassAttrs.extends;
-    if (extendsAttr) { // we cant extend from more than one class
-      baseclass = maker.lookupClass(extendsAttr, pkg);
+    var baseclass, extendsAttr;
+    if (!isMixin) {
+      baseclass = classTable.view;
+      extendsAttr = klassAttrs.extends;
+      delete klassAttrs.extends;
+      if (extendsAttr) baseclass = maker.lookupClass(extendsAttr, pkg);
     }
 
     // Get Mixins
@@ -223,11 +249,16 @@ define(function(require, exports){
     
     // Instantiate the Class
     if (mixins.length > 0) klassBody.include = mixins;
-    var Klass = tym[tagName] = new JS.Class(tagName, baseclass, klassBody);
+    var Klass;
+    if (isMixin) {
+      Klass = tym[tagName] = new JS.Module(tagName, klassBody);
+    } else {
+      Klass = tym[tagName] = new JS.Class(tagName, baseclass, klassBody);
+    }
     
     // Build default class attributes
     var defaultAttrValues = {};
-    if (baseclass.defaultAttrValues) tym.extend(defaultAttrValues, baseclass.defaultAttrValues);
+    if (!isMixin && baseclass.defaultAttrValues) tym.extend(defaultAttrValues, baseclass.defaultAttrValues);
     len = mixins.length;
     if (len > 0) {
       i = 0;
@@ -244,3 +275,10 @@ define(function(require, exports){
     return classTable[tagName] = Klass;
   }
 })
+
+/*
+TODO:
+  - Handlers
+  - Attributes
+  - Constraints
+*/
