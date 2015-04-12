@@ -341,12 +341,9 @@ define(function(require, exports){
 /*
 TODO:
   - Setter return values and default behavior
-  - Setter name -> function name. Verify it is correct.
   - Declared Attributes
   - Constraints
   - Handle body text
-  - setAttribute in accessor support. Resolve conflict with Animator. Might need to 
-    change setter/getter func names to set_foo, get_foo
   
   - States
 */

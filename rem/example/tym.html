@@ -11,7 +11,7 @@
   <script type="text/javascript" src="../lib/define.js"></script>
 </head>
 <body>
-  <view width="500" height="400" bgcolor="#cc99cc">
+  <view width="500" height="400" minwidth="1000" bgcolor="#cc99cc">
     <!--// Class Definitions //-->
     <class name="item" with="button" extends="view" height="15" width="100" bgcolor="#ff0000">
       <handler event="activated" args="activated" type="coffee">
@@ -64,7 +64,7 @@
       </handler>
       <setter name="width" args="width">
         console.log('setWidth on instance', width);
-        this.setOpacity(this.opacity / 2);
+        this.setAttribute('opacity', this.opacity / 2);
         this.callSuper(width);
       </setter>
     blah
