@@ -501,6 +501,39 @@ tym = {
         return scope;
     },
     
+    coerce: function(value, type, defaultValue) {
+        switch (type) {
+            case 'number':
+                value = Number(value);
+                if (isNaN(value)) {
+                    if (defaultValue !== undefined) {
+                        value = defaultValue;
+                    } else {
+                        this.dumpStack("NaN encountered parsing value as number with no default: " + value);
+                    }
+                }
+                break;
+            case 'boolean':
+                if (value == null) {
+                    value = defaultValue !== undefined ? defaultValue : false;
+                } else if (typeof value === 'string') {
+                    value = value === 'true';
+                } else {
+                    value = value ? true : false;
+                }
+                break;
+            case 'string':
+                if (value == null) {
+                    value = defaultValue !== undefined ? defaultValue : '';
+                } else {
+                    value = '' + value;
+                }
+                break;
+            default:
+        }
+        return value;
+    },
+    
     /** Used to wrap the first function with the second function. The first
         function is exposed as this.callSuper within the wrapper function.
         @param fn:function the function to wrap.
@@ -601,11 +634,20 @@ tym = {
         if (handlers) {
             var len = handlers.length;
             if (len > 0) {
-                var i = 0, handler;
+                var i = 0, handler, ref, refTarget;
                 for (; len > i;) {
                     handler = handlers[i++];
-                    if (handler.reference) target = tym.resolveName(handler.reference, target);
-                    target.attachTo(target, handler.name, handler.event);
+                    ref = handler.reference;
+                    refTarget = target;
+                    if (ref) {
+                        if (ref.startsWith('this.')) {
+                            refTarget = tym.resolveName(ref.substring(5), target);
+                        } else {
+                            // Resolve in global scope
+                            refTarget = tym.resolveName(ref);
+                        }
+                    }
+                    if (refTarget) target.attachTo(refTarget, handler.name, handler.event);
                 }
             }
         }
@@ -2236,14 +2278,10 @@ tym.Node = new JS.Class('Node', {
     doAfterAdoption: function() {},
     
     /** @private */
-    __makeChildren: function() {
-        if (this._instanceChildrenJson) tym.makeChildren(this, this._instanceChildrenJson);
-    },
+    __makeChildren: function() {},
     
     /** @private */
-    __registerHandlers: function() {
-        if (this._instanceHandlers) tym.registerHandlers(this, this._instanceHandlers);
-    },
+    __registerHandlers: function() {},
     
     /** @overrides tym.Destructible. */
     destroy: function() {
@@ -2291,9 +2329,6 @@ tym.Node = new JS.Class('Node', {
     
     
     // Accessors ///////////////////////////////////////////////////////////////
-    set__instanceChildrenJson: function(v) {this._instanceChildrenJson = v;},
-    set__instanceHandlers: function(v) {this._instanceHandlers = v;},
-    
     /** Sets the provided Node as the new parent of this Node. This is the
         most direct method to do reparenting. You can also use the addSubnode
         method but it's just a wrapper around this setter. */
@@ -4172,6 +4207,8 @@ tym.sprite.View = new JS.Class('sprite.View', {
             maskfocus:boolean Prevents focus from traversing into this view or 
                 any of its subviews. The default is undefined which is 
                 equivalent to false.
+            focusable:boolean Indicates if this view can have focus or not.
+                Defaults to false.
             focused:boolean Indicates if this view has focus or not.
             focusembellishment:boolean Indicates if the focus embellishment 
                 should be shown for this view or not when it has focus.
@@ -4271,7 +4308,7 @@ tym.View = new JS.Class('View', tym.Node, {
     },
     
     set_ignorelayout: function(v) {
-        if (this.ignorelayout !== v) {
+        if (this.ignorelayout !== (v = tym.coerce(v, 'boolean', false))) {
             // Add or remove ourselves from any layouts on our parent.
             var ready = this.inited && this.parent, layouts, i;
             if (v) {
@@ -4293,12 +4330,12 @@ tym.View = new JS.Class('View', tym.Node, {
     },
     
     // Focus Attributes //
-    set_focustrap: function(v) {this.focustrap = v;},
-    set_focuscage: function(v) {this.focuscage = v;},
-    set_maskfocus: function(v) {this.maskfocus = v;},
+    set_focustrap: function(v) {this.set('focustrap', tym.coerce(v, 'boolean', false), true);},
+    set_focuscage: function(v) {this.set('focuscage', tym.coerce(v, 'boolean', false), true);},
+    set_maskfocus: function(v) {this.set('maskfocus', tym.coerce(v, 'boolean', false), true);},
     
     set_focused: function(v) {
-        if (this.focused !== v) {
+        if (this.focused !== (v = tym.coerce(v, 'boolean', false))) {
             this.focused = v;
             if (this.inited) {
                 this.fireNewEvent('focused', v);
@@ -4313,14 +4350,14 @@ tym.View = new JS.Class('View', tym.Node, {
     },
     
     set_focusable: function(v) {
-        if (this.focusable !== v) {
+        if (this.focusable !== (v = tym.coerce(v, 'boolean', false))) {
             this.focusable = this.sprite.set_focusable(v);
             if (this.inited) this.fireNewEvent('focusable', this.focusable);
         }
     },
     
     set_focusembellishment: function(v) {
-        if (this.focusembellishment !== v) {
+        if (this.focusembellishment !== (v = tym.coerce(v, 'boolean', true))) {
             this.focusembellishment = v;
             if (this.focused) {
                 if (v) {
@@ -4334,21 +4371,21 @@ tym.View = new JS.Class('View', tym.Node, {
     
     // Visual Attributes //
     set_x: function(v) {
-        if (this.x !== v) {
+        if (this.x !== (v = tym.coerce(v, 'number', 0))) {
             this.x = this.sprite.set_x(v);
             if (this.inited) this.fireNewEvent('x', this.x);
         }
     },
     
     set_y: function(v) {
-        if (this.y !== v) {
+        if (this.y !== (v = tym.coerce(v, 'number', 0))) {
             this.y = this.sprite.set_y(v);
             if (this.inited) this.fireNewEvent('y', this.y);
         }
     },
     
     set_width: function(v) {
-        if (this.width !== v) {
+        if (this.width !== (v = tym.coerce(v, 'number', 0))) {
             this.width = this.sprite.set_width(v);
             if (this.inited) {
                 this.__updateBounds(this.width, this.height);
@@ -4358,7 +4395,7 @@ tym.View = new JS.Class('View', tym.Node, {
     },
     
     set_height: function(v) {
-        if (this.height !== v) {
+        if (this.height !== (v = tym.coerce(v, 'number', 0))) {
             this.height = this.sprite.set_height(v);
             if (this.inited) {
                 this.__updateBounds(this.width, this.height);
@@ -4368,28 +4405,28 @@ tym.View = new JS.Class('View', tym.Node, {
     },
     
     set_bgcolor: function(v) {
-        if (this.bgcolor !== v) {
+        if (this.bgcolor !== v) { // FIXME: add a color type for coercion
             this.bgcolor = this.sprite.set_bgcolor(v);
             if (this.inited) this.fireNewEvent('bgcolor', this.bgcolor);
         }
     },
     
     set_opacity: function(v) {
-        if (this.opacity !== v) {
+        if (this.opacity !== (v = tym.coerce(v, 'number', 1))) {
             this.opacity = this.sprite.set_opacity(v);
             if (this.inited) this.fireNewEvent('opacity', this.opacity);
         }
     },
     
     set_visible: function(v) {
-        if (this.visible !== v) {
+        if (this.visible !== (v = tym.coerce(v, 'boolean', true))) {
             this.visible = this.sprite.set_visible(v);
             if (this.inited) this.fireNewEvent('visible', this.visible);
         }
     },
     
     set_cursor: function(v) {
-        if (this.cursor !== v) {
+        if (this.cursor !== (v = tym.coerce(v, 'string', 'auto'))) {
             this.cursor = this.sprite.set_cursor(v);
             if (this.inited) this.fireNewEvent('cursor', v);
         }
@@ -5082,6 +5119,7 @@ tym.Animator = new JS.Class('Animator', tym.Node, {
     
     // Accessors ///////////////////////////////////////////////////////////////
     set_running: function(v) {
+        v = tym.coerce(v, 'boolean', false);
         if (this.running !== v) {
             this.running = v;
             if (this.inited) this.fireNewEvent('running', v);
@@ -5099,6 +5137,7 @@ tym.Animator = new JS.Class('Animator', tym.Node, {
     },
     
     set_paused: function(v) {
+        v = tym.coerce(v, 'boolean', false);
         if (this.paused !== v) {
             this.paused = v;
             if (this.inited) this.fireNewEvent('paused', v);
@@ -5114,12 +5153,17 @@ tym.Animator = new JS.Class('Animator', tym.Node, {
     },
     
     set_reverse: function(v) {
+        v = tym.coerce(v, 'boolean', false);
         if (this.reverse !== v) {
             this.reverse = v;
             if (this.inited) this.fireNewEvent('reverse', v);
             
             if (!this.running) this.__reset();
         }
+    },
+    
+    set_relative: function(v) {
+        this.set('relative', tym.coerce(v, 'boolean', false), true);
     },
     
     set_easingfunction: function(v) {
@@ -5129,24 +5173,23 @@ tym.Animator = new JS.Class('Animator', tym.Node, {
         // Use default if invalid
         if (!v) v = tym.Animator.DEFAULT_EASING_FUNCTION;
         
-        if (this.easingfunction !== v) {
-            this.easingfunction = v;
-            if (this.inited) this.fireNewEvent('easingfunction', v);
-        }
+        this.set('easingfunction', v, true);
     },
     
     set_from: function(v) {
-        if (this.from !== v) {
-            this.from = v;
-            if (this.inited) this.fireNewEvent('from', v);
-        }
+        this.set('from', tym.coerce(v, 'number'), true);
     },
     
     set_to: function(v) {
-        if (this.to !== v) {
-            this.to = v;
-            if (this.inited) this.fireNewEvent('to', v);
-        }
+        this.set('to', tym.coerce(v, 'number'), true);
+    },
+    
+    set_repeat: function(v) {
+        this.set('repeat', tym.coerce(v, 'number', 1), true);
+    },
+    
+    set_duration: function(v) {
+        this.set('duration', tym.coerce(v, 'number', 1000), true);
     },
     
     set_callback: function(v) {this.callback = v;},

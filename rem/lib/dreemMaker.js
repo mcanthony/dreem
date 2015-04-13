@@ -70,17 +70,27 @@ define(function(require, exports){
       layout: dr.layout || function(){}
     };
     
-    dreemMaker.walkDreemJSXML(pkg.root, pkg);
+    dreemMaker.walkDreemJSXML(pkg.root.child[0], pkg);
   };
 
   dreemMaker.walkDreemJSXML = function(node, pkg) {
     var tagName = node.tag,
       children = node.child;
     
-    if (!tagName.startsWith('$')) {
-      var klass = dreemMaker.lookupClass(tagName, pkg);
+    var klass;
+    if (tagName.startsWith('$')) {
+      if (tagName === '$comment') {
+        // Ignore comments
+        return;
+      } else if (tagName === '$text') {
+        console.log('Body Text: ', node.value);
+        return;
+      } else {
+        console.log("Unexpected tag: ", tagName);
+        return;
+      }
     } else {
-      console.log("Unhandled tag: ", tagName);
+      klass = dreemMaker.lookupClass(tagName, pkg);
     }
     
     if (children) {

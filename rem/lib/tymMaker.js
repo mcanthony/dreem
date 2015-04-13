@@ -39,6 +39,7 @@ define(function(require, exports){
     view:true,
     layout:true,
     button:true,
+    animator:true,
     
     // Class Definition
     class:true,
@@ -71,7 +72,8 @@ define(function(require, exports){
       node:tym.Node,
       view:tym.View,
       layout:tym.Layout,
-      button:tym.Button
+      button:tym.Button,
+      animator:tym.Animator
     };
     
     // Make pkg available to tym since child processing is initiated from there.
@@ -108,7 +110,8 @@ define(function(require, exports){
       mixins = [],
       instanceMixin = {},
       instanceChildrenJson,
-      instanceHandlers;
+      instanceHandlers,
+      instanceAttrs, instanceAttrValues;
     
     // Get Mixins
     var mixinNames = attrs.with;
@@ -121,20 +124,20 @@ define(function(require, exports){
       );
     }
     
-    var i, len, childNode, childTagName;
+    var i, len, childNode, childAttrs;
     if (children) {
       i = 0;
       len = children.length;
       for (; len > i;) {
         childNode = children[i++];
-        childTagName = childNode.tag;
-        switch (childTagName) {
+        childAttrs = childNode.attr;
+        switch (childNode.tag) {
           case 'setter':
             var methodId = childNode.method_id;
             if (methodId != null) {
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
-                instanceMixin[tym.AccessorSupport.generateSetterName(childNode.attr.name)] = compiledMethod;
+                instanceMixin[tym.AccessorSupport.generateSetterName(childAttrs.name)] = compiledMethod;
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
@@ -145,36 +148,40 @@ define(function(require, exports){
             if (methodId != null) {
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
-                instanceMixin[childNode.attr.name] = compiledMethod;
+                instanceMixin[childAttrs.name] = compiledMethod;
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
             }
             break;
           case 'handler':
-            if (!instanceHandlers) attrs._instanceHandlers = instanceHandlers = [];
+            if (!instanceHandlers) instanceHandlers = [];
             var methodId = childNode.method_id;
             if (methodId != null) {
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
                 var methodName = '__handler_' + methodId;
-                instanceMixin[methodName] = compiledMethod;
-                instanceHandlers.push({name:methodName, event:childNode.attr.event, reference:childNode.attr.reference});
+                instanceMixin[methodName] = maker._buildHandlerFunction(compiledMethod);
+                instanceHandlers.push({name:methodName, event:childAttrs.event, reference:childAttrs.reference});
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
             }
             break;
           case 'attribute':
-            console.log('TYM ATTRIBUTE', childNode);
-            // FIXME: add attribute to instance definition
+            if (!instanceAttrs) {
+              instanceAttrs = {};
+              instanceAttrValues = {};
+            }
+            instanceAttrs[childAttrs.name] = childAttrs.type || 'string'; // Default type is string
+            instanceAttrValues[childAttrs.name] = childAttrs.value;
             break;
           case 'state':
             console.log('TYM STATE', childNode);
             // FIXME: add state to instance definition
             break;
           default:
-            if (!instanceChildrenJson) attrs._instanceChildrenJson = instanceChildrenJson = [];
+            if (!instanceChildrenJson) instanceChildrenJson = [];
             instanceChildrenJson.push(childNode);
         }
       }
@@ -189,12 +196,40 @@ define(function(require, exports){
         tym.extend(combinedAttrs, mixins[i++].defaultAttrValues);
       }
     }
+    if (instanceAttrValues) tym.extend(combinedAttrs, instanceAttrValues);
     tym.extend(combinedAttrs, attrs);
+    
+    // Setup __makeChildren method if instanceChildrenJson exist
+    if (instanceChildrenJson) {
+      instanceMixin.__makeChildren = new Function('this.callSuper(); tym.makeChildren(this, ' + JSON.stringify(instanceChildrenJson) + ');');
+    }
+    
+    // Setup __registerHandlers method if klassHandlers exist
+    if (instanceHandlers) {
+      instanceMixin.__registerHandlers = new Function('this.callSuper(); tym.registerHandlers(this, ' + JSON.stringify(instanceHandlers) + ');');
+    }
+    
+    // Build setters for attributes
+    if (instanceAttrs) {
+      var setterName;
+      for (var attrName in instanceAttrs) {
+        setterName = tym.AccessorSupport.generateSetterName(attrName);
+        if (!instanceMixin[setterName]) { // Don't clobber an explicit setter
+          instanceMixin[setterName] = new Function(
+            "value", "this.set('" + attrName + "', tym.coerce(value, '" + instanceAttrs[attrName] + "'), true);"
+          );
+        }
+      }
+    }
     
     mixins.push(instanceMixin);
     if (!parentInstance) mixins.push(tym.SizeToViewport); // Root View case
     
     new klass(parentInstance, combinedAttrs, mixins);
+  };
+  
+  maker._buildHandlerFunction = function(compiledMethod) {
+    return function(event) {compiledMethod.call(this, event.value);}; // Convert event to a simple value
   };
   
   maker.lookupClass = function(tagName, pkg) {
@@ -243,20 +278,21 @@ define(function(require, exports){
       klassBody = {},
       klassChildrenJson,
       klassHandlers,
-      i, len, childNode, childTagName;
+      klassDeclaredAttrs, klassDeclaredAttrValues,
+      i, len, childNode, childAttrs;
     if (children) {
       i = 0;
       len = children.length;
       for (; len > i;) {
         childNode = children[i++];
-        childTagName = childNode.tag;
-        switch (childTagName) {
+        childAttrs = childNode.attr;
+        switch (childNode.tag) {
           case 'setter':
             var methodId = childNode.method_id;
             if (methodId != null) {
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
-                klassBody[tym.AccessorSupport.generateSetterName(childNode.attr.name)] = compiledMethod;
+                klassBody[tym.AccessorSupport.generateSetterName(childAttrs.name)] = compiledMethod;
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
@@ -267,7 +303,7 @@ define(function(require, exports){
             if (methodId != null) {
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
-                klassBody[childNode.attr.name] = compiledMethod;
+                klassBody[childAttrs.name] = compiledMethod;
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
@@ -280,16 +316,20 @@ define(function(require, exports){
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
                 var methodName = '__handler_' + methodId;
-                klassBody[methodName] = compiledMethod;
-                klassHandlers.push({name:methodName, event:childNode.attr.event, reference:childNode.attr.reference});
+                klassBody[methodName] = maker._buildHandlerFunction(compiledMethod);
+                klassHandlers.push({name:methodName, event:childAttrs.event, reference:childAttrs.reference});
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
             }
             break;
           case 'attribute':
-            console.log('TYM ATTRIBUTE', childNode);
-            // FIXME: add attribute to class definition
+            if (!klassDeclaredAttrs) {
+              klassDeclaredAttrs = {};
+              klassDeclaredAttrValues = {};
+            }
+            klassDeclaredAttrs[childAttrs.name] = childAttrs.type || 'string'; // Default type is string
+            klassDeclaredAttrValues[childAttrs.name] = childAttrs.value;
             break;
           case 'state':
             console.log('TYM STATE', childNode);
@@ -302,14 +342,27 @@ define(function(require, exports){
       }
     }
     
-    // Setup __makeChildren method if klassChildren exist
+    // Setup __makeChildren method if klassChildrenJson exist
     if (klassChildrenJson) {
-      klassBody.__makeChildren = new Function('tym.makeChildren(this, ' + JSON.stringify(klassChildrenJson) + '); this.callSuper();');
+      klassBody.__makeChildren = new Function('this.callSuper(); tym.makeChildren(this, ' + JSON.stringify(klassChildrenJson) + ');');
     }
     
     // Setup __registerHandlers method if klassHandlers exist
     if (klassHandlers) {
-      klassBody.__registerHandlers = new Function('tym.registerHandlers(this, ' + JSON.stringify(klassHandlers) + '); this.callSuper();');
+      klassBody.__registerHandlers = new Function('this.callSuper(); tym.registerHandlers(this, ' + JSON.stringify(klassHandlers) + ');');
+    }
+    
+    // Build setters for attributes
+    if (klassDeclaredAttrs) {
+      var setterName;
+      for (var attrName in klassDeclaredAttrs) {
+        setterName = tym.AccessorSupport.generateSetterName(attrName);
+        if (!klassBody[setterName]) { // Don't clobber an explicit setter
+          klassBody[setterName] = new Function(
+            "value", "this.set('" + attrName + "', tym.coerce(value, '" + klassDeclaredAttrs[attrName] + "'), true);"
+          );
+        }
+      }
     }
     
     // Instantiate the Class or Mixin
@@ -328,6 +381,7 @@ define(function(require, exports){
         }
       }
     }
+    if (klassDeclaredAttrValues) tym.extend(defaultAttrValues, klassDeclaredAttrValues);
     tym.extend(defaultAttrValues, klassAttrs);
     delete defaultAttrValues.name; // Instances only
     delete defaultAttrValues.id; // Instances only
@@ -340,10 +394,10 @@ define(function(require, exports){
 
 /*
 TODO:
-  - Setter return values and default behavior
-  - Declared Attributes
   - Constraints
   - Handle body text
+  - Events should be named onfoo not foo
   
+  - Setter return values and default behavior
   - States
 */
