@@ -244,7 +244,8 @@ define(function(require, exports){
           deps[name] = [from_node]
           loading++
           // we should make the load order deterministic by force serializing the dependency order
-          this.parseDre(define.expandVariables(define.CLASSES_DIR) + name, function(err, jsobj){
+          var path = name.split('-').join('/');
+          this.parseDre(define.expandVariables(define.CLASSES_DIR) + path, function(err, jsobj){
             if(!err) walk(jsobj, null, 'js')
             else{
               if(Array.isArray(err)) errors.push.apply(errors, err)
