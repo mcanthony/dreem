@@ -117,9 +117,11 @@ define(function(require, exports){
       if (!views || views.length === 0) return console.log('No views to process!');
       // lets pass our outerHTML to our compiler since we also want the root
       // view to be parsed.
-      domRunner.compile(views[0].outerHTML, function(error, pkg) {
+      var rootView = views[0];
+      domRunner.compile(rootView.outerHTML, function(error, pkg) {
         if (!error) {
-          console.log(pkg);
+          //console.log(pkg);
+          rootView.parentNode.removeChild(rootView);
           dreemMaker.makeFromPackage(pkg);
         }
       });

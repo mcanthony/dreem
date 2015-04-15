@@ -57,13 +57,13 @@
     </mixin>
     
     <!--// Instances //-->
-    <view with="bar" x="10" y="20" width="100" height="150" bgcolor="#ff9999"></view>
+    <view with="bar" x="10" y="20" width="100" height="${this.parent.item2.x + 100}" bgcolor="#ff9999"></view>
     
     <subfoo id="bar" x="200" width="100" height="40">
       <view name="d" x="50" y="5" width="10" height="10" bgcolor="#9933cc"></view>
     </subfoo>
     
-    <item2 y="200" bgcolor="#00ff00">asdf</item2>
+    <item2 name="item2" y="200" x="${this.y / 10 + foo.width + foo.x}" bgcolor="green">asdf</item2>
     
     <item name="theItem" y="250" id="foo" bgcolor="orange">
       <attribute name="thing" type="number" value="5"></attribute>

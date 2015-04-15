@@ -82,6 +82,8 @@ define(function(require, exports){
     
     // Start processing from the root downward
     maker.walkDreemJSXML(pkg.root.child[0], null, pkg);
+    
+    tym.AccessorSupport.CONSTRAINTS.notifyReadyForConstraints();
   };
 
   maker.walkDreemJSXML = function(node, parentInstance, pkg) {
@@ -216,7 +218,7 @@ define(function(require, exports){
         setterName = tym.AccessorSupport.generateSetterName(attrName);
         if (!instanceMixin[setterName]) { // Don't clobber an explicit setter
           instanceMixin[setterName] = new Function(
-            "value", "this.set('" + attrName + "', tym.coerce(value, '" + instanceAttrs[attrName] + "'), true);"
+            "value", "this.setActual('" + attrName + "', value, '" + instanceAttrs[attrName] + "');"
           );
         }
       }
@@ -359,7 +361,7 @@ define(function(require, exports){
         setterName = tym.AccessorSupport.generateSetterName(attrName);
         if (!klassBody[setterName]) { // Don't clobber an explicit setter
           klassBody[setterName] = new Function(
-            "value", "this.set('" + attrName + "', tym.coerce(value, '" + klassDeclaredAttrs[attrName] + "'), true);"
+            "value", "this.setActual('" + attrName + "', value, '" + klassDeclaredAttrs[attrName] + "');"
           );
         }
       }
@@ -397,6 +399,7 @@ TODO:
   - Constraints
   - Handle body text
   - Events should be named onfoo not foo
+  - Move from tym to dr for better compatibility
   
   - Setter return values and default behavior
   - States
