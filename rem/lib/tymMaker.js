@@ -21,15 +21,15 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
 
-Instantiates tym classes from package JSON.
+Instantiates dr classes from package JSON.
 */
 define(function(require, exports){
   var maker = exports,
     domRunner = require('./domRunner.js'),
     dreemParser = require('./dreemParser.js');
 
-  // Pull in the tym core
-  require('$ROOT/rem/tym/dist/tym.js');
+  // Pull in the dr core
+  require('$ROOT/rem/dr/dist/dr.js');
 
   /** Built in tags that dont resolve to class files or that resolve to 
       class files defined in the core. */
@@ -69,21 +69,21 @@ define(function(require, exports){
     
     // Prefill compiled classes with classes defined in core
     pkg.compiledClasses = {
-      node:tym.Node,
-      view:tym.View,
-      layout:tym.Layout,
-      button:tym.Button,
-      animator:tym.Animator
+      node:dr.Node,
+      view:dr.View,
+      layout:dr.Layout,
+      button:dr.Button,
+      animator:dr.Animator
     };
     
-    // Make pkg available to tym since child processing is initiated from there.
-    tym.maker = maker;
-    tym.pkg = pkg;
+    // Make pkg available to dr since child processing is initiated from there.
+    dr.maker = maker;
+    dr.pkg = pkg;
     
     // Start processing from the root downward
     maker.walkDreemJSXML(pkg.root.child[0], null, pkg);
     
-    tym.AccessorSupport.CONSTRAINTS.notifyReadyForConstraints();
+    dr.AccessorSupport.CONSTRAINTS.notifyReadyForConstraints();
   };
 
   maker.walkDreemJSXML = function(node, parentInstance, pkg) {
@@ -139,7 +139,7 @@ define(function(require, exports){
             if (methodId != null) {
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
-                instanceMixin[tym.AccessorSupport.generateSetterName(childAttrs.name)] = compiledMethod;
+                instanceMixin[dr.AccessorSupport.generateSetterName(childAttrs.name)] = compiledMethod;
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
@@ -179,7 +179,7 @@ define(function(require, exports){
             instanceAttrValues[childAttrs.name] = childAttrs.value;
             break;
           case 'state':
-            console.log('TYM STATE', childNode);
+            console.log('DR STATE', childNode);
             // FIXME: add state to instance definition
             break;
           default:
@@ -195,27 +195,27 @@ define(function(require, exports){
     if (len > 0) {
       i = 0;
       for (; len > i;) {
-        tym.extend(combinedAttrs, mixins[i++].defaultAttrValues);
+        dr.extend(combinedAttrs, mixins[i++].defaultAttrValues);
       }
     }
-    if (instanceAttrValues) tym.extend(combinedAttrs, instanceAttrValues);
-    tym.extend(combinedAttrs, attrs);
+    if (instanceAttrValues) dr.extend(combinedAttrs, instanceAttrValues);
+    dr.extend(combinedAttrs, attrs);
     
     // Setup __makeChildren method if instanceChildrenJson exist
     if (instanceChildrenJson) {
-      instanceMixin.__makeChildren = new Function('this.callSuper(); tym.makeChildren(this, ' + JSON.stringify(instanceChildrenJson) + ');');
+      instanceMixin.__makeChildren = new Function('this.callSuper(); dr.makeChildren(this, ' + JSON.stringify(instanceChildrenJson) + ');');
     }
     
     // Setup __registerHandlers method if klassHandlers exist
     if (instanceHandlers) {
-      instanceMixin.__registerHandlers = new Function('this.callSuper(); tym.registerHandlers(this, ' + JSON.stringify(instanceHandlers) + ');');
+      instanceMixin.__registerHandlers = new Function('this.callSuper(); dr.registerHandlers(this, ' + JSON.stringify(instanceHandlers) + ');');
     }
     
     // Build setters for attributes
     if (instanceAttrs) {
       var setterName;
       for (var attrName in instanceAttrs) {
-        setterName = tym.AccessorSupport.generateSetterName(attrName);
+        setterName = dr.AccessorSupport.generateSetterName(attrName);
         if (!instanceMixin[setterName]) { // Don't clobber an explicit setter
           instanceMixin[setterName] = new Function(
             "value", "this.setActual('" + attrName + "', value, '" + instanceAttrs[attrName] + "');"
@@ -225,7 +225,7 @@ define(function(require, exports){
     }
     
     mixins.push(instanceMixin);
-    if (!parentInstance) mixins.push(tym.SizeToViewport); // Root View case
+    if (!parentInstance) mixins.push(dr.SizeToViewport); // Root View case
     
     new klass(parentInstance, combinedAttrs, mixins);
   };
@@ -294,7 +294,7 @@ define(function(require, exports){
             if (methodId != null) {
               var compiledMethod = compiledMethods[methodId];
               if (compiledMethod) {
-                klassBody[tym.AccessorSupport.generateSetterName(childAttrs.name)] = compiledMethod;
+                klassBody[dr.AccessorSupport.generateSetterName(childAttrs.name)] = compiledMethod;
               } else {
                 throw new Error('Cannot find method id' + methodId);
               }
@@ -334,7 +334,7 @@ define(function(require, exports){
             klassDeclaredAttrValues[childAttrs.name] = childAttrs.value;
             break;
           case 'state':
-            console.log('TYM STATE', childNode);
+            console.log('DR STATE', childNode);
             // FIXME: add state to class definition
             break;
           default:
@@ -346,19 +346,19 @@ define(function(require, exports){
     
     // Setup __makeChildren method if klassChildrenJson exist
     if (klassChildrenJson) {
-      klassBody.__makeChildren = new Function('this.callSuper(); tym.makeChildren(this, ' + JSON.stringify(klassChildrenJson) + ');');
+      klassBody.__makeChildren = new Function('this.callSuper(); dr.makeChildren(this, ' + JSON.stringify(klassChildrenJson) + ');');
     }
     
     // Setup __registerHandlers method if klassHandlers exist
     if (klassHandlers) {
-      klassBody.__registerHandlers = new Function('this.callSuper(); tym.registerHandlers(this, ' + JSON.stringify(klassHandlers) + ');');
+      klassBody.__registerHandlers = new Function('this.callSuper(); dr.registerHandlers(this, ' + JSON.stringify(klassHandlers) + ');');
     }
     
     // Build setters for attributes
     if (klassDeclaredAttrs) {
       var setterName;
       for (var attrName in klassDeclaredAttrs) {
-        setterName = tym.AccessorSupport.generateSetterName(attrName);
+        setterName = dr.AccessorSupport.generateSetterName(attrName);
         if (!klassBody[setterName]) { // Don't clobber an explicit setter
           klassBody[setterName] = new Function(
             "value", "this.setActual('" + attrName + "', value, '" + klassDeclaredAttrs[attrName] + "');"
@@ -369,22 +369,22 @@ define(function(require, exports){
     
     // Instantiate the Class or Mixin
     if (mixins) klassBody.include = mixins;
-    var Klass = tym[tagName] = isMixin ? new JS.Module(tagName, klassBody) : new JS.Class(tagName, baseclass, klassBody);
+    var Klass = dr[tagName] = isMixin ? new JS.Module(tagName, klassBody) : new JS.Class(tagName, baseclass, klassBody);
     
     // Build default class attributes
     var defaultAttrValues = {};
-    if (baseclass && baseclass.defaultAttrValues) tym.extend(defaultAttrValues, baseclass.defaultAttrValues);
+    if (baseclass && baseclass.defaultAttrValues) dr.extend(defaultAttrValues, baseclass.defaultAttrValues);
     if (mixins) {
       len = mixins.length;
       if (len > 0) {
         i = 0;
         for (; len > i;) {
-          tym.extend(defaultAttrValues, mixins[i++].defaultAttrValues);
+          dr.extend(defaultAttrValues, mixins[i++].defaultAttrValues);
         }
       }
     }
-    if (klassDeclaredAttrValues) tym.extend(defaultAttrValues, klassDeclaredAttrValues);
-    tym.extend(defaultAttrValues, klassAttrs);
+    if (klassDeclaredAttrValues) dr.extend(defaultAttrValues, klassDeclaredAttrValues);
+    dr.extend(defaultAttrValues, klassAttrs);
     delete defaultAttrValues.name; // Instances only
     delete defaultAttrValues.id; // Instances only
     Klass.defaultAttrValues = defaultAttrValues;
@@ -396,11 +396,22 @@ define(function(require, exports){
 
 /*
 TODO:
-  - Constraints
   - Handle body text
   - Events should be named onfoo not foo
-  - Move from tym to dr for better compatibility
+  
+  - Percent x,y,w,h
+  - auto w,h
+  - align x,y
+  
+  - layouts
+  - z-order
+  - borders
+  - padding
+  - transforms
+  - scroll
+  - clip
   
   - Setter return values and default behavior
+  
   - States
 */

@@ -197,6 +197,10 @@ define(function(require, exports){
       for(var i = 0; i<children.length;i++){
         if(children[i].tag == '$text') out += children[i].value
       }
+      
+      // HACK: Clean up a few common entities that are causing compilation errors.
+      out = out.split('&gt;').join('>').split('&lt;').join('<').split('&amp;').join('&');
+      
       return out
     }
 
