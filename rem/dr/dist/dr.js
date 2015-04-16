@@ -501,56 +501,6 @@ dr = {
         return scope;
     },
     
-    coerce: function(value, type, defaultValue) {
-        switch (type) {
-            case 'number':
-                value = Number(value);
-                if (isNaN(value)) {
-                    if (defaultValue !== undefined) {
-                        value = defaultValue;
-                    } else {
-                        this.dumpStack("NaN encountered parsing value as number with no default: " + value);
-                    }
-                }
-                break;
-            case 'boolean':
-                if (value == null) {
-                    value = defaultValue !== undefined ? defaultValue : false;
-                } else if (typeof value === 'string') {
-                    value = value === 'true';
-                } else {
-                    value = value ? true : false;
-                }
-                break;
-            case 'string':
-                if (value == null) {
-                    value = defaultValue !== undefined ? defaultValue : '';
-                } else {
-                    value = '' + value;
-                }
-                break;
-            case 'color':
-                if (value == null) {
-                    value = defaultValue !== undefined ? defaultValue : 'transparent';
-                } else {
-                    value = '' + value;
-                }
-                break;
-            case 'easing_function':
-                // Lookup easing function if a string is provided.
-                if (typeof value === 'string') value = dr.Animator.easingFunctions[value];
-                
-                // Use default if invalid
-                if (!value) value = dr.Animator.DEFAULT_EASING_FUNCTION;
-                break;
-            case 'object':
-            case 'function':
-            case '*':
-            default:
-        }
-        return value;
-    },
-    
     /** Used to wrap the first function with the second function. The first
         function is exposed as this.callSuper within the wrapper function.
         @param fn:function the function to wrap.
@@ -3678,6 +3628,64 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
     appendToLateAttrs: function() {Array.prototype.push.apply(this.lateAttrs || (this.lateAttrs = []), arguments);},
     prependToLateAttrs: function() {Array.prototype.unshift.apply(this.lateAttrs || (this.lateAttrs = []), arguments);},
     
+    coerce: function(value, type, defaultValue) {
+        switch (type) {
+            case 'number':
+                value = Number(value);
+                if (isNaN(value)) {
+                    if (defaultValue !== undefined) {
+                        value = defaultValue;
+                    } else {
+                        this.dumpStack("NaN encountered parsing value as number with no default: " + value);
+                    }
+                }
+                break;
+            case 'boolean':
+                if (value == null) {
+                    value = defaultValue !== undefined ? defaultValue : false;
+                } else if (typeof value === 'string') {
+                    value = value === 'true';
+                } else {
+                    value = value ? true : false;
+                }
+                break;
+            case 'string':
+                if (value == null) {
+                    value = defaultValue !== undefined ? defaultValue : '';
+                } else {
+                    value = '' + value;
+                }
+                break;
+            case 'color':
+                if (value == null) {
+                    value = defaultValue !== undefined ? defaultValue : 'transparent';
+                } else {
+                    value = '' + value;
+                }
+                break;
+            case 'easing_function':
+                // Lookup easing function if a string is provided.
+                if (typeof value === 'string') value = dr.Animator.easingFunctions[value];
+                
+                // Use default if invalid
+                if (!value) value = dr.Animator.DEFAULT_EASING_FUNCTION;
+                break;
+            case 'json':
+                value = JSON.parse(value);
+                break;
+            case 'expression':
+            case '*':
+                if (typeof value === 'string') {
+                    value = (new Function('return ' + value)).bind(this)();
+                }
+                break;
+            case 'object':
+            case 'function':
+            default:
+        }
+        return value;
+    },
+    
     /** Calls a setter function for each attribute in the provided map.
         @param attrs:object a map of attributes to set.
         @returns void. */
@@ -3784,12 +3792,12 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
         @param value:* The value to set.
         @param type:string The type to try to coerce the value to.
         @param defaultValue:* (optional) The default value to use when
-            coercion fails. @see dr.coerce for more info.
+            coercion fails.
         @param beforeEventFunc:function (optional) A function that gets called
             before the event may be fired.
         @returns boolean: True if the value was changed, false otherwise. */
     setActual: function(attrName, value, type, defaultValue, beforeEventFunc) {
-        if (this[attrName] !== (value = dr.coerce(value, type, defaultValue))) {
+        if (this[attrName] !== (value = this.coerce(value, type, defaultValue))) {
             // Store value and invoke setter on sprite if it exists
             var setterName = dr.AccessorSupport.generateSetterName(attrName),
                 sprite = this.sprite;
@@ -4214,1283 +4222,6 @@ dr.Eventable = new JS.Class('Eventable', {
         this.detachAllObservers();
         
         this.callSuper();
-    }
-});
-
-
-/** A single node within a tree data structure. A node has zero or one parent 
-    node and zero or more child nodes. If a node has no parent it is a 'root' 
-    node. If a node has no child nodes it is a 'leaf' node. Parent nodes and 
-    parent of parents, etc. are referred to as ancestors. Child nodes and 
-    children of children, etc. are referred to as descendants.
-    
-    Lifecycle management is also provided via the 'initNode', 'doBeforeAdoption',
-    'doAfterAdoption', 'destroy', 'destroyBeforeOrphaning' and
-    'destroyAfterOrphaning' methods.
-    
-    Events:
-        parent:dr.Node Fired when the parent is set.
-    
-    Attributes:
-        parent:dr.Node The parent of this Node.
-        name:string The name of this node. Used to reference this Node from
-            its parent Node.
-        id:string The unique ID of this node in the global namespace.
-        
-        Lifecycle Related:
-            inited:boolean Set to true after this Node has completed 
-                initializing.
-            isBeingDestroyed:boolean (read only) Indicates that this node is in 
-                the process of being destroyed. Set to true at the beginning of 
-                the destroy lifecycle phase. Undefined before that.
-        
-        Placement Related:
-            placement:string The name of the subnode of this Node to add nodes 
-                to when set_parent is called on the subnode. Placement can be 
-                nested using '.' For example 'foo.bar'. The special value of 
-                '*' means use the default placement. For example 'foo.*' means 
-                place in the foo subnode and then in the default placement 
-                for foo.
-            defaultplacement:string The name of the subnode to add nodes to when 
-                no placement is specified. Defaults to undefined which means add
-                subnodes directly to this node.
-            ignoreplacement:boolean If set to true placement will not be 
-                processed for this Node when it is added to a parent Node.
-    
-    Private Attributes:
-        __animPool:array An dr.TrackActivesPool used by the 'animate' method.
-        subnodes:array The array of child nodes for this node. Should be
-            accessed through the getSubnodes method.
-*/
-dr.Node = new JS.Class('Node', {
-    include: [
-        dr.AccessorSupport, 
-        dr.Destructible, 
-        dr.Observable, 
-        dr.Constrainable
-    ],
-    
-    
-    // Class Methods and Attributes ////////////////////////////////////////////
-    extend: {
-        /** Get the closest ancestor of the provided Node or the Node itself for 
-            which the matcher function returns true.
-            @param n:dr.Node the Node to start searching from.
-            @param matcher:function the function to test for matching Nodes with.
-            @returns Node or null if no match is found. */
-        getMatchingAncestorOrSelf: function(n, matcherFunc) {
-            if (n && matcherFunc) {
-                while (n) {
-                    if (matcherFunc(n)) return n;
-                    n = n.parent;
-                }
-            }
-            return null;
-        },
-        
-        /** Get the youngest ancestor of the provided Node for which the 
-            matcher function returns true.
-            @param n:dr.Node the Node to start searching from. This Node is not
-                tested, but its parent is.
-            @param matcher:function the function to test for matching Nodes with.
-            @returns Node or null if no match is found. */
-        getMatchingAncestor: function(n, matcherFunc) {
-            return this.getMatchingAncestorOrSelf(n ? n.parent : null, matcherFunc);
-        }
-    },
-    
-    
-    // Constructor /////////////////////////////////////////////////////////////
-    /** The standard JSClass initializer function. Subclasses should not
-        override this function.
-        @param parent:Node (or dom element for RootViews) (Optional) the parent 
-            of this Node.
-        @param attrs:object (Optional) A map of attribute names and values.
-        @param mixins:array (Optional) a list of mixins to be added onto
-            the new instance.
-        @returns void */
-    initialize: function(parent, attrs, mixins) {
-        if (mixins) {
-            var i = 0, len = mixins.length, mixin;
-            for (; len > i;) {
-                mixin = mixins[i++];
-                if (mixin) {
-                    this.extend(mixin);
-                } else {
-                    console.warn("Undefined mixin in initialization of: " + this.klass.__displayName);
-                }
-            }
-        }
-        
-        this.inited = false;
-        
-        var defaultKlassAttrValues = this.klass.defaultAttrValues;
-        if (defaultKlassAttrValues) attrs = dr.extend({}, defaultKlassAttrValues, attrs);
-        
-        this.initNode(parent, attrs || {});
-    },
-    
-    
-    // Life Cycle //////////////////////////////////////////////////////////////
-    /** Called during initialization. Sets initial state for life cycle attrs,
-        calls setter methods, sets parent and lastly, sets inited to true.
-        Subclasses must callSuper.
-        @param parent:Node (or dom element for RootViews) the parent of 
-            this Node.
-        @param attrs:object A map of attribute names and values.
-        @returns void */
-    initNode: function(parent, attrs) {
-        this.callSetters(attrs);
-        
-        this.doBeforeAdoption();
-        this.set_parent(parent);
-        this.doAfterAdoption();
-        this.__makeChildren();
-        this.__registerHandlers();
-        
-        this.inited = true;
-        this.fireNewEvent('oninit', true);
-    },
-    
-    /** Provides a hook for subclasses to do things before this Node has its
-        parent assigned. This would be the ideal place to create subviews
-        so as to avoid unnecessary dom reflows. However, text size can't
-        be measured until insertion into the DOM so you may want to use
-        doAfterAdoption for creating subviews since it will give you less
-        trouble though it will be slower.
-        @returns void */
-    doBeforeAdoption: function() {},
-    
-    /** Provides a hook for subclasses to do things after this Node has its
-        parent assigned.
-        @returns void */
-    doAfterAdoption: function() {},
-    
-    /** @private */
-    __makeChildren: function() {},
-    
-    /** @private */
-    __registerHandlers: function() {},
-    
-    /** @overrides dr.Destructible. */
-    destroy: function() {
-        // Allows descendants to know destruction is in process
-        this.isBeingDestroyed = true;
-        
-        // Destroy subnodes depth first
-        var subs = this.subnodes;
-        if (subs) {
-            var i = subs.length;
-            while (i) subs[--i].destroy();
-        }
-        
-        if (this.__animPool) {
-            this.stopActiveAnimators();
-            this.__animPool.destroy();
-        }
-        
-        this.destroyBeforeOrphaning();
-        if (this.parent) this.set_parent(null);
-        this.destroyAfterOrphaning();
-        
-        // Remove from global namespace if necessary
-        if (this.id) this.set_id();
-        
-        this.callSuper();
-    },
-    
-    /** Provides a hook for subclasses to do destruction of their internals.
-        This method is called after subnodes have been destroyed but before
-        the parent has been unset.
-        Subclasses should call callSuper.
-        @returns void */
-    destroyBeforeOrphaning: function() {},
-    
-    /** Provides a hook for subclasses to do destruction of their internals.
-        This method is called after the parent has been unset.
-        Subclasses must call callSuper.
-        @returns void */
-    destroyAfterOrphaning: function() {
-        this.releaseAllConstraints();
-        this.detachFromAllObservables();
-        this.detachAllObservers();
-    },
-    
-    
-    // Accessors ///////////////////////////////////////////////////////////////
-    /** Sets the provided Node as the new parent of this Node. This is the
-        most direct method to do reparenting. You can also use the addSubnode
-        method but it's just a wrapper around this setter. */
-    set_parent: function(newParent) {
-        // Use placement if indicated
-        if (newParent && !this.ignoreplacement) {
-            var placement = this.placement || newParent.defaultplacement;
-            if (placement) newParent = newParent.determinePlacement(placement, this);
-        }
-        
-        if (this.parent !== newParent) {
-            // Abort if the new parent is in the destroyed life-cycle state.
-            if (newParent && newParent.destroyed) return;
-            
-            // Remove ourselves from our existing parent if we have one.
-            var curParent = this.parent;
-            if (curParent) {
-                var idx = curParent.getSubnodeIndex(this);
-                if (idx !== -1) {
-                    if (this.name) curParent.__removeNameRef(this);
-                    curParent.subnodes.splice(idx, 1);
-                    curParent.subnodeRemoved(this);
-                }
-            }
-            
-            this.parent = newParent;
-            
-            // Add ourselves to our new parent
-            if (newParent) {
-                newParent.getSubnodes().push(this);
-                if (this.name) newParent.__addNameRef(this);
-                newParent.subnodeAdded(this);
-            }
-            
-            // Fire an event
-            if (this.inited) this.fireNewEvent('parent', newParent);
-        }
-    },
-    
-    /** The 'name' of a Node allows it to be referenced by name from its
-        parent node. For example a Node named 'foo' that is a child of a
-        Node stored in the var 'bar' would be referenced like this: bar.foo or
-        bar['foo']. */
-    set_name: function(name) {
-        if (this.name !== name) {
-            // Remove "name" reference from parent.
-            var p = this.parent;
-            if (p && this.name) p.__removeNameRef(this);
-            
-            this.name = name;
-            
-            // Add "name" reference to parent.
-            if (p && name) p.__addNameRef(this);
-        }
-    },
-    
-    /** Stores this instance in the global scope under the provided id. */
-    set_id: function(v) {
-        var existing = this.id;
-        if (v !== existing) {
-            delete global[existing];
-            this.id = v;
-            if (v) global[v] = this;
-            if (this.inited) this.fireNewEvent('id', v);
-        }
-    },
-    
-    /** Gets the subnodes for this Node and does lazy instantiation of the 
-        subnodes array if no child Nodes exist.
-        @returns array of subnodes. */
-    getSubnodes: function() {
-        return this.subnodes || (this.subnodes = []);
-    },
-    
-    // Placement Accessors /////////////////////////////////////////////////////
-    set_placement: function(v) {this.setSimpleActual('placement', v);},
-    set_defaultplacement: function(v) {this.setSimpleActual('defaultplacement', v);},
-    set_ignoreplacement: function(v) {this.setSimpleActual('ignoreplacement', v);},
-    
-    
-    // Methods /////////////////////////////////////////////////////////////////
-    /** Called from set_parent to determine where to insert a subnode in the node
-        hierarchy. Subclasses will not typically override this method, but if
-        they do, they probably won't need to call callSuper.
-        @param placement:string the placement path to use.
-        @param subnode:dr.Node the subnode being placed.
-        @returns the Node to place a subnode into. */
-    determinePlacement: function(placement, subnode) {
-        // Parse "active" placement and remaining placement.
-        var idx = placement.indexOf('.'), remainder, loc;
-        if (idx !== -1) {
-            remainder = placement.substring(idx + 1);
-            placement = placement.substring(0, idx);
-        }
-        
-        // Evaluate placement of '*' as defaultplacement.
-        if (placement === '*') {
-            placement = this.defaultplacement;
-            
-            // Default placement may be compound and thus require splitting
-            if (placement) {
-                idx = placement.indexOf('.');
-                if (idx !== -1) {
-                    remainder = placement.substring(idx + 1) + (remainder ? '.' + remainder : '');
-                    placement = placement.substring(0, idx);
-                }
-            }
-            
-            // It's possible that a placement of '*' comes out here if a
-            // Node has its defaultplacement set to '*'. This should result
-            // in a null loc when the code below runs which will end up
-            // returning 'this'.
-        }
-        
-        loc = this[placement];
-        return loc ? (remainder ? loc.determinePlacement(remainder, subnode) : loc) : this;
-    },
-    
-    /** Adds a named reference to a subnode.
-        @param node:Node the node to add the name reference for.
-        @returns void */
-    __addNameRef: function(node) {
-        var name = node.name;
-        if (this[name] === undefined) {
-            this[name] = node;
-        } else {
-            console.log("Name in use:" + name);
-        }
-    },
-    
-    /** Removes a named reference to a subnode.
-        @param node:Node the node to remove the name reference for.
-        @returns void */
-    __removeNameRef: function(node) {
-        var name = node.name;
-        if (this[name] === node) {
-            delete this[name];
-        } else {
-            console.log("Name not in use:" + name);
-        }
-    },
-    
-    // Tree Methods //
-    /** Gets the root Node for this Node. The root Node is the oldest
-        ancestor or self that has no parent.
-        @returns Node */
-    getRoot: function() {
-        return this.parent ? this.parent.getRoot() : this;
-    },
-    
-    /** Checks if this Node is a root Node.
-        @returns boolean */
-    isRoot: function() {
-        return this.parent == null;
-    },
-    
-    /** Tests if this Node is a descendant of the provided Node or is the
-        node itself.
-        @returns boolean */
-    isDescendantOf: function(node) {
-        if (node) {
-            if (node === this) return true;
-            if (this.parent) return this.parent.isDescendantOf(node);
-        }
-        return false;
-    },
-    
-    /** Tests if this Node is an ancestor of the provided Node or is the
-        node itself.
-        @param node:Node the node to check for.
-        @returns boolean */
-    isAncestorOf: function(node) {
-        return node ? node.isDescendantOf(this) : false;
-    },
-    
-    /** Gets the youngest common ancestor of this node and the provided node.
-        @param node:dr.Node The node to look for a common ancestor with.
-        @returns The youngest common Node or null if none exists. */
-    getLeastCommonAncestor: function(node) {
-        while (node) {
-            if (this.isDescendantOf(node)) return node;
-            node = node.parent;
-        }
-        return null;
-    },
-    
-    /** Find the youngest ancestor Node that is an instance of the class.
-        @param klass the Class to search for.
-        @returns Node or null if no klass is provided or match found. */
-    searchAncestorsForClass: function(klass) {
-        return klass ? this.searchAncestors(function(n) {return n instanceof klass;}) : null;
-    },
-    
-    /** Get the youngest ancestor of this Node for which the matcher function 
-        returns true. This is a simple wrapper around 
-        dr.Node.getMatchingAncestor(this, matcherFunc).
-        @param matcherFunc:function the function to test for matching 
-            Nodes with.
-        @returns Node or null if no match is found. */
-    searchAncestors: function(matcherFunc) {
-        return dr.Node.getMatchingAncestor(this, matcherFunc);
-    },
-    
-    /** Get the youngest ancestor of this Node or the Node itself for which 
-        the matcher function returns true. This is a simple wrapper around 
-        dr.Node.getMatchingAncestorOrSelf(this, matcherFunc).
-        @param matcherFunc:function the function to test for matching 
-            Nodes with.
-        @returns Node or null if no match is found. */
-    searchAncestorsOrSelf: function(matcherFunc) {
-        return dr.Node.getMatchingAncestorOrSelf(this, matcherFunc);
-    },
-    
-    /** Gets an array of ancestor nodes including the node itself.
-        @returns array: The array of ancestor nodes. */
-    getAncestors: function() {
-        var ancestors = [], node = this;
-        while (node) {
-            ancestors.push(node);
-            node = node.parent;
-        }
-        return ancestors;
-    },
-    
-    // Subnode Methods //
-    /** Checks if this Node has the provided Node in the subnodes array.
-        @param node:Node the subnode to check for.
-        @returns true if the subnode is found, false otherwise. */
-    hasSubnode: function(node) {
-        return this.getSubnodeIndex(node) !== -1;
-    },
-    
-    /** Gets the index of the provided Node in the subnodes array.
-        @param node:Node the subnode to get the index for.
-        @returns the index of the subnode or -1 if not found. */
-    getSubnodeIndex: function(node) {
-        return this.getSubnodes().indexOf(node);
-    },
-    
-    /** A convienence method to make a Node a child of this Node. The
-        standard way to do this is to call the set_parent method on the
-        prospective child Node.
-        @param node:Node the subnode to add.
-        @returns void */
-    addSubnode: function(node) {
-        node.set_parent(this);
-    },
-    
-    /** A convienence method to make a Node no longer a child of this Node. The
-        standard way to do this is to call the set_parent method with a value
-        of null on the child Node.
-        @param node:Node the subnode to remove.
-        @returns the removed Node or null if removal failed. */
-    removeSubnode: function(node) {
-        if (node.parent !== this) return null;
-        node.set_parent(null);
-        return node;
-    },
-    
-    /** Called when a subnode is added to this node. Provides a hook for
-        subclasses. No need for subclasses to call callSuper. Do not call this
-        method to add a subnode. Instead call addSubnode or set_parent.
-        @param node:Node the subnode that was added.
-        @returns void */
-    subnodeAdded: function(node) {},
-    
-    /** Called when a subnode is removed from this node. Provides a hook for
-        subclasses. No need for subclasses to call callSuper. Do not call this
-        method to remove a subnode. Instead call removeSubnode or set_parent.
-        @param node:Node the subnode that was removed.
-        @returns void */
-    subnodeRemoved: function(node) {},
-    
-    // Animation
-    /** Animates an attribute using the provided parameters.
-        @param attribute:string/object the name of the attribute to animate. If
-            an object is provided it should be the only argument and its keys
-            should be the params of this method. This provides a more concise
-            way of passing in sparse optional parameters.
-        @param to:number the target value to animate to.
-        @param from:number the target value to animate from. (optional)
-        @param relative:boolean (optional)
-        @param callback:function (optional)
-        @param duration:number (optional)
-        @param reverse:boolean (optional)
-        @param repeat:number (optional)
-        @param easingFunction:function (optional)
-        @returns The Animator being run. */
-    animate: function(attribute, to, from, relative, callback, duration, reverse, repeat, easingFunction) {
-        var animPool = this.__getAnimPool();
-        
-        // ignoreplacement ensures the animator is directly attached to this node
-        var anim = animPool.getInstance({ignoreplacement:true});
-        
-        if (typeof attribute === 'object') {
-            // Handle a single map argument if provided
-            callback = attribute.callback;
-            delete attribute.callback;
-            anim.callSetters(attribute);
-        } else {
-            // Handle individual arguments
-            anim.attribute = attribute;
-            anim.set_to(to);
-            anim.set_from(from);
-            if (duration != null) anim.duration = duration;
-            if (relative != null) anim.relative = relative;
-            if (repeat != null) anim.repeat = repeat;
-            if (reverse != null) anim.set_reverse(reverse);
-            if (easingFunction != null) anim.set_easingfunction(easingFunction);
-        }
-        
-        // Release the animation when it completes.
-        anim.next(function(success) {animPool.putInstance(anim);});
-        if (callback) anim.next(callback);
-        
-        anim.set_running(true);
-        return anim;
-    },
-    
-    /** Gets an array of the currently running animators that were created
-        by calls to the animate method.
-        @param filterFunc:function/string a function that filters which 
-            animations get stopped. The filter should return true for 
-            functions to be included. If the provided values is a string it will
-            be used as a matching attribute name.
-        @returns an array of active animators. */
-    getActiveAnimators: function(filterFunc) {
-        if (typeof filterFunc === 'string') {
-            var attrName = filterFunc;
-            filterFunc = function(anim) {return anim.attribute === attrName;};
-        }
-        return this.__getAnimPool().getActives(filterFunc);
-    },
-    
-    /** Stops all active animations.
-        @param filterFunc:function/string a function that filters which 
-            animations get stopped. The filter should return true for 
-            functions to be stopped. If the provided values is a string it will
-            be used as a matching attribute name.
-        @returns void */
-    stopActiveAnimators: function(filterFunc) {
-        var activeAnims = this.getActiveAnimators(filterFunc), i = activeAnims.length, anim;
-        if (i > 0) {
-            var animPool = this.__getAnimPool();
-            while (i) {
-                anim = activeAnims[--i];
-                anim.reset(false);
-                animPool.putInstance(anim);
-            }
-        }
-    },
-    
-    /** Gets the animation pool if it exists, or lazy instantiates it first
-        if necessary.
-        @private
-        @returns dr.TrackActivesPool */
-    __getAnimPool: function() {
-        return this.__animPool || (this.__animPool = new dr.TrackActivesPool(dr.Animator, this));
-    }
-});
-
-
-/** A counter that can be incremented and decremented and will update an
-    'exceeded' attribute when a threshold is crossed. */
-dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
-    include: [dr.AccessorSupport, dr.Destructible, dr.Observable],
-    
-    // Class Methods and Attributes ////////////////////////////////////////////
-    extend: {
-        /** Mixes ThresholdCounter functionality onto the provided scope.
-            @param scope:Observable|Class|Module the scope to mix onto.
-            @param exceededAttrName:string the name of the boolean attribute
-                that will indicate if the threshold is exceeded or not.
-            @param counterAttrName:string (Optional) the name of the number
-                attribute that will get adjusted up and down. If not provided
-                the 'exceeded' attribute name will be used with 'Counter'
-                appended to it. For example if the exceeded
-                attribute was 'locked' this would be 'lockedCounter'.
-            @param thresholdAttrName:string (Optional) the name of the number
-                attribute that determines when we are exceeded or not. If not 
-                provided the 'exceeded' attribute name will be used with 
-                'Threshold' appended to it. For example if the exceeded
-                attribute was 'locked' this would be 'lockedThreshold'.
-            @returns boolean True if creation succeeded, false otherwise. */
-        createThresholdCounter: function(scope, exceededAttrName, counterAttrName, thresholdAttrName) {
-            var genNameFunc = dr.AccessorSupport.generateName;
-            counterAttrName = counterAttrName || genNameFunc('counter', exceededAttrName);
-            thresholdAttrName = thresholdAttrName || genNameFunc('threshold', exceededAttrName);
-            
-            var incrName = genNameFunc(counterAttrName, 'increment'),
-                decrName = genNameFunc(counterAttrName, 'decrement'),
-                thresholdSetterName = dr.AccessorSupport.generateSetterName(thresholdAttrName),
-                isModuleOrClass = typeof scope === 'function' || scope instanceof JS.Module;
-            
-            // Prevent clobbering
-            if ((isModuleOrClass ? scope.instanceMethod(incrName) : scope[incrName]) !== undefined) {
-                console.warn("Can't clobber existing property during setup of ThresholdCounter increment function.", incrName, scope);
-                return false;
-            }
-            if ((isModuleOrClass ? scope.instanceMethod(decrName) : scope[decrName]) !== undefined) {
-                console.warn("Can't clobber existing property during setup of ThresholdCounter decrement function.", decrName, scope);
-                return false;
-            }
-            if ((isModuleOrClass ? scope.instanceMethod(thresholdSetterName) : scope[thresholdSetterName]) !== undefined) {
-                console.warn("Can't clobber existing property during setup of ThresholdCounter threshold setter function.", thresholdSetterName, scope);
-                return false;
-            }
-            
-            // Define the "module".
-            var mod = {};
-            
-            /** Increments the counter attribute on the scope object by the 
-                provided value or 1 if no value was provided.
-                @param amount:number (Optional) the amount to increment the 
-                    counter by. If not provided, 1 will be used.
-                @returns void */
-            mod[incrName] = function(amount) {
-                if (amount == null) amount = 1;
-                var curValue = this[counterAttrName],
-                    value = curValue + amount;
-                
-                // Counters must be non-negative.
-                if (0 > value) {
-                    console.warn("Attempt to decrement a counter below 0.", this, counterAttrName, amount);
-                    value = 0;
-                }
-                
-                if (curValue !== value) {
-                    this[counterAttrName] = value;
-                    this.fireNewEvent(counterAttrName, value);
-                    this.setActual(exceededAttrName, value >= this[thresholdAttrName], 'boolean'); // Check threshold
-                }
-            };
-            
-            /** Decrements the counter attribute on the scope object by the 
-                provided value or 1 if no value was provided.
-                @param amount:number (Optional) the amount to increment the 
-                    counter by. If not provided, 1 will be used.
-                @returns void */
-            mod[decrName] = function(amount) {
-                if (amount == null) amount = 1;
-                this[incrName](-amount);
-            };
-            
-            /** Sets the threshold attribute and performs a threshold check.
-                @returns void */
-            mod[thresholdSetterName] = function(v) {
-                if (this[thresholdAttrName] === v) return;
-                this[thresholdAttrName] = v;
-                this.fireNewEvent(thresholdAttrName, v);
-                this.setActual(exceededAttrName, this[counterAttrName] >= v, 'boolean'); // Check threshold
-            };
-            
-            // Mixin in the "module"
-            if (isModuleOrClass) {
-                scope.include(mod);
-            } else {
-                scope.extend(mod);
-            }
-            
-            return true;
-        },
-        
-        /** Set initial value and threshold on a ThresholdCounter instance.
-            This also executes a 'check' so the 'exceeded' attribute will have
-            the correct value.
-            @returns void */
-        initializeThresholdCounter: function(
-            scope, initialValue, thresholdValue, exceededAttrName, counterAttrName, thresholdAttrName
-        ) {
-            var genNameFunc = dr.AccessorSupport.generateName;
-            counterAttrName = counterAttrName || genNameFunc('counter', exceededAttrName);
-            thresholdAttrName = thresholdAttrName || genNameFunc('threshold', exceededAttrName);
-            
-            scope[counterAttrName] = initialValue;
-            scope[thresholdAttrName] = thresholdValue;
-            scope.set(exceededAttrName, initialValue >= thresholdValue); // Check threshold
-        },
-        
-        /** Mixes ThresholdCounter functionality with a fixed threshold onto 
-            the provided scope.
-            @param scope:Observable|Class|Module the scope to mix onto.
-            @param thresholdValue:number the fixed threshold value.
-            @param exceededAttrName:string the name of the boolean attribute
-                that will indicate if the threshold is exceeded or not.
-            @param counterAttrName:string (Optional) the name of the number
-                attribute that will get adjusted up and down. If not provided
-                the 'exceeded' attribute name will be used with 'Counter'
-                appended to it. For example if the exceeded
-                attribute was 'locked' this would be 'lockedCounter'.
-            @returns boolean True if creation succeeded, false otherwise. */
-        createFixedThresholdCounter: function(scope, thresholdValue, exceededAttrName, counterAttrName) {
-            var genNameFunc = dr.AccessorSupport.generateName;
-            counterAttrName = counterAttrName || genNameFunc('counter', exceededAttrName);
-            
-            var incrName = genNameFunc(counterAttrName, 'increment'),
-                decrName = genNameFunc(counterAttrName, 'decrement'),
-                isModuleOrClass = typeof scope === 'function' || scope instanceof JS.Module;
-            
-            // Prevent clobbering
-            if ((isModuleOrClass ? scope.instanceMethod(incrName) : scope[incrName]) !== undefined) {
-                console.warn("Can't clobber existing property during setup of ThresholdCounter increment function.", incrName, scope);
-                return false;
-            }
-            if ((isModuleOrClass ? scope.instanceMethod(decrName) : scope[decrName]) !== undefined) {
-                console.warn("Can't clobber existing property during setup of ThresholdCounter decrement function.", decrName, scope);
-                return false;
-            }
-            
-            // Define the "module".
-            var mod = {};
-            
-            /** Increments the counter attribute on the scope object by 1.
-                @returns void */
-            mod[incrName] = function() {
-                var value = this[counterAttrName] + 1;
-                this[counterAttrName] = value;
-                this.fireNewEvent(counterAttrName, value);
-                if (value === thresholdValue) this.setActual(exceededAttrName, true, 'boolean');
-            };
-            
-            /** Decrements the counter attribute on the scope object by 1.
-                @returns void */
-            mod[decrName] = function() {
-                var curValue = this[counterAttrName];
-                if (curValue === 0) return;
-                var value = curValue - 1;
-                this[counterAttrName] = value;
-                this.fireNewEvent(counterAttrName, value);
-                if (curValue === thresholdValue) this.setActual(exceededAttrName, false, 'boolean');
-            };
-            
-            // Mixin in the "module"
-            if (isModuleOrClass) {
-                scope.include(mod);
-            } else {
-                scope.extend(mod);
-            }
-            
-            return true;
-        },
-        
-        /** Set initial value on a ThresholdCounter instance.
-            This also executes a 'check' so the 'exceeded' attribute will have
-            the correct value.
-            @returns void */
-        initializeFixedThresholdCounter: function(
-            scope, initialValue, thresholdValue, exceededAttrName, counterAttrName
-        ) {
-            counterAttrName = counterAttrName || dr.AccessorSupport.generateName('counter', exceededAttrName);
-            
-            scope[counterAttrName] = initialValue;
-            scope.set(exceededAttrName, initialValue >= thresholdValue);
-        }
-    },
-    
-    
-    // Constructor /////////////////////////////////////////////////////////////
-    initialize: function(initialValue, thresholdValue) {
-        dr.ThresholdCounter.initializeThresholdCounter(
-            this, initialValue, thresholdValue, 'exceeded', 'counter', 'threshold'
-        );
-    },
-    
-    
-    // Life Cycle //////////////////////////////////////////////////////////////
-    /** @overrides dr.Destructible */
-    destroy: function() {
-        this.detachAllObservers();
-        this.callSuper();
-    }
-});
-
-/** Create default counter functions for the ThresholdCounter class. */
-dr.ThresholdCounter.createThresholdCounter(
-    dr.ThresholdCounter, 'exceeded', 'counter', 'threshold'
-);
-
-
-/** A layout controls the positioning of views within a parent view.
-    
-    Events:
-        None
-    
-    Attributes:
-        locked:boolean When true, the layout will not update.
-        lockedCounter:number Counter created by dr.ThresholdCounter.
-    
-    Private Attributes:
-        subviews:array An array of Views managed by this layout.
-        __deferredLayout:boolean Marks a layout as deferred if the global
-            layout lock, dr.Layout.locked, is true during a call to 
-            'canUpdate' on the layout.
-*/
-dr.Layout = new JS.Class('Layout', dr.Node, {
-    // Class Methods ///////////////////////////////////////////////////////////
-    extend: {
-        deferredLayouts: [],
-        
-        /** Increments the global lock that prevents all layouts from updating.
-            @returns void */
-        incrementGlobalLock: function() {
-            var L = dr.Layout;
-            if (L._lockCount === undefined) L._lockCount = 0;
-            
-            L._lockCount++;
-            if (L._lockCount === 1) L.__set_locked(true);
-        },
-        
-        /** Decrements the global lock that prevents all layouts from updating.
-            @returns void */
-        decrementGlobalLock: function() {
-            var L = dr.Layout;
-            if (L._lockCount === undefined) L._lockCount = 0;
-            
-            if (L._lockCount !== 0) {
-                L._lockCount--;
-                if (L._lockCount === 0) L.__set_locked(false);
-            }
-        },
-        
-        /** Adds a layout to a list of layouts that will get updated when the
-            global lock is no longer locked.
-            @param layout:dr.Layout the layout to defer an update for.
-            @returns void */
-        deferLayoutUpdate: function(layout) {
-            // Don't add a layout that is already deferred.
-            if (!layout.__deferredLayout) {
-                dr.Layout.deferredLayouts.push(layout);
-                layout.__deferredLayout = true;
-            }
-        },
-        
-        /** Called to set/unset the global lock. Updates all the currently 
-            deferred layouts.
-            @private */
-        __set_locked: function(v) {
-            var L = dr.Layout;
-            if (L.locked === v) return;
-            L.locked = v;
-            
-            if (!v) {
-                var layouts = L.deferredLayouts, i = layouts.length, layout;
-                while (i) {
-                    layout = layouts[--i];
-                    layout.__deferredLayout = false;
-                    layout.update();
-                }
-                layouts.length = 0;
-            }
-        }
-    },
-    
-    
-    // Life Cycle //////////////////////////////////////////////////////////////
-    /** @overrides dr.Node */
-    initNode: function(parent, attrs) {
-        this.subviews = [];
-        
-        // Start the layout in the locked state.
-        this.locked = true;
-        this.lockedCounter = 1;
-        
-        // Remember how initial locking state should be set
-        var initiallyLocked = attrs.locked === true;
-        delete attrs.locked;
-        
-        this.callSuper(parent, attrs);
-        
-        // Unlock if initial locking state calls for it.
-        if (!initiallyLocked) this.decrementLockedCounter();
-        
-        this.update();
-    },
-    
-    /** @overrides dr.Node */
-    destroyAfterOrphaning: function() {
-        this.callSuper();
-        this.subviews.length = 0;
-    },
-    
-    
-    // Accessors ///////////////////////////////////////////////////////////////
-    /** @overrides dr.Node */
-    set_parent: function(parent) {
-        if (this.parent !== parent) {
-            // Lock during parent change so that old parent is not updated by
-            // the calls to removeSubview and addSubview.
-            var wasNotLocked = !this.locked;
-            if (wasNotLocked) this.locked = true;
-            
-            // Stop monitoring parent
-            var svs, i, len;
-            if (this.parent) {
-                svs = this.subviews;
-                i = svs.length;
-                while (i) this.removeSubview(svs[--i]);
-                
-                this.detachFrom(this.parent, '__handleParentSubviewAddedEvent', 'subviewAdded');
-                this.detachFrom(this.parent, '__handleParentSubviewRemovedEvent', 'subviewRemoved');
-            }
-            
-            this.callSuper(parent);
-            
-            // Start monitoring new parent
-            if (this.parent) {
-                svs = this.parent.getSubviews();
-                for (i = 0, len = svs.length; len > i; ++i) this.addSubview(svs[i]);
-                
-                this.attachTo(this.parent, '__handleParentSubviewAddedEvent', 'subviewAdded');
-                this.attachTo(this.parent, '__handleParentSubviewRemovedEvent', 'subviewRemoved');
-            }
-            
-            // Clear temporary lock and update if this happened after initialization.
-            if (wasNotLocked) {
-                this.locked = false;
-                if (this.inited && this.parent) this.update();
-            }
-        }
-    },
-    
-    
-    // Methods /////////////////////////////////////////////////////////////////
-    /** Checks if the layout is locked or not. Should be called by the
-        "update" method of each layout to check if it is OK to do the update.
-        If dr.Layout.locked is true (the global layout lock) then a deferred
-        layout update will be setup for this Layout. Once the global lock is
-        unlocked this Layout's 'update' method will be invoked.
-        @returns true if not locked, false otherwise. */
-    canUpdate: function() {
-        if (dr.Layout.locked) {
-            dr.Layout.deferLayoutUpdate(this);
-            return false;
-        }
-        return !this.locked;
-    },
-    
-    /** Updates the layout. Subclasses should call canUpdate to check lock 
-        state before trying to do anything.
-        @returns void */
-    update: function() {},
-    
-    // Subview Methods //
-    /** Checks if this Layout has the provided View in the subviews array.
-        @param sv:View the view to check for.
-        @returns true if the subview is found, false otherwise. */
-    hasSubview: function(sv) {
-        return this.getSubviewIndex(sv) !== -1;
-    },
-    
-    /** Gets the index of the provided View in the subviews array.
-        @param sv:View the view to check for.
-        @returns the index of the subview or -1 if not found. */
-    getSubviewIndex: function(sv) {
-        return this.subviews.indexOf(sv);
-    },
-    
-    /** Adds the provided View to the subviews array of this Layout.
-        @param sv:View the view to add to this layout.
-        @returns void */
-    addSubview: function(sv) {
-        if (this.ignore(sv)) return;
-        
-        this.subviews.push(sv);
-        this.startMonitoringSubview(sv);
-        if (!this.locked) this.update();
-    },
-    
-    /** Subclasses should implement this method to start listening to
-        events from the subview that should trigger the update method.
-        @param sv:View the view to start monitoring for changes.
-        @returns void */
-    startMonitoringSubview: function(sv) {},
-    
-    /** Calls startMonitoringSubview for all views. Used by Layout 
-        implementations when a change occurs to the layout that requires
-        refreshing all the subview monitoring.
-        @returns void */
-    startMonitoringAllSubviews: function() {
-        var svs = this.subviews, i = svs.length;
-        while (i) this.startMonitoringSubview(svs[--i]);
-    },
-    
-    /** Removes the provided View from the subviews array of this Layout.
-        @param sv:View the view to remove from this layout.
-        @returns the index of the removed subview or -1 if not removed. */
-    removeSubview: function(sv) {
-        if (this.ignore(sv)) return -1;
-        
-        var idx = this.getSubviewIndex(sv);
-        if (idx !== -1) {
-            this.stopMonitoringSubview(sv);
-            this.subviews.splice(idx, 1);
-            if (!this.locked) this.update();
-        }
-        return idx;
-    },
-    
-    /** Subclasses should implement this method to stop listening to
-        events from the subview that would trigger the update method. This
-        should remove all listeners that were setup in startMonitoringSubview.
-        @param sv:View the view to stop monitoring for changes.
-        @returns void */
-    stopMonitoringSubview: function(sv) {},
-    
-    /** Calls stopMonitoringSubview for all views. Used by Layout 
-        implementations when a change occurs to the layout that requires
-        refreshing all the subview monitoring.
-        @returns void */
-    stopMonitoringAllSubviews: function() {
-        var svs = this.subviews, i = svs.length;
-        while (i) this.stopMonitoringSubview(svs[--i]);
-    },
-    
-    /** Checks if a subview can be added to this Layout or not. The default 
-        implementation returns the 'ignorelayout' attributes of the subview.
-        @param sv:dr.View the view to check.
-        @returns boolean true means the subview will be skipped, false
-            otherwise. */
-    ignore: function(sv) {
-        return sv.ignorelayout;
-    },
-    
-    /** If our parent adds a new subview we should add it.
-        @private */
-    __handleParentSubviewAddedEvent: function(event) {
-        var v = event.value;
-        if (v.parent === this.parent) this.addSubview(v);
-    },
-    
-    /** If our parent removes a subview we should remove it.
-        @private */
-    __handleParentSubviewRemovedEvent: function(event) {
-        var v = event.value;
-        if (v.parent === this.parent) this.removeSubview(v);
-    },
-    
-    // Subview ordering //
-    /** Sorts the subviews array according to the provided sort function.
-        @param sortFunc:function the sort function to sort the subviews with.
-        @returns void */
-    sortSubviews: function(sortFunc) {
-        this.subviews.sort(sortFunc);
-    },
-    
-    /** Moves the subview before the target subview in the order the subviews
-        are layed out. If no target subview is provided, or it isn't in the
-        layout the subview will be moved to the front of the list.
-        @returns void */
-    moveSubviewBefore: function(sv, target) {
-        this.__moveSubview(sv, target, false);
-    },
-    
-    /** Moves the subview after the target subview in the order the subviews
-        are layed out. If no target subview is provided, or it isn't in the
-        layout the subview will be moved to the back of the list.
-        @returns void */
-    moveSubviewAfter: function(sv, target) {
-        this.__moveSubview(sv, target, true);
-    },
-    
-    /** Implements moveSubviewBefore and moveSubviewAfter.
-        @private */
-    __moveSubview: function(sv, target, after) {
-        var curIdx = this.getSubviewIndex(sv);
-        if (curIdx >= 0) {
-            var svs = this.subviews,
-                targetIdx = this.getSubviewIndex(target);
-            svs.splice(curIdx, 1);
-            if (targetIdx >= 0) {
-                if (curIdx < targetIdx) --targetIdx;
-                svs.splice(targetIdx + after ? 1 : 0, 0, sv);
-            } else {
-                // Make first or last since target was not found
-                if (after) {
-                    svs.push(sv);
-                } else {
-                    svs.unshift(sv);
-                }
-            }
-        }
-    }
-});
-
-/** Create locked counter functions for the dr.Layout class. */
-dr.ThresholdCounter.createFixedThresholdCounter(dr.Layout, 1, 'locked');
-
-
-/** A layout that sets the target attribute name to the target value for 
-    each subview.
-    
-    Events:
-        attribute:string
-        value:*
-    
-    Attributes:
-        attribute:string the name of the attribute to set on each subview.
-        value:* the value to set the attribute to.
-        setterName:string the name of the setter method to call on the subview
-            for the attribute. This value is updated when
-            set_attribute is called.
-*/
-dr.ConstantLayout = new JS.Class('ConstantLayout', dr.Layout, {
-    // Accessors ///////////////////////////////////////////////////////////////
-    set_attribute: function(v) {
-        if (this.setActual('attribute', v, 'string')) {
-            this.setterName = dr.AccessorSupport.generateSetterName(this.attribute);
-            if (this.inited) this.update();
-        }
-    },
-    
-    set_value: function(v) {
-        if (this.setActual('value', v, '*')) {
-            if (this.inited) this.update();
-        }
-    },
-    
-    
-    // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides dr.Layout */
-    update: function() {
-        if (this.canUpdate()) {
-            var setterName = this.setterName, 
-                value = this.value, 
-                svs = this.subviews, len = svs.length, sv,
-                setter, i = 0;
-            for (; len > i;) {
-                sv = svs[i++];
-                setter = sv[setterName];
-                if (setter) setter.call(sv, value);
-            }
-        }
-    }
-});
-
-
-/** An extension of ConstantLayout that allows for variation based on the
-    index and subview. An updateSubview method is provided that can be
-    overriden to provide variable behavior.
-    
-    Events:
-        collapseparent:boolean
-        reverse:boolean
-    
-    Attributes:
-        collapseparent:boolean If true the updateParent method will be called.
-            The updateParent method will typically resize the parent to fit
-            the newly layed out child views. Defaults to false.
-        reverse:boolean If true the layout will position the items in the
-            opposite order. For example, right to left instead of left to right.
-            Defaults to false.
-*/
-dr.VariableLayout = new JS.Class('VariableLayout', dr.ConstantLayout, {
-    // Life Cycle //////////////////////////////////////////////////////////////
-    /** @overrides dr.Node */
-    initNode: function(parent, attrs) {
-        this.collapseparent = this.reverse = false;
-        
-        this.callSuper(parent, attrs);
-    },
-    
-    
-    // Accessors ///////////////////////////////////////////////////////////////
-    set_collapseparent: function(v) {
-        if (this.setActual('collapseparent', v, 'boolean', false)) {
-            if (this.inited) this.update();
-        }
-    },
-    
-    set_reverse: function(v) {
-        if (this.setActual('reverse', v, 'boolean', false)) {
-            if (this.inited) this.update();
-        }
-    },
-    
-    
-    // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides dr.ConstantLayout */
-    update: function() {
-        if (this.canUpdate()) {
-            // Prevent inadvertent loops
-            this.incrementLockedCounter();
-            
-            this.doBeforeUpdate();
-            
-            var setterName = this.setterName, value = this.value,
-                svs = this.subviews, len = svs.length, i, sv, count = 0;
-            
-            if (this.reverse) {
-                i = len;
-                while(i) {
-                    sv = svs[--i];
-                    if (this.skipSubview(sv)) continue;
-                    value = this.updateSubview(++count, sv, setterName, value);
-                }
-            } else {
-                i = 0;
-                while(len > i) {
-                    sv = svs[i++];
-                    if (this.skipSubview(sv)) continue;
-                    value = this.updateSubview(++count, sv, setterName, value);
-                }
-            }
-            
-            this.doAfterUpdate();
-            
-            if (this.collapseparent && !this.parent.isBeingDestroyed) {
-                this.updateParent(setterName, value);
-            }
-            
-            this.decrementLockedCounter();
-        }
-    },
-    
-    /** Called by update before any processing is done. Gives subviews a
-        chance to do any special setup before update is processed.
-        @returns void */
-    doBeforeUpdate: function() {
-        // Subclasses to implement as needed.
-    },
-    
-    /** Called by update after any processing is done but before the optional
-        collapsing of parent is done. Gives subviews a chance to do any 
-        special teardown after update is processed.
-        @returns void */
-    doAfterUpdate: function() {
-        // Subclasses to implement as needed.
-    },
-    
-    /** @overrides dr.Layout
-        Provides a default implementation that calls update when the
-        visibility of a subview changes. */
-    startMonitoringSubview: function(sv) {
-        this.attachTo(sv, 'update', 'visible');
-    },
-    
-    /** @overrides dr.Layout
-        Provides a default implementation that calls update when the
-        visibility of a subview changes. */
-    stopMonitoringSubview: function(sv) {
-        this.detachFrom(sv, 'update', 'visible');
-    },
-    
-    /** Called for each subview in the layout.
-        @param count:int the number of subviews that have been layed out
-            including the current one. i.e. count will be 1 for the first
-            subview layed out.
-        @param sv:View the subview being layed out.
-        @param setterName:string the name of the setter method to call.
-        @param value:* the layout value.
-        @returns the value to use for the next subview. */
-    updateSubview: function(count, sv, setterName, value) {
-        sv[setterName](value);
-        return value;
-    },
-    
-    /** Called for each subview in the layout to determine if the view should
-        be positioned or not. The default implementation returns true if the 
-        subview is not visible.
-        @param sv:View The subview to test.
-        @returns true if the subview should be skipped during layout updates.*/
-    skipSubview: function(sv) {
-        return !sv.visible;
-    },
-    
-    /** Called if the collapseparent attribute is true. Subclasses should 
-        implement this if they want to modify the parent view.
-        @param setterName:string the name of the setter method to call on
-            the parent.
-        @param value:* the value to set on the parent.
-        @returns void */
-    updateParent: function(setterName, value) {
-        // Subclasses to implement as needed.
     }
 });
 
@@ -6244,6 +4975,812 @@ dr.sprite.View = new JS.Class('sprite.View', {
 });
 
 
+/** A single node within a tree data structure. A node has zero or one parent 
+    node and zero or more child nodes. If a node has no parent it is a 'root' 
+    node. If a node has no child nodes it is a 'leaf' node. Parent nodes and 
+    parent of parents, etc. are referred to as ancestors. Child nodes and 
+    children of children, etc. are referred to as descendants.
+    
+    Lifecycle management is also provided via the 'initNode', 'doBeforeAdoption',
+    'doAfterAdoption', 'destroy', 'destroyBeforeOrphaning' and
+    'destroyAfterOrphaning' methods.
+    
+    Events:
+        parent:dr.Node Fired when the parent is set.
+    
+    Attributes:
+        parent:dr.Node The parent of this Node.
+        name:string The name of this node. Used to reference this Node from
+            its parent Node.
+        id:string The unique ID of this node in the global namespace.
+        
+        Lifecycle Related:
+            inited:boolean Set to true after this Node has completed 
+                initializing.
+            isBeingDestroyed:boolean (read only) Indicates that this node is in 
+                the process of being destroyed. Set to true at the beginning of 
+                the destroy lifecycle phase. Undefined before that.
+        
+        Placement Related:
+            placement:string The name of the subnode of this Node to add nodes 
+                to when set_parent is called on the subnode. Placement can be 
+                nested using '.' For example 'foo.bar'. The special value of 
+                '*' means use the default placement. For example 'foo.*' means 
+                place in the foo subnode and then in the default placement 
+                for foo.
+            defaultplacement:string The name of the subnode to add nodes to when 
+                no placement is specified. Defaults to undefined which means add
+                subnodes directly to this node.
+            ignoreplacement:boolean If set to true placement will not be 
+                processed for this Node when it is added to a parent Node.
+    
+    Private Attributes:
+        __animPool:array An dr.TrackActivesPool used by the 'animate' method.
+        subnodes:array The array of child nodes for this node. Should be
+            accessed through the getSubnodes method.
+*/
+dr.Node = new JS.Class('Node', {
+    include: [
+        dr.AccessorSupport, 
+        dr.Destructible, 
+        dr.Observable, 
+        dr.Constrainable
+    ],
+    
+    
+    // Class Methods and Attributes ////////////////////////////////////////////
+    extend: {
+        /** Get the closest ancestor of the provided Node or the Node itself for 
+            which the matcher function returns true.
+            @param n:dr.Node the Node to start searching from.
+            @param matcher:function the function to test for matching Nodes with.
+            @returns Node or null if no match is found. */
+        getMatchingAncestorOrSelf: function(n, matcherFunc) {
+            if (n && matcherFunc) {
+                while (n) {
+                    if (matcherFunc(n)) return n;
+                    n = n.parent;
+                }
+            }
+            return null;
+        },
+        
+        /** Get the youngest ancestor of the provided Node for which the 
+            matcher function returns true.
+            @param n:dr.Node the Node to start searching from. This Node is not
+                tested, but its parent is.
+            @param matcher:function the function to test for matching Nodes with.
+            @returns Node or null if no match is found. */
+        getMatchingAncestor: function(n, matcherFunc) {
+            return this.getMatchingAncestorOrSelf(n ? n.parent : null, matcherFunc);
+        }
+    },
+    
+    
+    // Constructor /////////////////////////////////////////////////////////////
+    /** The standard JSClass initializer function. Subclasses should not
+        override this function.
+        @param parent:Node (or dom element for RootViews) (Optional) the parent 
+            of this Node.
+        @param attrs:object (Optional) A map of attribute names and values.
+        @param mixins:array (Optional) a list of mixins to be added onto
+            the new instance.
+        @returns void */
+    initialize: function(parent, attrs, mixins) {
+        if (mixins) {
+            var i = 0, len = mixins.length, mixin;
+            for (; len > i;) {
+                mixin = mixins[i++];
+                if (mixin) {
+                    this.extend(mixin);
+                } else {
+                    console.warn("Undefined mixin in initialization of: " + this.klass.__displayName);
+                }
+            }
+        }
+        
+        this.inited = false;
+        
+        var defaultKlassAttrValues = this.klass.defaultAttrValues;
+        if (defaultKlassAttrValues) attrs = dr.extend({}, defaultKlassAttrValues, attrs);
+        
+        this.initNode(parent, attrs || {});
+    },
+    
+    
+    // Life Cycle //////////////////////////////////////////////////////////////
+    /** Called during initialization. Sets initial state for life cycle attrs,
+        calls setter methods, sets parent and lastly, sets inited to true.
+        Subclasses must callSuper.
+        @param parent:Node (or dom element for RootViews) the parent of 
+            this Node.
+        @param attrs:object A map of attribute names and values.
+        @returns void */
+    initNode: function(parent, attrs) {
+        this.callSetters(attrs);
+        
+        this.doBeforeAdoption();
+        this.set_parent(parent);
+        this.doAfterAdoption();
+        this.__makeChildren();
+        this.__registerHandlers();
+        
+        this.inited = true;
+        this.fireNewEvent('oninit', true);
+    },
+    
+    /** Provides a hook for subclasses to do things before this Node has its
+        parent assigned. This would be the ideal place to create subviews
+        so as to avoid unnecessary dom reflows. However, text size can't
+        be measured until insertion into the DOM so you may want to use
+        doAfterAdoption for creating subviews since it will give you less
+        trouble though it will be slower.
+        @returns void */
+    doBeforeAdoption: function() {},
+    
+    /** Provides a hook for subclasses to do things after this Node has its
+        parent assigned.
+        @returns void */
+    doAfterAdoption: function() {},
+    
+    /** @private */
+    __makeChildren: function() {},
+    
+    /** @private */
+    __registerHandlers: function() {},
+    
+    /** @overrides dr.Destructible. */
+    destroy: function() {
+        // Allows descendants to know destruction is in process
+        this.isBeingDestroyed = true;
+        
+        // Destroy subnodes depth first
+        var subs = this.subnodes;
+        if (subs) {
+            var i = subs.length;
+            while (i) subs[--i].destroy();
+        }
+        
+        if (this.__animPool) {
+            this.stopActiveAnimators();
+            this.__animPool.destroy();
+        }
+        
+        this.destroyBeforeOrphaning();
+        if (this.parent) this.set_parent(null);
+        this.destroyAfterOrphaning();
+        
+        // Remove from global namespace if necessary
+        if (this.id) this.set_id();
+        
+        this.callSuper();
+    },
+    
+    /** Provides a hook for subclasses to do destruction of their internals.
+        This method is called after subnodes have been destroyed but before
+        the parent has been unset.
+        Subclasses should call callSuper.
+        @returns void */
+    destroyBeforeOrphaning: function() {},
+    
+    /** Provides a hook for subclasses to do destruction of their internals.
+        This method is called after the parent has been unset.
+        Subclasses must call callSuper.
+        @returns void */
+    destroyAfterOrphaning: function() {
+        this.releaseAllConstraints();
+        this.detachFromAllObservables();
+        this.detachAllObservers();
+    },
+    
+    
+    // Accessors ///////////////////////////////////////////////////////////////
+    /** Sets the provided Node as the new parent of this Node. This is the
+        most direct method to do reparenting. You can also use the addSubnode
+        method but it's just a wrapper around this setter. */
+    set_parent: function(newParent) {
+        // Use placement if indicated
+        if (newParent && !this.ignoreplacement) {
+            var placement = this.placement || newParent.defaultplacement;
+            if (placement) newParent = newParent.determinePlacement(placement, this);
+        }
+        
+        if (this.parent !== newParent) {
+            // Abort if the new parent is in the destroyed life-cycle state.
+            if (newParent && newParent.destroyed) return;
+            
+            // Remove ourselves from our existing parent if we have one.
+            var curParent = this.parent;
+            if (curParent) {
+                var idx = curParent.getSubnodeIndex(this);
+                if (idx !== -1) {
+                    if (this.name) curParent.__removeNameRef(this);
+                    curParent.subnodes.splice(idx, 1);
+                    curParent.subnodeRemoved(this);
+                }
+            }
+            
+            this.parent = newParent;
+            
+            // Add ourselves to our new parent
+            if (newParent) {
+                newParent.getSubnodes().push(this);
+                if (this.name) newParent.__addNameRef(this);
+                newParent.subnodeAdded(this);
+            }
+            
+            // Fire an event
+            if (this.inited) this.fireNewEvent('parent', newParent);
+        }
+    },
+    
+    /** The 'name' of a Node allows it to be referenced by name from its
+        parent node. For example a Node named 'foo' that is a child of a
+        Node stored in the var 'bar' would be referenced like this: bar.foo or
+        bar['foo']. */
+    set_name: function(name) {
+        if (this.name !== name) {
+            // Remove "name" reference from parent.
+            var p = this.parent;
+            if (p && this.name) p.__removeNameRef(this);
+            
+            this.name = name;
+            
+            // Add "name" reference to parent.
+            if (p && name) p.__addNameRef(this);
+        }
+    },
+    
+    /** Stores this instance in the global scope under the provided id. */
+    set_id: function(v) {
+        var existing = this.id;
+        if (v !== existing) {
+            delete global[existing];
+            this.id = v;
+            if (v) global[v] = this;
+            if (this.inited) this.fireNewEvent('id', v);
+        }
+    },
+    
+    /** Gets the subnodes for this Node and does lazy instantiation of the 
+        subnodes array if no child Nodes exist.
+        @returns array of subnodes. */
+    getSubnodes: function() {
+        return this.subnodes || (this.subnodes = []);
+    },
+    
+    // Placement Accessors /////////////////////////////////////////////////////
+    set_placement: function(v) {this.setSimpleActual('placement', v);},
+    set_defaultplacement: function(v) {this.setSimpleActual('defaultplacement', v);},
+    set_ignoreplacement: function(v) {this.setSimpleActual('ignoreplacement', v);},
+    
+    
+    // Methods /////////////////////////////////////////////////////////////////
+    createChild: function(attrs, mixins) {
+        var classname = 'node', parent = this, klass;
+        
+        if (attrs) {
+            if (attrs.class) {
+                classname = attrs.class;
+                delete attrs.class;
+            }
+            
+            if (attrs.parent) {
+                parent = attrs.parent;
+                delete attrs.parent;
+            }
+        }
+        
+        klass = dr[classname];
+        if (typeof klass === 'function') {
+            return new klass(parent, attrs, mixins);
+        } else {
+            dr.dumpStack("Unrecognized class in createChild", classname);
+        }
+    },
+    
+    /** Called from set_parent to determine where to insert a subnode in the node
+        hierarchy. Subclasses will not typically override this method, but if
+        they do, they probably won't need to call callSuper.
+        @param placement:string the placement path to use.
+        @param subnode:dr.Node the subnode being placed.
+        @returns the Node to place a subnode into. */
+    determinePlacement: function(placement, subnode) {
+        // Parse "active" placement and remaining placement.
+        var idx = placement.indexOf('.'), remainder, loc;
+        if (idx !== -1) {
+            remainder = placement.substring(idx + 1);
+            placement = placement.substring(0, idx);
+        }
+        
+        // Evaluate placement of '*' as defaultplacement.
+        if (placement === '*') {
+            placement = this.defaultplacement;
+            
+            // Default placement may be compound and thus require splitting
+            if (placement) {
+                idx = placement.indexOf('.');
+                if (idx !== -1) {
+                    remainder = placement.substring(idx + 1) + (remainder ? '.' + remainder : '');
+                    placement = placement.substring(0, idx);
+                }
+            }
+            
+            // It's possible that a placement of '*' comes out here if a
+            // Node has its defaultplacement set to '*'. This should result
+            // in a null loc when the code below runs which will end up
+            // returning 'this'.
+        }
+        
+        loc = this[placement];
+        return loc ? (remainder ? loc.determinePlacement(remainder, subnode) : loc) : this;
+    },
+    
+    /** Adds a named reference to a subnode.
+        @param node:Node the node to add the name reference for.
+        @returns void */
+    __addNameRef: function(node) {
+        var name = node.name;
+        if (this[name] === undefined) {
+            this[name] = node;
+        } else {
+            console.log("Name in use:" + name);
+        }
+    },
+    
+    /** Removes a named reference to a subnode.
+        @param node:Node the node to remove the name reference for.
+        @returns void */
+    __removeNameRef: function(node) {
+        var name = node.name;
+        if (this[name] === node) {
+            delete this[name];
+        } else {
+            console.log("Name not in use:" + name);
+        }
+    },
+    
+    // Tree Methods //
+    /** Gets the root Node for this Node. The root Node is the oldest
+        ancestor or self that has no parent.
+        @returns Node */
+    getRoot: function() {
+        return this.parent ? this.parent.getRoot() : this;
+    },
+    
+    /** Checks if this Node is a root Node.
+        @returns boolean */
+    isRoot: function() {
+        return this.parent == null;
+    },
+    
+    /** Tests if this Node is a descendant of the provided Node or is the
+        node itself.
+        @returns boolean */
+    isDescendantOf: function(node) {
+        if (node) {
+            if (node === this) return true;
+            if (this.parent) return this.parent.isDescendantOf(node);
+        }
+        return false;
+    },
+    
+    /** Tests if this Node is an ancestor of the provided Node or is the
+        node itself.
+        @param node:Node the node to check for.
+        @returns boolean */
+    isAncestorOf: function(node) {
+        return node ? node.isDescendantOf(this) : false;
+    },
+    
+    /** Gets the youngest common ancestor of this node and the provided node.
+        @param node:dr.Node The node to look for a common ancestor with.
+        @returns The youngest common Node or null if none exists. */
+    getLeastCommonAncestor: function(node) {
+        while (node) {
+            if (this.isDescendantOf(node)) return node;
+            node = node.parent;
+        }
+        return null;
+    },
+    
+    /** Find the youngest ancestor Node that is an instance of the class.
+        @param klass the Class to search for.
+        @returns Node or null if no klass is provided or match found. */
+    searchAncestorsForClass: function(klass) {
+        return klass ? this.searchAncestors(function(n) {return n instanceof klass;}) : null;
+    },
+    
+    /** Get the youngest ancestor of this Node for which the matcher function 
+        returns true. This is a simple wrapper around 
+        dr.Node.getMatchingAncestor(this, matcherFunc).
+        @param matcherFunc:function the function to test for matching 
+            Nodes with.
+        @returns Node or null if no match is found. */
+    searchAncestors: function(matcherFunc) {
+        return dr.Node.getMatchingAncestor(this, matcherFunc);
+    },
+    
+    /** Get the youngest ancestor of this Node or the Node itself for which 
+        the matcher function returns true. This is a simple wrapper around 
+        dr.Node.getMatchingAncestorOrSelf(this, matcherFunc).
+        @param matcherFunc:function the function to test for matching 
+            Nodes with.
+        @returns Node or null if no match is found. */
+    searchAncestorsOrSelf: function(matcherFunc) {
+        return dr.Node.getMatchingAncestorOrSelf(this, matcherFunc);
+    },
+    
+    /** Gets an array of ancestor nodes including the node itself.
+        @returns array: The array of ancestor nodes. */
+    getAncestors: function() {
+        var ancestors = [], node = this;
+        while (node) {
+            ancestors.push(node);
+            node = node.parent;
+        }
+        return ancestors;
+    },
+    
+    // Subnode Methods //
+    /** Checks if this Node has the provided Node in the subnodes array.
+        @param node:Node the subnode to check for.
+        @returns true if the subnode is found, false otherwise. */
+    hasSubnode: function(node) {
+        return this.getSubnodeIndex(node) !== -1;
+    },
+    
+    /** Gets the index of the provided Node in the subnodes array.
+        @param node:Node the subnode to get the index for.
+        @returns the index of the subnode or -1 if not found. */
+    getSubnodeIndex: function(node) {
+        return this.getSubnodes().indexOf(node);
+    },
+    
+    /** A convienence method to make a Node a child of this Node. The
+        standard way to do this is to call the set_parent method on the
+        prospective child Node.
+        @param node:Node the subnode to add.
+        @returns void */
+    addSubnode: function(node) {
+        node.set_parent(this);
+    },
+    
+    /** A convienence method to make a Node no longer a child of this Node. The
+        standard way to do this is to call the set_parent method with a value
+        of null on the child Node.
+        @param node:Node the subnode to remove.
+        @returns the removed Node or null if removal failed. */
+    removeSubnode: function(node) {
+        if (node.parent !== this) return null;
+        node.set_parent(null);
+        return node;
+    },
+    
+    /** Called when a subnode is added to this node. Provides a hook for
+        subclasses. No need for subclasses to call callSuper. Do not call this
+        method to add a subnode. Instead call addSubnode or set_parent.
+        @param node:Node the subnode that was added.
+        @returns void */
+    subnodeAdded: function(node) {},
+    
+    /** Called when a subnode is removed from this node. Provides a hook for
+        subclasses. No need for subclasses to call callSuper. Do not call this
+        method to remove a subnode. Instead call removeSubnode or set_parent.
+        @param node:Node the subnode that was removed.
+        @returns void */
+    subnodeRemoved: function(node) {},
+    
+    // Animation
+    /** Animates an attribute using the provided parameters.
+        @param attribute:string/object the name of the attribute to animate. If
+            an object is provided it should be the only argument and its keys
+            should be the params of this method. This provides a more concise
+            way of passing in sparse optional parameters.
+        @param to:number the target value to animate to.
+        @param from:number the target value to animate from. (optional)
+        @param relative:boolean (optional)
+        @param callback:function (optional)
+        @param duration:number (optional)
+        @param reverse:boolean (optional)
+        @param repeat:number (optional)
+        @param easingFunction:function (optional)
+        @returns The Animator being run. */
+    animate: function(attribute, to, from, relative, callback, duration, reverse, repeat, easingFunction) {
+        var animPool = this.__getAnimPool();
+        
+        // ignoreplacement ensures the animator is directly attached to this node
+        var anim = animPool.getInstance({ignoreplacement:true});
+        
+        if (typeof attribute === 'object') {
+            // Handle a single map argument if provided
+            callback = attribute.callback;
+            delete attribute.callback;
+            anim.callSetters(attribute);
+        } else {
+            // Handle individual arguments
+            anim.attribute = attribute;
+            anim.set_to(to);
+            anim.set_from(from);
+            if (duration != null) anim.duration = duration;
+            if (relative != null) anim.relative = relative;
+            if (repeat != null) anim.repeat = repeat;
+            if (reverse != null) anim.set_reverse(reverse);
+            if (easingFunction != null) anim.set_easingfunction(easingFunction);
+        }
+        
+        // Release the animation when it completes.
+        anim.next(function(success) {animPool.putInstance(anim);});
+        if (callback) anim.next(callback);
+        
+        anim.set_running(true);
+        return anim;
+    },
+    
+    /** Gets an array of the currently running animators that were created
+        by calls to the animate method.
+        @param filterFunc:function/string a function that filters which 
+            animations get stopped. The filter should return true for 
+            functions to be included. If the provided values is a string it will
+            be used as a matching attribute name.
+        @returns an array of active animators. */
+    getActiveAnimators: function(filterFunc) {
+        if (typeof filterFunc === 'string') {
+            var attrName = filterFunc;
+            filterFunc = function(anim) {return anim.attribute === attrName;};
+        }
+        return this.__getAnimPool().getActives(filterFunc);
+    },
+    
+    /** Stops all active animations.
+        @param filterFunc:function/string a function that filters which 
+            animations get stopped. The filter should return true for 
+            functions to be stopped. If the provided values is a string it will
+            be used as a matching attribute name.
+        @returns void */
+    stopActiveAnimators: function(filterFunc) {
+        var activeAnims = this.getActiveAnimators(filterFunc), i = activeAnims.length, anim;
+        if (i > 0) {
+            var animPool = this.__getAnimPool();
+            while (i) {
+                anim = activeAnims[--i];
+                anim.reset(false);
+                animPool.putInstance(anim);
+            }
+        }
+    },
+    
+    /** Gets the animation pool if it exists, or lazy instantiates it first
+        if necessary.
+        @private
+        @returns dr.TrackActivesPool */
+    __getAnimPool: function() {
+        return this.__animPool || (this.__animPool = new dr.TrackActivesPool(dr.Animator, this));
+    }
+});
+
+
+/** Marks subclasses as layouts. */
+dr.BaseLayout = new JS.Class('BaseLayout', dr.Node, {});
+
+
+/** A counter that can be incremented and decremented and will update an
+    'exceeded' attribute when a threshold is crossed. */
+dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
+    include: [dr.AccessorSupport, dr.Destructible, dr.Observable],
+    
+    // Class Methods and Attributes ////////////////////////////////////////////
+    extend: {
+        /** Mixes ThresholdCounter functionality onto the provided scope.
+            @param scope:Observable|Class|Module the scope to mix onto.
+            @param exceededAttrName:string the name of the boolean attribute
+                that will indicate if the threshold is exceeded or not.
+            @param counterAttrName:string (Optional) the name of the number
+                attribute that will get adjusted up and down. If not provided
+                the 'exceeded' attribute name will be used with 'Counter'
+                appended to it. For example if the exceeded
+                attribute was 'locked' this would be 'lockedcounter'.
+            @param thresholdAttrName:string (Optional) the name of the number
+                attribute that determines when we are exceeded or not. If not 
+                provided the 'exceeded' attribute name will be used with 
+                'Threshold' appended to it. For example if the exceeded
+                attribute was 'locked' this would be 'lockedThreshold'.
+            @returns boolean True if creation succeeded, false otherwise. */
+        createThresholdCounter: function(scope, exceededAttrName, counterAttrName, thresholdAttrName) {
+            var genNameFunc = dr.AccessorSupport.generateName;
+            counterAttrName = counterAttrName || genNameFunc('counter', exceededAttrName);
+            thresholdAttrName = thresholdAttrName || genNameFunc('threshold', exceededAttrName);
+            
+            var incrName = genNameFunc(counterAttrName, 'increment_'),
+                decrName = genNameFunc(counterAttrName, 'decrement_'),
+                thresholdSetterName = dr.AccessorSupport.generateSetterName(thresholdAttrName),
+                isModuleOrClass = typeof scope === 'function' || scope instanceof JS.Module;
+            
+            // Prevent clobbering
+            if ((isModuleOrClass ? scope.instanceMethod(incrName) : scope[incrName]) !== undefined) {
+                console.warn("Can't clobber existing property during setup of ThresholdCounter increment function.", incrName, scope);
+                return false;
+            }
+            if ((isModuleOrClass ? scope.instanceMethod(decrName) : scope[decrName]) !== undefined) {
+                console.warn("Can't clobber existing property during setup of ThresholdCounter decrement function.", decrName, scope);
+                return false;
+            }
+            if ((isModuleOrClass ? scope.instanceMethod(thresholdSetterName) : scope[thresholdSetterName]) !== undefined) {
+                console.warn("Can't clobber existing property during setup of ThresholdCounter threshold setter function.", thresholdSetterName, scope);
+                return false;
+            }
+            
+            // Define the "module".
+            var mod = {};
+            
+            /** Increments the counter attribute on the scope object by the 
+                provided value or 1 if no value was provided.
+                @param amount:number (Optional) the amount to increment the 
+                    counter by. If not provided, 1 will be used.
+                @returns void */
+            mod[incrName] = function(amount) {
+                if (amount == null) amount = 1;
+                var curValue = this[counterAttrName],
+                    value = curValue + amount;
+                
+                // Counters must be non-negative.
+                if (0 > value) {
+                    console.warn("Attempt to decrement a counter below 0.", this, counterAttrName, amount);
+                    value = 0;
+                }
+                
+                if (curValue !== value) {
+                    this[counterAttrName] = value;
+                    this.fireNewEvent(counterAttrName, value);
+                    this.setActual(exceededAttrName, value >= this[thresholdAttrName], 'boolean'); // Check threshold
+                }
+            };
+            
+            /** Decrements the counter attribute on the scope object by the 
+                provided value or 1 if no value was provided.
+                @param amount:number (Optional) the amount to increment the 
+                    counter by. If not provided, 1 will be used.
+                @returns void */
+            mod[decrName] = function(amount) {
+                if (amount == null) amount = 1;
+                this[incrName](-amount);
+            };
+            
+            /** Sets the threshold attribute and performs a threshold check.
+                @returns void */
+            mod[thresholdSetterName] = function(v) {
+                if (this[thresholdAttrName] === v) return;
+                this[thresholdAttrName] = v;
+                this.fireNewEvent(thresholdAttrName, v);
+                this.setActual(exceededAttrName, this[counterAttrName] >= v, 'boolean'); // Check threshold
+            };
+            
+            // Mixin in the "module"
+            if (isModuleOrClass) {
+                scope.include(mod);
+            } else {
+                scope.extend(mod);
+            }
+            
+            return true;
+        },
+        
+        /** Set initial value and threshold on a ThresholdCounter instance.
+            This also executes a 'check' so the 'exceeded' attribute will have
+            the correct value.
+            @returns void */
+        initializeThresholdCounter: function(
+            scope, initialValue, thresholdValue, exceededAttrName, counterAttrName, thresholdAttrName
+        ) {
+            var genNameFunc = dr.AccessorSupport.generateName;
+            counterAttrName = counterAttrName || genNameFunc('counter', exceededAttrName);
+            thresholdAttrName = thresholdAttrName || genNameFunc('threshold', exceededAttrName);
+            
+            scope[counterAttrName] = initialValue;
+            scope[thresholdAttrName] = thresholdValue;
+            scope.set(exceededAttrName, initialValue >= thresholdValue); // Check threshold
+        },
+        
+        /** Mixes ThresholdCounter functionality with a fixed threshold onto 
+            the provided scope.
+            @param scope:Observable|Class|Module the scope to mix onto.
+            @param thresholdValue:number the fixed threshold value.
+            @param exceededAttrName:string the name of the boolean attribute
+                that will indicate if the threshold is exceeded or not.
+            @param counterAttrName:string (Optional) the name of the number
+                attribute that will get adjusted up and down. If not provided
+                the 'exceeded' attribute name will be used with 'Counter'
+                appended to it. For example if the exceeded
+                attribute was 'locked' this would be 'lockedcounter'.
+            @returns boolean True if creation succeeded, false otherwise. */
+        createFixedThresholdCounter: function(scope, thresholdValue, exceededAttrName, counterAttrName) {
+            var genNameFunc = dr.AccessorSupport.generateName;
+            counterAttrName = counterAttrName || genNameFunc('counter', exceededAttrName);
+            
+            var incrName = genNameFunc(counterAttrName, 'increment_'),
+                decrName = genNameFunc(counterAttrName, 'decrement_'),
+                isModuleOrClass = typeof scope === 'function' || scope instanceof JS.Module;
+            
+            // Prevent clobbering
+            if ((isModuleOrClass ? scope.instanceMethod(incrName) : scope[incrName]) !== undefined) {
+                console.warn("Can't clobber existing property during setup of ThresholdCounter increment function.", incrName, scope);
+                return false;
+            }
+            if ((isModuleOrClass ? scope.instanceMethod(decrName) : scope[decrName]) !== undefined) {
+                console.warn("Can't clobber existing property during setup of ThresholdCounter decrement function.", decrName, scope);
+                return false;
+            }
+            
+            // Define the "module".
+            var mod = {};
+            
+            /** Increments the counter attribute on the scope object by 1.
+                @returns void */
+            mod[incrName] = function() {
+                var value = this[counterAttrName] + 1;
+                this[counterAttrName] = value;
+                this.fireNewEvent(counterAttrName, value);
+                if (value === thresholdValue) this.setActual(exceededAttrName, true, 'boolean');
+            };
+            
+            /** Decrements the counter attribute on the scope object by 1.
+                @returns void */
+            mod[decrName] = function() {
+                var curValue = this[counterAttrName];
+                if (curValue === 0) return;
+                var value = curValue - 1;
+                this[counterAttrName] = value;
+                this.fireNewEvent(counterAttrName, value);
+                if (curValue === thresholdValue) this.setActual(exceededAttrName, false, 'boolean');
+            };
+            
+            // Mix in the "module"
+            if (isModuleOrClass) {
+                scope.include(mod);
+            } else {
+                scope.extend(mod);
+            }
+            
+            return true;
+        },
+        
+        /** Set initial value on a ThresholdCounter instance.
+            This also executes a 'check' so the 'exceeded' attribute will have
+            the correct value.
+            @returns void */
+        initializeFixedThresholdCounter: function(
+            scope, initialValue, thresholdValue, exceededAttrName, counterAttrName
+        ) {
+            counterAttrName = counterAttrName || dr.AccessorSupport.generateName('counter', exceededAttrName);
+            
+            scope[counterAttrName] = initialValue;
+            scope.set(exceededAttrName, initialValue >= thresholdValue);
+        }
+    },
+    
+    
+    // Constructor /////////////////////////////////////////////////////////////
+    initialize: function(initialValue, thresholdValue) {
+        dr.ThresholdCounter.initializeThresholdCounter(
+            this, initialValue, thresholdValue, 'exceeded', 'counter', 'threshold'
+        );
+    },
+    
+    
+    // Life Cycle //////////////////////////////////////////////////////////////
+    /** @overrides dr.Destructible */
+    destroy: function() {
+        this.detachAllObservers();
+        this.callSuper();
+    }
+});
+
+/** Create default counter functions for the ThresholdCounter class. */
+dr.ThresholdCounter.createThresholdCounter(
+    dr.ThresholdCounter, 'exceeded', 'counter', 'threshold'
+);
+
+
 /** A Node that can be viewed. Instances of view are typically backed by
     an absolutely positioned div element.
     
@@ -6259,14 +5796,26 @@ dr.sprite.View = new JS.Class('sprite.View', {
         visible:boolean
         subviewAdded:dr.View Fired when a subview is added to this view.
         subviewRemoved:dr.View Fired when a subview is removed from this view.
-        layoutAdded:dr.Layout Fired when a layout is added to this view.
-        layoutRemoved:dr.Layout Fired when a layout is removed from this view.
+        layoutAdded:dr.BaseLayout Fired when a layout is added to this view.
+        layoutRemoved:dr.BaseLayout Fired when a layout is removed from this view.
     
     Attributes:
         Layout Related:
-            ignorelayout:boolean Determines if this view should be included in 
-                layouts or not. Default is undefined which is equivalent 
-                to false.
+            ignorelayout:json Defaults to false.
+                Indicates if layouts should ignore this view or not. A variety 
+                of configuration mechanisms are supported. Provided true or 
+                false will cause the view to be ignored or not by all layouts. 
+                If instead a serialized map is provided the keys of the map 
+                will target values the layouts with matching names. A special 
+                key of '*' indicates a default value for all layouts not 
+                specifically mentioned in the map.
+            layouthint:json Default to empty
+                Provides per view hinting to layouts. The specific hints 
+                supported are layout specific. Hints are provided as a map. A 
+                map key may be prefixied with the name of a layout followed by 
+                a '/'. This will target that hint at a specific layout. If 
+                the prefix is ommitted or a prefix of '*' is used the hint 
+                will be targeted to all layouts.
         
         Focus Related:
             focustrap:boolean Determines if focus traversal can move above this 
@@ -6316,7 +5865,7 @@ dr.sprite.View = new JS.Class('sprite.View', {
     Private Attributes:
         subviews:array The array of child dr.Views for this view. Should 
             be accessed through the getSubviews method.
-        layouts:array The array of child dr.Layouts for this view. Should
+        layouts:array The array of child dr.BaseLayouts for this view. Should
             be accessed through the getLayouts method.
 */
 dr.View = new JS.Class('View', dr.Node, {
@@ -6332,7 +5881,7 @@ dr.View = new JS.Class('View', dr.Node, {
         this.x = this.y = this.width = this.height = 0;
         this.opacity = 1;
         this.visible = this.focusembellishment = true;
-        this.focusable = false;
+        this.focusable = this.ignorelayout = false;
         this.bgcolor = 'transparent';
         this.cursor = 'auto';
         
@@ -6382,27 +5931,8 @@ dr.View = new JS.Class('View', dr.Node, {
         return this.layouts || (this.layouts = []);
     },
     
-    set_ignorelayout: function(v) {
-        if (this.ignorelayout !== (v = dr.coerce(v, 'boolean', false))) {
-            // Add or remove ourselves from any layouts on our parent.
-            var ready = this.inited && this.parent, layouts, i;
-            if (v) {
-                if (ready) {
-                    layouts = this.parent.getLayouts();
-                    i = layouts.length;
-                    while (i) layouts[--i].removeSubview(this);
-                }
-                this.ignorelayout = v;
-            } else {
-                this.ignorelayout = v;
-                if (ready) {
-                    layouts = this.parent.getLayouts();
-                    i = layouts.length;
-                    while (i) layouts[--i].addSubview(this);
-                }
-            }
-        }
-    },
+    set_ignorelayout: function(v) {this.setActual('ignorelayout', v, 'json', 'false');},
+    set_layouthint: function(v) {this.setActual('layouthint', v, 'json', '');},
     
     // Focus Attributes //
     set_focustrap: function(v) {this.setActual('focustrap', v, 'boolean', false);},
@@ -6476,7 +6006,7 @@ dr.View = new JS.Class('View', dr.Node, {
             this.getSubviews().push(node);
             this.fireNewEvent('subviewAdded', node);
             this.subviewAdded(node);
-        } else if (node instanceof dr.Layout) {
+        } else if (node instanceof dr.BaseLayout) {
             this.getLayouts().push(node);
             this.fireNewEvent('layoutAdded', node);
             this.layoutAdded(node);
@@ -6499,7 +6029,7 @@ dr.View = new JS.Class('View', dr.Node, {
                 this.subviews.splice(idx, 1);
                 this.subviewRemoved(node);
             }
-        } else if (node instanceof dr.Layout) {
+        } else if (node instanceof dr.BaseLayout) {
             idx = this.getLayoutIndex(node);
             if (idx !== -1) {
                 this.fireNewEvent('layoutRemoved', node);
@@ -6562,6 +6092,26 @@ dr.View = new JS.Class('View', dr.Node, {
         @param layout:Layout the layout that was removed.
         @returns void */
     layoutRemoved: function(layout) {},
+    
+    /** Gets the value of a named layout hint.
+        @param layoutName:string The name of the layout to match.
+        @param hintName:string The name of the hint to match.
+        @return * The value of the hint or undefined if not found. */
+    getLayoutHint: function(layoutName, hintName) {
+        var hints = this.layouthint;
+        if (hints) {
+            var hint = hints[layoutName + '/' + hintName];
+            if (hint) return hint;
+            
+            hint = hints[hintName];
+            if (hint) return hint;
+            
+            hint = hints['*/' + hintName];
+            if (hint) return hint;
+        } else {
+          // No hints exist
+        }
+    },
     
     // Focus //
     /** Finds the youngest ancestor (or self) that is a focustrap or focuscage.

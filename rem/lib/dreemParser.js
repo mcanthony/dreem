@@ -198,9 +198,6 @@ define(function(require, exports){
         if(children[i].tag == '$text') out += children[i].value
       }
       
-      // HACK: Clean up a few common entities that are causing compilation errors.
-      out = out.split('&gt;').join('>').split('&lt;').join('<').split('&amp;').join('&');
-      
       return out
     }
 
@@ -644,7 +641,7 @@ define(function(require, exports){
             this.error('Entity not found &'+m, start + off)
             return m
           }
-          String.fromCharCode(entities[name])
+          return String.fromCharCode(entities[name])
         }
         else if(num !== undefined){
           return String.fromCharCode(parseInt(num))

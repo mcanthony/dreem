@@ -37,7 +37,7 @@ define(function(require, exports){
     // Classes
     node:true,
     view:true,
-    layout:true,
+    baselayout:true,
     button:true,
     animator:true,
     
@@ -58,7 +58,7 @@ define(function(require, exports){
     try {
       // Transform this["super"]( into this.callSuper( since .dre files
       // use super not callSuper.
-      pkg.methods = pkg.methods.split('this["super"](').join('this.callSuper(');
+      pkg.methods = pkg.methods.split('this["super"](').join('this.callSuper(').split('this.super(').join('this.callSuper(');
       
       new Function('methods', pkg.methods)(pkg.compiledMethods = []);
       delete pkg.methods;
@@ -71,7 +71,7 @@ define(function(require, exports){
     pkg.compiledClasses = {
       node:dr.Node,
       view:dr.View,
-      layout:dr.Layout,
+      baselayout:dr.BaseLayout,
       button:dr.Button,
       animator:dr.Animator
     };
@@ -158,15 +158,19 @@ define(function(require, exports){
             break;
           case 'handler':
             if (!instanceHandlers) instanceHandlers = [];
-            var methodId = childNode.method_id;
-            if (methodId != null) {
-              var compiledMethod = compiledMethods[methodId];
-              if (compiledMethod) {
-                var methodName = '__handler_' + methodId;
-                instanceMixin[methodName] = maker._buildHandlerFunction(compiledMethod);
-                instanceHandlers.push({name:methodName, event:childAttrs.event, reference:childAttrs.reference});
-              } else {
-                throw new Error('Cannot find method id' + methodId);
+            if (childAttrs.method) {
+              instanceHandlers.push({name:childAttrs.method, event:childAttrs.event, reference:childAttrs.reference});
+            } else {
+              var methodId = childNode.method_id;
+              if (methodId != null) {
+                var compiledMethod = compiledMethods[methodId];
+                if (compiledMethod) {
+                  var methodName = '__handler_' + methodId;
+                  instanceMixin[methodName] = maker._buildHandlerFunction(compiledMethod);
+                  instanceHandlers.push({name:methodName, event:childAttrs.event, reference:childAttrs.reference});
+                } else {
+                  throw new Error('Cannot find method id' + methodId);
+                }
               }
             }
             break;
@@ -313,15 +317,19 @@ define(function(require, exports){
             break;
           case 'handler':
             if (!klassHandlers) klassHandlers = [];
-            var methodId = childNode.method_id;
-            if (methodId != null) {
-              var compiledMethod = compiledMethods[methodId];
-              if (compiledMethod) {
-                var methodName = '__handler_' + methodId;
-                klassBody[methodName] = maker._buildHandlerFunction(compiledMethod);
-                klassHandlers.push({name:methodName, event:childAttrs.event, reference:childAttrs.reference});
-              } else {
-                throw new Error('Cannot find method id' + methodId);
+            if (childAttrs.method) {
+              klassHandlers.push({name:childAttrs.method, event:childAttrs.event, reference:childAttrs.reference});
+            } else {
+              var methodId = childNode.method_id;
+              if (methodId != null) {
+                var compiledMethod = compiledMethods[methodId];
+                if (compiledMethod) {
+                  var methodName = '__handler_' + methodId;
+                  klassBody[methodName] = maker._buildHandlerFunction(compiledMethod);
+                  klassHandlers.push({name:methodName, event:childAttrs.event, reference:childAttrs.reference});
+                } else {
+                  throw new Error('Cannot find method id' + methodId);
+                }
               }
             }
             break;

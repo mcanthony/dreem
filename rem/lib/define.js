@@ -39,7 +39,7 @@ if(typeof window !== 'undefined')(function(){ // browser implementation
     
   // default config variables
   define.ROOT = '/'
-  define.CLASSES_DIR = '$ROOT/classes/'
+  define.CLASSES_DIR = '$ROOT/rem/classes/'
   define.DREEM_MAKER = '$ROOT/rem/lib/dreemMaker.js'
   define.DREEM_ROOT = '$ROOT/'
   define.LIB_DIR = '$ROOT/lib/'
