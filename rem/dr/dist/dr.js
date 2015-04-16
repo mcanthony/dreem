@@ -649,7 +649,7 @@ dr.Observable = new JS.Module('Observable', {
             false otherwise. */
     attachObserver: function(observer, methodName, type) {
         if (observer && methodName && type) {
-            this.getObservers(type).push(methodName, observer);
+            this.getObservers(type).unshift(methodName, observer);
             return true;
         }
         return false;
