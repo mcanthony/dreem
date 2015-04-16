@@ -467,7 +467,7 @@ JS.Singleton = new JS.Class('Singleton', {
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-tym = {
+dr = {
     /** Used to generate globally unique IDs. */
     __GUID_COUNTER: 0,
     
@@ -538,10 +538,10 @@ tym = {
                 break;
             case 'easing_function':
                 // Lookup easing function if a string is provided.
-                if (typeof value === 'string') value = tym.Animator.easingFunctions[value];
+                if (typeof value === 'string') value = dr.Animator.easingFunctions[value];
                 
                 // Use default if invalid
-                if (!value) value = tym.Animator.DEFAULT_EASING_FUNCTION;
+                if (!value) value = dr.Animator.DEFAULT_EASING_FUNCTION;
                 break;
             case 'object':
             case 'function':
@@ -576,14 +576,14 @@ tym = {
         };
     },
     
-    /** A wrapper on tym.global.error.notify
+    /** A wrapper on dr.global.error.notify
         @param err:Error/string The error or message to dump stack for.
         @param type:string (optional) The type of console message to write.
             Allowed values are 'error', 'warn', 'log' and 'debug'. Defaults to
             'error'.
         @returns void */
     dumpStack: function(err, type) {
-        tym.global.error.notify(type || 'error', err, err, err);
+        dr.global.error.notify(type || 'error', err, err, err);
     },
     
     // Misc
@@ -657,11 +657,12 @@ tym = {
                     ref = handler.reference;
                     refTarget = target;
                     if (ref) {
-                        if (ref.startsWith('this.')) {
-                            refTarget = tym.resolveName(ref.substring(5), target);
+                        if (ref === 'this') {
+                            refTarget = target;
+                        } else if (ref.startsWith('this.')) {
+                            refTarget = dr.resolveName(ref.substring(5), target);
                         } else {
-                            // Resolve in global scope
-                            refTarget = tym.resolveName(ref);
+                            refTarget = dr.resolveName(ref);
                         }
                     }
                     if (refTarget) target.attachTo(refTarget, handler.name, handler.event);
@@ -678,17 +679,17 @@ tym = {
         None
     
     Private Attributes:
-        __obsbt:object Stores arrays of tym.Observers and method names 
+        __obsbt:object Stores arrays of dr.Observers and method names 
             by event type
         __aet:object Stores active event type strings. An event type is active
             if it has been fired from this Observable as part of the current 
             call stack. If an event type is "active" it will not be fired 
             again. This provides protection against infinite event loops.
 */
-tym.Observable = new JS.Module('Observable', {
+dr.Observable = new JS.Module('Observable', {
     // Methods /////////////////////////////////////////////////////////////////
     /** Adds the observer to the list of event recipients for the event type.
-        @param observer:tym.Observer The observer that will observe this
+        @param observer:dr.Observer The observer that will observe this
             observable. If methodName is a function this object will be the
             context for the function when it is called.
         @param methodName:string|function The name of the method to call, or
@@ -705,7 +706,7 @@ tym.Observable = new JS.Module('Observable', {
     },
     
     /** Removes the observer from the list of observers for the event type.
-        @param observer:tym.Observer The observer that will no longer be
+        @param observer:dr.Observer The observer that will no longer be
             observing this observable.
         @param methodName:string|function The name of the method that was
             to be called or the function to be called.
@@ -846,7 +847,7 @@ tym.Observable = new JS.Module('Observable', {
         var activeEventTypes = this.__aet || (this.__aet = {}),
             type = event.type;
         if (activeEventTypes[type] === true) {
-            tym.global.error.notifyError('eventLoop', "Attempt to refire active event: " + type);
+            dr.global.error.notifyError('eventLoop', "Attempt to refire active event: " + type);
         } else {
             // Mark event type as "active"
             activeEventTypes[type] = true;
@@ -871,7 +872,7 @@ tym.Observable = new JS.Module('Observable', {
                             if (observer[methodName](event)) break;
                         }
                     } catch (err) {
-                        tym.dumpStack(err);
+                        dr.dumpStack(err);
                     }
                 }
             }
@@ -903,11 +904,11 @@ tym.Observable = new JS.Module('Observable', {
             callback should only be called once.
         __DO_ONCE_*:function The names used for methods that only get run
             one time. */
-tym.Observer = new JS.Module('Observer', {
+dr.Observer = new JS.Module('Observer', {
     // Methods /////////////////////////////////////////////////////////////////
     /** Does the same thing as this.attachToAndCallbackIfAttrNotEqual with
         a value of undefined.
-        @param observable:tym.Observable the Observable to attach to.
+        @param observable:dr.Observable the Observable to attach to.
         @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to attach for.
         @param attrName:string (optional: the eventType will be used if not
@@ -923,7 +924,7 @@ tym.Observer = new JS.Module('Observer', {
     /** Does the same thing as this.attachTo and also immediately calls the
         method if the provided attrName on the observable is exactly equal to 
         the provided value.
-        @param observable:tym.Observable the Observable to attach to.
+        @param observable:dr.Observable the Observable to attach to.
         @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to attach for.
         @param value:* the value to test equality against.
@@ -945,7 +946,7 @@ tym.Observer = new JS.Module('Observer', {
     /** Does the same thing as this.attachTo and also immediately calls the
         method if the provided attrName on the observable does not exactly 
         equal the provided value.
-        @param observable:tym.Observable the Observable to attach to.
+        @param observable:dr.Observable the Observable to attach to.
         @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to attach for.
         @param value:* the value to test inequality against.
@@ -968,7 +969,7 @@ tym.Observer = new JS.Module('Observer', {
         method with an event containing the attributes value. If 'once' is
         true no attachment will occur which means this probably isn't the
         correct method to use in that situation.
-        @param observable:tym.Observable the Observable to attach to.
+        @param observable:dr.Observable the Observable to attach to.
         @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to attach for.
         @param attrName:string (optional: the eventType will be used if not
@@ -982,7 +983,7 @@ tym.Observer = new JS.Module('Observer', {
         try {
             this[methodName](observable.createEvent(eventType, observable.get(attrName)));
         } catch (err) {
-            tym.dumpStack(err);
+            dr.dumpStack(err);
         }
         
         // Providing a true value for once means we'll never actually attach.
@@ -993,7 +994,7 @@ tym.Observer = new JS.Module('Observer', {
     
     /** Checks if this Observer is attached to the provided observable for
         the methodName and eventType.
-        @param observable:tym.Observable the Observable to check with.
+        @param observable:dr.Observable the Observable to check with.
         @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to check for.
         @returns true if attached, false otherwise. */
@@ -1038,7 +1039,7 @@ tym.Observer = new JS.Module('Observer', {
     
     /** Registers this Observer with the provided Observable
         for the provided eventType.
-        @param observable:tym.Observable the Observable to attach to.
+        @param observable:dr.Observable the Observable to attach to.
         @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to attach for.
         @param once:boolean (optional) if true  this Observer will detach
@@ -1076,7 +1077,7 @@ tym.Observer = new JS.Module('Observer', {
     
     /** Unregisters this Observer from the provided Observable
         for the provided eventType.
-        @param observable:tym.Observable the Observable to attach to.
+        @param observable:dr.Observable the Observable to attach to.
         @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to attach for.
         @returns boolean true if one or more detachments occurred, false 
@@ -1138,8 +1139,8 @@ tym.Observer = new JS.Module('Observer', {
     Private Attributes:
         __cbmn:object Holds arrays of constraints by method name.
 */
-tym.Constrainable = new JS.Module('Constrainable', {
-    include: [tym.Observer],
+dr.Constrainable = new JS.Module('Constrainable', {
+    include: [dr.Observer],
     
     
     // Methods /////////////////////////////////////////////////////////////////
@@ -1182,7 +1183,7 @@ tym.Constrainable = new JS.Module('Constrainable', {
             try {
                 this[methodName]();
             } catch (err) {
-                tym.dumpStack(err);
+                dr.dumpStack(err);
             }
         }
     },
@@ -1226,8 +1227,8 @@ tym.Constrainable = new JS.Module('Constrainable', {
         register<key>:object Fired when an object is stored under the key.
         unregister<key>:object Fired when an object is removed from the key.
 */
-tym.global = new JS.Singleton('Global', {
-    include: [tym.Observable],
+dr.global = new JS.Singleton('Global', {
+    include: [dr.Observable],
     
     
     // Methods /////////////////////////////////////////////////////////////////
@@ -1237,7 +1238,7 @@ tym.global = new JS.Singleton('Global', {
         @returns void */
     register: function(key, v) {
         if (this.hasOwnProperty(key)) {
-            console.log("Warning: tym.global key in use: ", key);
+            console.log("Warning: dr.global key in use: ", key);
             this.unregister(key);
         }
         this[key] = v;
@@ -1253,14 +1254,14 @@ tym.global = new JS.Singleton('Global', {
             delete this[key];
             this.fireNewEvent('unregister' + key, v);
         } else {
-            console.log("Warning: tym.global key not in use: ", key);
+            console.log("Warning: dr.global key not in use: ", key);
         }
     }
 });
 
 
 /** Common functions for the sprite package. */
-tym.sprite = {
+dr.sprite = {
     /** Based on browser detection from: http://www.quirksmode.org/js/detect.html
         
         Events:
@@ -1316,8 +1317,8 @@ tym.sprite = {
     // Sprite Factory
     createSprite: function(view, attrs) {
         var spriteClass;
-        if (view.isA(tym.View)) {
-            spriteClass = tym.sprite.View;
+        if (view.isA(dr.View)) {
+            spriteClass = dr.sprite.View;
         }
         
         return new spriteClass(view, attrs);
@@ -1410,14 +1411,14 @@ tym.sprite = {
             @param focusable:FocusObservable the view that received focus.
             @returns void. */
         notifyFocus: function(focusable) {
-            if (this.focusedView !== focusable) tym.global.focus.set_focusedView(focusable);
+            if (this.focusedView !== focusable) dr.global.focus.set_focusedView(focusable);
         },
         
         /** Called by a FocusObservable when it has lost focus.
             @param focusable:FocusObservable the view that lost focus.
             @returns void. */
         notifyBlur: function(focusable) {
-            if (this.focusedView === focusable) tym.global.focus.set_focusedView(null);
+            if (this.focusedView === focusable) dr.global.focus.set_focusedView(null);
         },
         
         /** Clears the current focus.
@@ -1521,7 +1522,7 @@ tym.sprite = {
                 // Check that the element is focusable and return it if it is.
                 if (elem.nodeType === 1) {
                     model = elem.model;
-                    if (model && model instanceof tym.sprite.View) {
+                    if (model && model instanceof dr.sprite.View) {
                         if (model.view.isFocusable()) return model.view;
                     } else {
                         var nodeName = elem.nodeName;
@@ -1530,7 +1531,7 @@ tym.sprite = {
                             nodeName === 'SELECT' || nodeName === 'BUTTON'
                         ) {
                             if (!elem.disabled && !isNaN(elem.tabIndex) && 
-                                tym.sprite.__isDomElementVisible(elem)
+                                dr.sprite.__isDomElementVisible(elem)
                             ) {
                                 // Make sure the dom element isn't inside a maskfocus
                                 model = this.__findModelForDomElement(elem);
@@ -1552,13 +1553,13 @@ tym.sprite = {
         
         /** Finds the closest model for the provided dom element.
             @param elem:domElement to element to start looking from.
-            @returns tym.sprite.View or null if not found.
+            @returns dr.sprite.View or null if not found.
             @private */
         __findModelForDomElement: function(elem) {
             var model;
             while (elem) {
                 model = elem.model;
-                if (model && model instanceof tym.sprite.View) return model;
+                if (model && model instanceof dr.sprite.View) return model;
                 elem = elem.parentNode;
             }
             return null;
@@ -1611,7 +1612,7 @@ tym.sprite = {
     Events:
         Error specific events are broadcast. Here is a list of known error
         types.
-            eventLoop: Fired by tym.Observable when an infinite event loop
+            eventLoop: Fired by dr.Observable when an infinite event loop
                 would occur.
     
     Attributes:
@@ -1619,14 +1620,14 @@ tym.sprite = {
         consoleLogging:boolean Turns logging to the console on and off.
 */
 new JS.Singleton('GlobalError', {
-    include: [tym.Observable],
+    include: [dr.Observable],
     
     
     // Constructor /////////////////////////////////////////////////////////////
     initialize: function() {
         this.set_stackTraceLimit(50);
         this.set_consoleLogging(true);
-        tym.global.register('error', this);
+        dr.global.register('error', this);
     },
     
     
@@ -1636,7 +1637,7 @@ new JS.Singleton('GlobalError', {
     },
     
     set_stackTraceLimit: function(v) {
-        this.stackTraceLimit = tym.sprite.set_stackTraceLimit(v);
+        this.stackTraceLimit = dr.sprite.set_stackTraceLimit(v);
     },
     
     
@@ -1668,10 +1669,10 @@ new JS.Singleton('GlobalError', {
             automatically generated.
         @private */
     notify: function(consoleFuncName, eventType, msg, err) {
-        var stacktrace = tym.sprite.generateStacktrace(eventType, msg, err);
+        var stacktrace = dr.sprite.generateStacktrace(eventType, msg, err);
         
         this.fireNewEvent(eventType || 'error', {msg:msg, stacktrace:stacktrace});
-        if (this.consoleLogging && consoleFuncName) tym.sprite.console[consoleFuncName](stacktrace);
+        if (this.consoleLogging && consoleFuncName) dr.sprite.console[consoleFuncName](stacktrace);
     }
 });
 
@@ -3581,7 +3582,7 @@ new JS.Singleton('GlobalError', {
         earlyAttrs:array An array of attribute names that will be set first.
         lateAttrs:array An array of attribute names that will be set last.
 */
-tym.AccessorSupport = new JS.Module('AccessorSupport', {
+dr.AccessorSupport = new JS.Module('AccessorSupport', {
     // Class Methods and Attributes ////////////////////////////////////////////
     extend: {
         /** Generate a setter name for an attribute.
@@ -3636,7 +3637,7 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
                     // function call, e.g. Math.round(...) shouldn't attempt 
                     // to bind to 'round' on Math
                     if (parent.node.type !== 'CallExpression' || parent.sub !== 'callee') {
-                        tym.AccessorSupport.CONSTRAINTS.SCOPES.push({
+                        dr.AccessorSupport.CONSTRAINTS.SCOPES.push({
                             binding:acorn.stringify(n.object),
                             property:n.property.name
                         });
@@ -3735,7 +3736,7 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
         @param attrName:string The name of the attribute to get.
         @returns the attribute value. */
     get: function(attrName) {
-        var getterName = tym.AccessorSupport.generateGetterName(attrName);
+        var getterName = dr.AccessorSupport.generateGetterName(attrName);
         return this[getterName] ? this[getterName]() : this[attrName];
     },
     
@@ -3748,14 +3749,14 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
         @returns void */
     set: function(attrName, value, isActual) {
         if (isActual) {
-            var setterName = tym.AccessorSupport.generateSetterName(attrName);
+            var setterName = dr.AccessorSupport.generateSetterName(attrName);
             if (this[setterName]) {
                 this[setterName](value);
             } else {
                 this.setActual(attrName, value);
             }
         } else {
-            var cfgAttrName = tym.AccessorSupport.generateConfigAttrName(attrName);
+            var cfgAttrName = dr.AccessorSupport.generateConfigAttrName(attrName);
             if (this[cfgAttrName] !== value) {
                 this[cfgAttrName] = value;
                 
@@ -3783,14 +3784,14 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
         @param value:* The value to set.
         @param type:string The type to try to coerce the value to.
         @param defaultValue:* (optional) The default value to use when
-            coercion fails. @see tym.coerce for more info.
+            coercion fails. @see dr.coerce for more info.
         @param beforeEventFunc:function (optional) A function that gets called
             before the event may be fired.
         @returns boolean: True if the value was changed, false otherwise. */
     setActual: function(attrName, value, type, defaultValue, beforeEventFunc) {
-        if (this[attrName] !== (value = tym.coerce(value, type, defaultValue))) {
+        if (this[attrName] !== (value = dr.coerce(value, type, defaultValue))) {
             // Store value and invoke setter on sprite if it exists
-            var setterName = tym.AccessorSupport.generateSetterName(attrName),
+            var setterName = dr.AccessorSupport.generateSetterName(attrName),
                 sprite = this.sprite;
             this[attrName] = (sprite && sprite[setterName]) ? sprite[setterName](value) : value;
             
@@ -3840,7 +3841,7 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
         @return boolean True if the value was a constraint, false otherwise. */
     setupConstraint: function(attrName, value) {
         if (typeof value === 'string' && value.startsWith('${') && value.endsWith('}')) {
-            var CONSTRAINTS = tym.AccessorSupport.CONSTRAINTS,
+            var CONSTRAINTS = dr.AccessorSupport.CONSTRAINTS,
                 expression = value.substring(2, value.length - 1);
             if (CONSTRAINTS.isReadyForConstraints()) {
                 // Bind immediately if the view system is ready for constraints.
@@ -3861,7 +3862,7 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
         if (isAsync) this.unbindConstraint(attrName);
         
         // Find Bindings
-        var AS = tym.AccessorSupport,
+        var AS = dr.AccessorSupport,
             CONSTRAINTS = AS.CONSTRAINTS,
             bindingCache = CONSTRAINTS.BINDINGS;
         if (!(expression in bindingCache)) {
@@ -3886,9 +3887,9 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
                 if (binding === 'this') {
                     target = this;
                 } else if (binding.startsWith('this.')) {
-                    target = tym.resolveName(binding.substring(5), this);
+                    target = dr.resolveName(binding.substring(5), this);
                 } else {
-                    target = tym.resolveName(binding);
+                    target = dr.resolveName(binding);
                 }
                 
                 if (target) {
@@ -3918,7 +3919,7 @@ tym.AccessorSupport = new JS.Module('AccessorSupport', {
         destroyed:boolean Set to true when the object is in the "destroyed"
             state, undefinded otherwise.
 */
-tym.Destructible = new JS.Module('Destructible', {
+dr.Destructible = new JS.Module('Destructible', {
     // Methods /////////////////////////////////////////////////////////////////
     /** Destroys this Object. Subclasses must call callSuper.
         @returns void */
@@ -3945,12 +3946,12 @@ tym.Destructible = new JS.Module('Destructible', {
 });
 
 
-/** Objects that can be used in an tym.AbstractPool should use this mixin and 
+/** Objects that can be used in an dr.AbstractPool should use this mixin and 
     implement the "clean" method. */
-tym.Reusable = new JS.Module('Reusable', {
+dr.Reusable = new JS.Module('Reusable', {
     // Methods /////////////////////////////////////////////////////////////////
     /** Puts this object back into a default state suitable for storage in
-        an tym.AbstractPool
+        an dr.AbstractPool
         @returns void */
     clean: function() {}
 });
@@ -3968,8 +3969,8 @@ tym.Reusable = new JS.Module('Reusable', {
     Private Attributes:
         __objPool:array The array of objects stored in the pool.
 */
-tym.AbstractPool = new JS.Class('AbstractPool', {
-    include: [tym.Destructible],
+dr.AbstractPool = new JS.Class('AbstractPool', {
+    include: [dr.Destructible],
     
     
     // Constructor /////////////////////////////////////////////////////////////
@@ -3978,7 +3979,7 @@ tym.AbstractPool = new JS.Class('AbstractPool', {
     
     
     // Life Cycle //////////////////////////////////////////////////////////////
-    /** @overrides tym.Destructible */
+    /** @overrides dr.Destructible */
     destroy: function() {
         var objPool = this.__objPool;
         if (objPool) objPool.length = 0;
@@ -4019,7 +4020,7 @@ tym.AbstractPool = new JS.Class('AbstractPool', {
     
     /** Cleans the object in preparation for putting it back in the pool. The
         default implementation calls the clean method on the object if it is
-        a tym.Reusable. Otherwise it does nothing.
+        a dr.Reusable. Otherwise it does nothing.
         @param obj:object the object to be cleaned.
         @returns object the cleaned object. */
     cleanInstance: function(obj) {
@@ -4043,7 +4044,7 @@ tym.AbstractPool = new JS.Class('AbstractPool', {
 });
 
 
-/** An implementation of an tym.AbstractPool.
+/** An implementation of an dr.AbstractPool.
     
     Events
         None
@@ -4051,15 +4052,15 @@ tym.AbstractPool = new JS.Class('AbstractPool', {
     Attributes:
         instanceClass:JS.Class (initializer only) the class to use for 
             new instances. Defaults to Object.
-        instanceParent:tym.Node (initializer only) The node to create new
+        instanceParent:dr.Node (initializer only) The node to create new
             instances on.
 */
-tym.SimplePool = new JS.Class('SimplePool', tym.AbstractPool, {
+dr.SimplePool = new JS.Class('SimplePool', dr.AbstractPool, {
     // Constructor /////////////////////////////////////////////////////////////
-    /** Create a new tym.SimplePool
+    /** Create a new dr.SimplePool
         @param instanceClass:JS.Class the class to create instances from.
         @param instanceParent:object (optional) The place to create instances 
-            on. When instanceClass is an tym.Node this will be the node parent.
+            on. When instanceClass is an dr.Node this will be the node parent.
         @returns void */
     initialize: function(instanceClass, instanceParent) {
         this.callSuper();
@@ -4070,11 +4071,11 @@ tym.SimplePool = new JS.Class('SimplePool', tym.AbstractPool, {
     
     
     // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides tym.AbstractPool
+    /** @overrides dr.AbstractPool
         Creates an instance of this.instanceClass and passes in 
         this.instanceParent as the first argument if it exists.
         @param arguments[0]:object (optional) the attrs to be passed to a
-            created tym.Node. */
+            created dr.Node. */
     createInstance: function() {
         // If we ever need full arguments with new, see:
         // http://stackoverflow.com/questions/1606797/use-of-apply-with-new-operator-is-this-possible
@@ -4084,7 +4085,7 @@ tym.SimplePool = new JS.Class('SimplePool', tym.AbstractPool, {
 });
 
 
-/** An tym.SimplePool that tracks which objects are "active". An "active"
+/** An dr.SimplePool that tracks which objects are "active". An "active"
     object is one that has been obtained by the getInstance method.
     
     Events:
@@ -4096,9 +4097,9 @@ tym.SimplePool = new JS.Class('SimplePool', tym.AbstractPool, {
     Private Attributes:
         __actives:array an array of active instances.
 */
-tym.TrackActivesPool = new JS.Class('TrackActivesPool', tym.SimplePool, {
+dr.TrackActivesPool = new JS.Class('TrackActivesPool', dr.SimplePool, {
     // Life Cycle //////////////////////////////////////////////////////////////
-    /** @overrides tym.Destructible */
+    /** @overrides dr.Destructible */
     destroy: function() {
         var actives = this.__actives;
         if (actives) actives.length = 0;
@@ -4108,14 +4109,14 @@ tym.TrackActivesPool = new JS.Class('TrackActivesPool', tym.SimplePool, {
     
     
     // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides tym.AbstractPool */
+    /** @overrides dr.AbstractPool */
     getInstance: function() {
         var instance = this.callSuper();
         (this.__actives || (this.__actives = [])).push(instance);
         return instance;
     },
     
-    /** @overrides tym.AbstractPool */
+    /** @overrides dr.AbstractPool */
     putInstance: function(obj) {
         var actives = this.__actives;
         if (actives) {
@@ -4166,7 +4167,7 @@ tym.TrackActivesPool = new JS.Class('TrackActivesPool', tym.SimplePool, {
 
 
 /** An object that provides accessors, events and simple lifecycle management.
-    Useful as a light weight alternative to tym.Node when parent child
+    Useful as a light weight alternative to dr.Node when parent child
     relationships are not needed.
     
     Events:
@@ -4176,8 +4177,8 @@ tym.TrackActivesPool = new JS.Class('TrackActivesPool', tym.SimplePool, {
         inited:boolean Set to true after this Eventable has completed 
             initializing.
 */
-tym.Eventable = new JS.Class('Eventable', {
-    include: [tym.AccessorSupport, tym.Destructible, tym.Observable, tym.Constrainable],
+dr.Eventable = new JS.Class('Eventable', {
+    include: [dr.AccessorSupport, dr.Destructible, dr.Observable, dr.Constrainable],
     
     
     // Constructor /////////////////////////////////////////////////////////////
@@ -4206,7 +4207,7 @@ tym.Eventable = new JS.Class('Eventable', {
         this.inited = true;
     },
     
-    /** @overrides tym.Destructible. */
+    /** @overrides dr.Destructible. */
     destroy: function() {
         this.releaseAllConstraints();
         this.detachFromAllObservables();
@@ -4228,10 +4229,10 @@ tym.Eventable = new JS.Class('Eventable', {
     'destroyAfterOrphaning' methods.
     
     Events:
-        parent:tym.Node Fired when the parent is set.
+        parent:dr.Node Fired when the parent is set.
     
     Attributes:
-        parent:tym.Node The parent of this Node.
+        parent:dr.Node The parent of this Node.
         name:string The name of this node. Used to reference this Node from
             its parent Node.
         id:string The unique ID of this node in the global namespace.
@@ -4257,16 +4258,16 @@ tym.Eventable = new JS.Class('Eventable', {
                 processed for this Node when it is added to a parent Node.
     
     Private Attributes:
-        __animPool:array An tym.TrackActivesPool used by the 'animate' method.
+        __animPool:array An dr.TrackActivesPool used by the 'animate' method.
         subnodes:array The array of child nodes for this node. Should be
             accessed through the getSubnodes method.
 */
-tym.Node = new JS.Class('Node', {
+dr.Node = new JS.Class('Node', {
     include: [
-        tym.AccessorSupport, 
-        tym.Destructible, 
-        tym.Observable, 
-        tym.Constrainable
+        dr.AccessorSupport, 
+        dr.Destructible, 
+        dr.Observable, 
+        dr.Constrainable
     ],
     
     
@@ -4274,7 +4275,7 @@ tym.Node = new JS.Class('Node', {
     extend: {
         /** Get the closest ancestor of the provided Node or the Node itself for 
             which the matcher function returns true.
-            @param n:tym.Node the Node to start searching from.
+            @param n:dr.Node the Node to start searching from.
             @param matcher:function the function to test for matching Nodes with.
             @returns Node or null if no match is found. */
         getMatchingAncestorOrSelf: function(n, matcherFunc) {
@@ -4289,7 +4290,7 @@ tym.Node = new JS.Class('Node', {
         
         /** Get the youngest ancestor of the provided Node for which the 
             matcher function returns true.
-            @param n:tym.Node the Node to start searching from. This Node is not
+            @param n:dr.Node the Node to start searching from. This Node is not
                 tested, but its parent is.
             @param matcher:function the function to test for matching Nodes with.
             @returns Node or null if no match is found. */
@@ -4324,7 +4325,7 @@ tym.Node = new JS.Class('Node', {
         this.inited = false;
         
         var defaultKlassAttrValues = this.klass.defaultAttrValues;
-        if (defaultKlassAttrValues) attrs = tym.extend({}, defaultKlassAttrValues, attrs);
+        if (defaultKlassAttrValues) attrs = dr.extend({}, defaultKlassAttrValues, attrs);
         
         this.initNode(parent, attrs || {});
     },
@@ -4371,7 +4372,7 @@ tym.Node = new JS.Class('Node', {
     /** @private */
     __registerHandlers: function() {},
     
-    /** @overrides tym.Destructible. */
+    /** @overrides dr.Destructible. */
     destroy: function() {
         // Allows descendants to know destruction is in process
         this.isBeingDestroyed = true;
@@ -4502,7 +4503,7 @@ tym.Node = new JS.Class('Node', {
         hierarchy. Subclasses will not typically override this method, but if
         they do, they probably won't need to call callSuper.
         @param placement:string the placement path to use.
-        @param subnode:tym.Node the subnode being placed.
+        @param subnode:dr.Node the subnode being placed.
         @returns the Node to place a subnode into. */
     determinePlacement: function(placement, subnode) {
         // Parse "active" placement and remaining placement.
@@ -4593,7 +4594,7 @@ tym.Node = new JS.Class('Node', {
     },
     
     /** Gets the youngest common ancestor of this node and the provided node.
-        @param node:tym.Node The node to look for a common ancestor with.
+        @param node:dr.Node The node to look for a common ancestor with.
         @returns The youngest common Node or null if none exists. */
     getLeastCommonAncestor: function(node) {
         while (node) {
@@ -4612,22 +4613,22 @@ tym.Node = new JS.Class('Node', {
     
     /** Get the youngest ancestor of this Node for which the matcher function 
         returns true. This is a simple wrapper around 
-        tym.Node.getMatchingAncestor(this, matcherFunc).
+        dr.Node.getMatchingAncestor(this, matcherFunc).
         @param matcherFunc:function the function to test for matching 
             Nodes with.
         @returns Node or null if no match is found. */
     searchAncestors: function(matcherFunc) {
-        return tym.Node.getMatchingAncestor(this, matcherFunc);
+        return dr.Node.getMatchingAncestor(this, matcherFunc);
     },
     
     /** Get the youngest ancestor of this Node or the Node itself for which 
         the matcher function returns true. This is a simple wrapper around 
-        tym.Node.getMatchingAncestorOrSelf(this, matcherFunc).
+        dr.Node.getMatchingAncestorOrSelf(this, matcherFunc).
         @param matcherFunc:function the function to test for matching 
             Nodes with.
         @returns Node or null if no match is found. */
     searchAncestorsOrSelf: function(matcherFunc) {
-        return tym.Node.getMatchingAncestorOrSelf(this, matcherFunc);
+        return dr.Node.getMatchingAncestorOrSelf(this, matcherFunc);
     },
     
     /** Gets an array of ancestor nodes including the node itself.
@@ -4772,17 +4773,17 @@ tym.Node = new JS.Class('Node', {
     /** Gets the animation pool if it exists, or lazy instantiates it first
         if necessary.
         @private
-        @returns tym.TrackActivesPool */
+        @returns dr.TrackActivesPool */
     __getAnimPool: function() {
-        return this.__animPool || (this.__animPool = new tym.TrackActivesPool(tym.Animator, this));
+        return this.__animPool || (this.__animPool = new dr.TrackActivesPool(dr.Animator, this));
     }
 });
 
 
 /** A counter that can be incremented and decremented and will update an
     'exceeded' attribute when a threshold is crossed. */
-tym.ThresholdCounter = new JS.Class('ThresholdCounter', {
-    include: [tym.AccessorSupport, tym.Destructible, tym.Observable],
+dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
+    include: [dr.AccessorSupport, dr.Destructible, dr.Observable],
     
     // Class Methods and Attributes ////////////////////////////////////////////
     extend: {
@@ -4802,13 +4803,13 @@ tym.ThresholdCounter = new JS.Class('ThresholdCounter', {
                 attribute was 'locked' this would be 'lockedThreshold'.
             @returns boolean True if creation succeeded, false otherwise. */
         createThresholdCounter: function(scope, exceededAttrName, counterAttrName, thresholdAttrName) {
-            var genNameFunc = tym.AccessorSupport.generateName;
+            var genNameFunc = dr.AccessorSupport.generateName;
             counterAttrName = counterAttrName || genNameFunc('counter', exceededAttrName);
             thresholdAttrName = thresholdAttrName || genNameFunc('threshold', exceededAttrName);
             
             var incrName = genNameFunc(counterAttrName, 'increment'),
                 decrName = genNameFunc(counterAttrName, 'decrement'),
-                thresholdSetterName = tym.AccessorSupport.generateSetterName(thresholdAttrName),
+                thresholdSetterName = dr.AccessorSupport.generateSetterName(thresholdAttrName),
                 isModuleOrClass = typeof scope === 'function' || scope instanceof JS.Module;
             
             // Prevent clobbering
@@ -4887,7 +4888,7 @@ tym.ThresholdCounter = new JS.Class('ThresholdCounter', {
         initializeThresholdCounter: function(
             scope, initialValue, thresholdValue, exceededAttrName, counterAttrName, thresholdAttrName
         ) {
-            var genNameFunc = tym.AccessorSupport.generateName;
+            var genNameFunc = dr.AccessorSupport.generateName;
             counterAttrName = counterAttrName || genNameFunc('counter', exceededAttrName);
             thresholdAttrName = thresholdAttrName || genNameFunc('threshold', exceededAttrName);
             
@@ -4909,7 +4910,7 @@ tym.ThresholdCounter = new JS.Class('ThresholdCounter', {
                 attribute was 'locked' this would be 'lockedCounter'.
             @returns boolean True if creation succeeded, false otherwise. */
         createFixedThresholdCounter: function(scope, thresholdValue, exceededAttrName, counterAttrName) {
-            var genNameFunc = tym.AccessorSupport.generateName;
+            var genNameFunc = dr.AccessorSupport.generateName;
             counterAttrName = counterAttrName || genNameFunc('counter', exceededAttrName);
             
             var incrName = genNameFunc(counterAttrName, 'increment'),
@@ -4966,7 +4967,7 @@ tym.ThresholdCounter = new JS.Class('ThresholdCounter', {
         initializeFixedThresholdCounter: function(
             scope, initialValue, thresholdValue, exceededAttrName, counterAttrName
         ) {
-            counterAttrName = counterAttrName || tym.AccessorSupport.generateName('counter', exceededAttrName);
+            counterAttrName = counterAttrName || dr.AccessorSupport.generateName('counter', exceededAttrName);
             
             scope[counterAttrName] = initialValue;
             scope.set(exceededAttrName, initialValue >= thresholdValue);
@@ -4976,14 +4977,14 @@ tym.ThresholdCounter = new JS.Class('ThresholdCounter', {
     
     // Constructor /////////////////////////////////////////////////////////////
     initialize: function(initialValue, thresholdValue) {
-        tym.ThresholdCounter.initializeThresholdCounter(
+        dr.ThresholdCounter.initializeThresholdCounter(
             this, initialValue, thresholdValue, 'exceeded', 'counter', 'threshold'
         );
     },
     
     
     // Life Cycle //////////////////////////////////////////////////////////////
-    /** @overrides tym.Destructible */
+    /** @overrides dr.Destructible */
     destroy: function() {
         this.detachAllObservers();
         this.callSuper();
@@ -4991,8 +4992,8 @@ tym.ThresholdCounter = new JS.Class('ThresholdCounter', {
 });
 
 /** Create default counter functions for the ThresholdCounter class. */
-tym.ThresholdCounter.createThresholdCounter(
-    tym.ThresholdCounter, 'exceeded', 'counter', 'threshold'
+dr.ThresholdCounter.createThresholdCounter(
+    dr.ThresholdCounter, 'exceeded', 'counter', 'threshold'
 );
 
 
@@ -5003,15 +5004,15 @@ tym.ThresholdCounter.createThresholdCounter(
     
     Attributes:
         locked:boolean When true, the layout will not update.
-        lockedCounter:number Counter created by tym.ThresholdCounter.
+        lockedCounter:number Counter created by dr.ThresholdCounter.
     
     Private Attributes:
         subviews:array An array of Views managed by this layout.
         __deferredLayout:boolean Marks a layout as deferred if the global
-            layout lock, tym.Layout.locked, is true during a call to 
+            layout lock, dr.Layout.locked, is true during a call to 
             'canUpdate' on the layout.
 */
-tym.Layout = new JS.Class('Layout', tym.Node, {
+dr.Layout = new JS.Class('Layout', dr.Node, {
     // Class Methods ///////////////////////////////////////////////////////////
     extend: {
         deferredLayouts: [],
@@ -5019,7 +5020,7 @@ tym.Layout = new JS.Class('Layout', tym.Node, {
         /** Increments the global lock that prevents all layouts from updating.
             @returns void */
         incrementGlobalLock: function() {
-            var L = tym.Layout;
+            var L = dr.Layout;
             if (L._lockCount === undefined) L._lockCount = 0;
             
             L._lockCount++;
@@ -5029,7 +5030,7 @@ tym.Layout = new JS.Class('Layout', tym.Node, {
         /** Decrements the global lock that prevents all layouts from updating.
             @returns void */
         decrementGlobalLock: function() {
-            var L = tym.Layout;
+            var L = dr.Layout;
             if (L._lockCount === undefined) L._lockCount = 0;
             
             if (L._lockCount !== 0) {
@@ -5040,12 +5041,12 @@ tym.Layout = new JS.Class('Layout', tym.Node, {
         
         /** Adds a layout to a list of layouts that will get updated when the
             global lock is no longer locked.
-            @param layout:tym.Layout the layout to defer an update for.
+            @param layout:dr.Layout the layout to defer an update for.
             @returns void */
         deferLayoutUpdate: function(layout) {
             // Don't add a layout that is already deferred.
             if (!layout.__deferredLayout) {
-                tym.Layout.deferredLayouts.push(layout);
+                dr.Layout.deferredLayouts.push(layout);
                 layout.__deferredLayout = true;
             }
         },
@@ -5054,7 +5055,7 @@ tym.Layout = new JS.Class('Layout', tym.Node, {
             deferred layouts.
             @private */
         __set_locked: function(v) {
-            var L = tym.Layout;
+            var L = dr.Layout;
             if (L.locked === v) return;
             L.locked = v;
             
@@ -5072,7 +5073,7 @@ tym.Layout = new JS.Class('Layout', tym.Node, {
     
     
     // Life Cycle //////////////////////////////////////////////////////////////
-    /** @overrides tym.Node */
+    /** @overrides dr.Node */
     initNode: function(parent, attrs) {
         this.subviews = [];
         
@@ -5092,7 +5093,7 @@ tym.Layout = new JS.Class('Layout', tym.Node, {
         this.update();
     },
     
-    /** @overrides tym.Node */
+    /** @overrides dr.Node */
     destroyAfterOrphaning: function() {
         this.callSuper();
         this.subviews.length = 0;
@@ -5100,7 +5101,7 @@ tym.Layout = new JS.Class('Layout', tym.Node, {
     
     
     // Accessors ///////////////////////////////////////////////////////////////
-    /** @overrides tym.Node */
+    /** @overrides dr.Node */
     set_parent: function(parent) {
         if (this.parent !== parent) {
             // Lock during parent change so that old parent is not updated by
@@ -5142,13 +5143,13 @@ tym.Layout = new JS.Class('Layout', tym.Node, {
     // Methods /////////////////////////////////////////////////////////////////
     /** Checks if the layout is locked or not. Should be called by the
         "update" method of each layout to check if it is OK to do the update.
-        If tym.Layout.locked is true (the global layout lock) then a deferred
+        If dr.Layout.locked is true (the global layout lock) then a deferred
         layout update will be setup for this Layout. Once the global lock is
         unlocked this Layout's 'update' method will be invoked.
         @returns true if not locked, false otherwise. */
     canUpdate: function() {
-        if (tym.Layout.locked) {
-            tym.Layout.deferLayoutUpdate(this);
+        if (dr.Layout.locked) {
+            dr.Layout.deferLayoutUpdate(this);
             return false;
         }
         return !this.locked;
@@ -5233,7 +5234,7 @@ tym.Layout = new JS.Class('Layout', tym.Node, {
     
     /** Checks if a subview can be added to this Layout or not. The default 
         implementation returns the 'ignorelayout' attributes of the subview.
-        @param sv:tym.View the view to check.
+        @param sv:dr.View the view to check.
         @returns boolean true means the subview will be skipped, false
             otherwise. */
     ignore: function(sv) {
@@ -5301,8 +5302,8 @@ tym.Layout = new JS.Class('Layout', tym.Node, {
     }
 });
 
-/** Create locked counter functions for the tym.Layout class. */
-tym.ThresholdCounter.createFixedThresholdCounter(tym.Layout, 1, 'locked');
+/** Create locked counter functions for the dr.Layout class. */
+dr.ThresholdCounter.createFixedThresholdCounter(dr.Layout, 1, 'locked');
 
 
 /** A layout that sets the target attribute name to the target value for 
@@ -5319,11 +5320,11 @@ tym.ThresholdCounter.createFixedThresholdCounter(tym.Layout, 1, 'locked');
             for the attribute. This value is updated when
             set_attribute is called.
 */
-tym.ConstantLayout = new JS.Class('ConstantLayout', tym.Layout, {
+dr.ConstantLayout = new JS.Class('ConstantLayout', dr.Layout, {
     // Accessors ///////////////////////////////////////////////////////////////
     set_attribute: function(v) {
         if (this.setActual('attribute', v, 'string')) {
-            this.setterName = tym.AccessorSupport.generateSetterName(this.attribute);
+            this.setterName = dr.AccessorSupport.generateSetterName(this.attribute);
             if (this.inited) this.update();
         }
     },
@@ -5336,7 +5337,7 @@ tym.ConstantLayout = new JS.Class('ConstantLayout', tym.Layout, {
     
     
     // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides tym.Layout */
+    /** @overrides dr.Layout */
     update: function() {
         if (this.canUpdate()) {
             var setterName = this.setterName, 
@@ -5369,9 +5370,9 @@ tym.ConstantLayout = new JS.Class('ConstantLayout', tym.Layout, {
             opposite order. For example, right to left instead of left to right.
             Defaults to false.
 */
-tym.VariableLayout = new JS.Class('VariableLayout', tym.ConstantLayout, {
+dr.VariableLayout = new JS.Class('VariableLayout', dr.ConstantLayout, {
     // Life Cycle //////////////////////////////////////////////////////////////
-    /** @overrides tym.Node */
+    /** @overrides dr.Node */
     initNode: function(parent, attrs) {
         this.collapseparent = this.reverse = false;
         
@@ -5394,7 +5395,7 @@ tym.VariableLayout = new JS.Class('VariableLayout', tym.ConstantLayout, {
     
     
     // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides tym.ConstantLayout */
+    /** @overrides dr.ConstantLayout */
     update: function() {
         if (this.canUpdate()) {
             // Prevent inadvertent loops
@@ -5446,14 +5447,14 @@ tym.VariableLayout = new JS.Class('VariableLayout', tym.ConstantLayout, {
         // Subclasses to implement as needed.
     },
     
-    /** @overrides tym.Layout
+    /** @overrides dr.Layout
         Provides a default implementation that calls update when the
         visibility of a subview changes. */
     startMonitoringSubview: function(sv) {
         this.attachTo(sv, 'update', 'visible');
     },
     
-    /** @overrides tym.Layout
+    /** @overrides dr.Layout
         Provides a default implementation that calls update when the
         visibility of a subview changes. */
     stopMonitoringSubview: function(sv) {
@@ -5513,7 +5514,7 @@ tym.VariableLayout = new JS.Class('VariableLayout', tym.ConstantLayout, {
     Private Attributes:
         __dobt: (Object) Holds arrays of PlatformObservables by event type.
 */
-tym.PlatformObserver = new JS.Module('PlatformObserver', {
+dr.PlatformObserver = new JS.Module('PlatformObserver', {
     // Methods /////////////////////////////////////////////////////////////////
     /** Attaches this PlatformObserverAdapter to the a SpriteBacked Node
         for an event type.
@@ -5592,12 +5593,12 @@ tym.PlatformObserver = new JS.Module('PlatformObserver', {
 });
 
 
-/** Indicates that a tym.Node is backed by a sprite. */
-tym.SpriteBacked = new JS.Module('SpriteBacked', {
+/** Indicates that a dr.Node is backed by a sprite. */
+dr.SpriteBacked = new JS.Module('SpriteBacked', {
     // Accessors ///////////////////////////////////////////////////////////////
     set_sprite: function(sprite) {
         if (this.sprite) {
-            tym.dumpStack('Attempt to reset sprite.');
+            dr.dumpStack('Attempt to reset sprite.');
         } else {
             this.sprite = sprite;
         }
@@ -5610,7 +5611,7 @@ tym.SpriteBacked = new JS.Module('SpriteBacked', {
     
     // Methods /////////////////////////////////////////////////////////////////
     createSprite: function(attrs) {
-        return tym.sprite.createSprite(this, attrs);
+        return dr.sprite.createSprite(this, attrs);
     }
 });
 
@@ -5624,13 +5625,13 @@ tym.SpriteBacked = new JS.Module('SpriteBacked', {
         None
     
     Private Attributes:
-        __dobsbt:object Stores arrays of tym.sprite.PlatformObservers and 
+        __dobsbt:object Stores arrays of dr.sprite.PlatformObservers and 
             method names by event type.
 */
-tym.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
+dr.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
     // Methods /////////////////////////////////////////////////////////////////
     /** Adds the observer to the list of event recipients for the event type.
-        @param platformObserver:tym.sprite.PlatformObserver The observer that 
+        @param platformObserver:dr.sprite.PlatformObserver The observer that 
             will be notified when a platform event occurs.
         @param methodName:string The method name to call on the platform 
             observer.
@@ -5657,7 +5658,7 @@ tym.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
                     platformObservers.push(platformObserver, methodName, methodRef, capture);
                 }
                 
-                tym.sprite.addEventListener(this.platformObject, eventType, methodRef, capture);
+                dr.sprite.addEventListener(this.platformObject, eventType, methodRef, capture);
                 
                 return true;
             }
@@ -5668,7 +5669,7 @@ tym.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
     /** Creates a function that will handle the platform event when it is fired
         by the browser. Must be implemented by the object this mixin is 
         applied to.
-        @param platformObserver:tym.sprite.PlatformObserver the observer that 
+        @param platformObserver:dr.sprite.PlatformObserver the observer that 
             must be notified when the platform event fires.
         @param methodName:string the name of the function to pass the event to.
         @param eventType:string the type of the event to fire.
@@ -5679,8 +5680,8 @@ tym.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
     },
     
     /** Used by the createPlatformMethodRef implementations of submixins of 
-        tym.sprite.PlatformObservable to implement the standard methodRef.
-        @param platformObserver:tym.sprite.PlatformObserver the observer that 
+        dr.sprite.PlatformObservable to implement the standard methodRef.
+        @param platformObserver:dr.sprite.PlatformObserver the observer that 
             must be notified when the platform event fires.
         @param methodName:string the name of the function to pass the event to.
         @param eventType:string the type of the event to fire.
@@ -5705,7 +5706,7 @@ tym.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
                     platformEvent.cancelBubble = true;
                     if (platformEvent.stopPropagation) platformEvent.stopPropagation();
                     
-                    if (preventDefault) tym.sprite.preventDefault(platformEvent);
+                    if (preventDefault) dr.sprite.preventDefault(platformEvent);
                 }
                 
                 event.source = undefined;
@@ -5715,7 +5716,7 @@ tym.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
     
     /** Removes the observer from the list of platform observers for the 
         event type.
-        @param platformObserver:tym.sprite.PlatformObserver The platform 
+        @param platformObserver:dr.sprite.PlatformObserver The platform 
             observer to unregister.
         @param methodName:string The method name to unregister for.
         @param eventType:string The platform event type to unregister for.
@@ -5739,7 +5740,7 @@ tym.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
                             methodName === platformObservers[i + 1] && 
                             capture === platformObservers[i + 3]
                         ) {
-                            if (platformObject) tym.sprite.removeEventListener(platformObject, eventType, platformObservers[i + 2], capture);
+                            if (platformObject) dr.sprite.removeEventListener(platformObject, eventType, platformObservers[i + 2], capture);
                             platformObservers.splice(i, 4);
                             retval = true;
                         }
@@ -5766,7 +5767,7 @@ tym.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
                         capture = platformObservers[--i];
                         methodRef = platformObservers[--i];
                         i -= 2; // methodName and platformObserver
-                        tym.sprite.removeEventListener(platformObject, eventType, methodRef, capture);
+                        dr.sprite.removeEventListener(platformObject, eventType, methodRef, capture);
                     }
                     platformObservers.length = 0;
                 }
@@ -5780,9 +5781,9 @@ tym.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
     Also provides the capability to capture contextmenu events and mouse
     wheel events.
     
-    Requires: tym.sprite.PlatformObservable callSuper mixin.
+    Requires: dr.sprite.PlatformObservable callSuper mixin.
 */
-tym.sprite.MouseObservable = new JS.Module('sprite.MouseObservable', {
+dr.sprite.MouseObservable = new JS.Module('sprite.MouseObservable', {
     // Class Methods and Attributes ////////////////////////////////////////////
     extend: {
         /** A map of supported mouse event types. */
@@ -5821,17 +5822,17 @@ tym.sprite.MouseObservable = new JS.Module('sprite.MouseObservable', {
     
     
     // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides tym.sprite.PlatformObservable */
+    /** @overrides dr.sprite.PlatformObservable */
     createPlatformMethodRef: function(platformObserver, methodName, type) {
-        return this.createStandardPlatformMethodRef(platformObserver, methodName, type, tym.sprite.MouseObservable, true) || 
+        return this.createStandardPlatformMethodRef(platformObserver, methodName, type, dr.sprite.MouseObservable, true) || 
             this.callSuper(platformObserver, methodName, type);
     }
 });
 
 
 /** Generates Key Events and passes them on to one or more event observers.
-    Requires tym.DomObservable as a callSuper mixin. */
-tym.sprite.KeyObservable = new JS.Module('sprite.KeyObservable', {
+    Requires dr.DomObservable as a callSuper mixin. */
+dr.sprite.KeyObservable = new JS.Module('sprite.KeyObservable', {
     // Class Methods and Attributes ////////////////////////////////////////////
     extend: {
         /** A map of supported key event types. */
@@ -5856,15 +5857,15 @@ tym.sprite.KeyObservable = new JS.Module('sprite.KeyObservable', {
     
     
     // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides tym.sprite.PlatformObservable */
+    /** @overrides dr.sprite.PlatformObservable */
     createPlatformMethodRef: function(platformObserver, methodName, type) {
-        return this.createStandardPlatformMethodRef(platformObserver, methodName, type, tym.sprite.KeyObservable) || 
+        return this.createStandardPlatformMethodRef(platformObserver, methodName, type, dr.sprite.KeyObservable) || 
             this.callSuper(platformObserver, methodName, type);
     }
 });
 
 
-/** Tracks focus and provides global focus events. Registered with tym.global 
+/** Tracks focus and provides global focus events. Registered with dr.global 
     as 'focus'.
     
     Events:
@@ -5880,19 +5881,19 @@ tym.sprite.KeyObservable = new JS.Module('sprite.KeyObservable', {
         prevFocusedView:View the view that previously had focus.
 */
 new JS.Singleton('GlobalFocus', {
-    include: [tym.Observable],
+    include: [dr.Observable],
     
     
     // Constructor /////////////////////////////////////////////////////////////
     initialize: function() {
-        tym.global.register('focus', this);
+        dr.global.register('focus', this);
     },
     
     
     // Accessors ///////////////////////////////////////////////////////////////
     /** Sets the currently focused view. */
     set_focusedView: function(v) {
-        if (tym.sprite.focus.set_focusedView(v)) this.fireNewEvent('focused', v);
+        if (dr.sprite.focus.set_focusedView(v)) this.fireNewEvent('focused', v);
     },
     
     
@@ -5901,20 +5902,20 @@ new JS.Singleton('GlobalFocus', {
         @param focusable:FocusObservable the view that received focus.
         @returns void. */
     notifyFocus: function(focusable) {
-        tym.sprite.focus.notifyFocus(focusable);
+        dr.sprite.focus.notifyFocus(focusable);
     },
     
     /** Called by a FocusObservable when it has lost focus.
         @param focusable:FocusObservable the view that lost focus.
         @returns void. */
     notifyBlur: function(focusable) {
-        tym.sprite.focus.notifyBlur(focusable);
+        dr.sprite.focus.notifyBlur(focusable);
     },
     
     /** Clears the current focus.
         @returns void */
     clear: function() {
-        tym.sprite.focus.clear();
+        dr.sprite.focus.clear();
     },
     
     // Focus Traversal //
@@ -5922,24 +5923,24 @@ new JS.Singleton('GlobalFocus', {
         @param ignoreFocusTrap:boolean If true focus traps will be skipped over.
         @returns void */
     next: function(ignoreFocusTrap) {
-        tym.sprite.focus.next(ignoreFocusTrap);
+        dr.sprite.focus.next(ignoreFocusTrap);
     },
     
     /** Move focus to the previous focusable element.
         @param ignoreFocusTrap:boolean If true focus traps will be skipped over.
         @returns void */
     prev: function(ignoreFocusTrap) {
-        tym.sprite.focus.prev(ignoreFocusTrap);
+        dr.sprite.focus.prev(ignoreFocusTrap);
     }
 });
 
 
 /** Generates focus and blur events and passes them on to one or more 
     event observers. Also provides focus related events to a view. When a view
-    is focused or blurred, tym.global.focus will be notified via the
+    is focused or blurred, dr.global.focus will be notified via the
     'notifyFocus' and 'notifyBlur' methods.
     
-    Requires tym.sprite.DomObservable as a callSuper mixin.
+    Requires dr.sprite.DomObservable as a callSuper mixin.
     
     Events:
         focused:object Fired when this view gets focus. The value is this view.
@@ -5951,7 +5952,7 @@ new JS.Singleton('GlobalFocus', {
     Attributes:
         focusable:boolean Indicates if this view can have focus or not.
 */
-tym.sprite.FocusObservable = new JS.Module('sprite.FocusObservable', {
+dr.sprite.FocusObservable = new JS.Module('sprite.FocusObservable', {
     // Class Methods and Attributes ////////////////////////////////////////////
     extend: {
         /** A map of supported focus event types. */
@@ -6040,24 +6041,24 @@ tym.sprite.FocusObservable = new JS.Module('sprite.FocusObservable', {
         this.platformObject.blur();
     },
     
-    /** @overrides tym.PlatformObservable */
+    /** @overrides dr.PlatformObservable */
     createPlatformMethodRef: function(platformObserver, methodName, type) {
-        if (tym.sprite.FocusObservable.EVENT_TYPES[type]) {
+        if (dr.sprite.FocusObservable.EVENT_TYPES[type]) {
             var self = this;
             return function(platformEvent) {
                 if (!platformEvent) var platformEvent = global.event;
                 
                 // OPTIMIZATION: prevent extra focus events under special 
-                // circumstances. See tym.VariableLayout for more detail.
+                // circumstances. See dr.VariableLayout for more detail.
                 if (self._ignoreFocus) {
                     platformEvent.cancelBubble = true;
                     if (platformEvent.stopPropagation) platformEvent.stopPropagation();
-                    tym.sprite.preventDefault(platformEvent);
+                    dr.sprite.preventDefault(platformEvent);
                     return;
                 }
                 
                 // Configure common focus event.
-                var event = tym.sprite.FocusObservable.EVENT;
+                var event = dr.sprite.FocusObservable.EVENT;
                 event.source = self;
                 event.type = platformEvent.type;
                 event.value = platformEvent;
@@ -6078,20 +6079,20 @@ tym.sprite.FocusObservable = new JS.Module('sprite.FocusObservable', {
 
 
 /** Provides an interface to platform specific View functionality. */
-tym.sprite.View = new JS.Class('sprite.View', {
+dr.sprite.View = new JS.Class('sprite.View', {
     include: [
-        tym.Destructible,
-        tym.sprite.PlatformObservable,
-        tym.sprite.KeyObservable,
-        tym.sprite.MouseObservable,
-        tym.sprite.FocusObservable
+        dr.Destructible,
+        dr.sprite.PlatformObservable,
+        dr.sprite.KeyObservable,
+        dr.sprite.MouseObservable,
+        dr.sprite.FocusObservable
     ],
     
     
     // Constructor /////////////////////////////////////////////////////////////
     /** The standard JSClass initializer function. Subclasses should not
         override this function.
-        @param view:tym.View The view this sprite is backing.
+        @param view:dr.View The view this sprite is backing.
         @param attrs:object A map of attribute names and values.
         @returns void */
     initialize: function(view, attrs) {
@@ -6193,7 +6194,7 @@ tym.sprite.View = new JS.Class('sprite.View', {
         @returns object the style object.
         @private */
     __getComputedStyle: function() {
-        return tym.sprite.__getComputedStyle(this.platformObject);
+        return dr.sprite.__getComputedStyle(this.platformObject);
     },
     
     /** Gets the x and y position of the dom element relative to the 
@@ -6207,7 +6208,7 @@ tym.sprite.View = new JS.Class('sprite.View', {
         var elem = this.platformObject,
             ancestorElem = ancestorView ? ancestorView.sprite.platformObject : null;
             x = 0, y = 0, s,
-            borderMultiplier = tym.sprite.platform.browser === 'Firefox' ? 2 : 1; // I have no idea why firefox needs it twice, but it does.
+            borderMultiplier = dr.sprite.platform.browser === 'Firefox' ? 2 : 1; // I have no idea why firefox needs it twice, but it does.
         
         // elem.nodeName !== "BODY" test prevents looking at the body
         // which causes problems when the document is scrolled on webkit.
@@ -6256,10 +6257,10 @@ tym.sprite.View = new JS.Class('sprite.View', {
         bgcolor:string
         opacity:number
         visible:boolean
-        subviewAdded:tym.View Fired when a subview is added to this view.
-        subviewRemoved:tym.View Fired when a subview is removed from this view.
-        layoutAdded:tym.Layout Fired when a layout is added to this view.
-        layoutRemoved:tym.Layout Fired when a layout is removed from this view.
+        subviewAdded:dr.View Fired when a subview is added to this view.
+        subviewRemoved:dr.View Fired when a subview is removed from this view.
+        layoutAdded:dr.Layout Fired when a layout is added to this view.
+        layoutRemoved:dr.Layout Fired when a layout is removed from this view.
     
     Attributes:
         Layout Related:
@@ -6313,20 +6314,20 @@ tym.sprite.View = new JS.Class('sprite.View', {
                 equivalent to 'auto'.
     
     Private Attributes:
-        subviews:array The array of child tym.Views for this view. Should 
+        subviews:array The array of child dr.Views for this view. Should 
             be accessed through the getSubviews method.
-        layouts:array The array of child tym.Layouts for this view. Should
+        layouts:array The array of child dr.Layouts for this view. Should
             be accessed through the getLayouts method.
 */
-tym.View = new JS.Class('View', tym.Node, {
+dr.View = new JS.Class('View', dr.Node, {
     include: [
-        tym.SpriteBacked,
-        tym.PlatformObserver
+        dr.SpriteBacked,
+        dr.PlatformObserver
     ],
     
     
     // Life Cycle //////////////////////////////////////////////////////////////
-    /** @overrides tym.Node */
+    /** @overrides dr.Node */
     initNode: function(parent, attrs) {
         this.x = this.y = this.width = this.height = 0;
         this.opacity = 1;
@@ -6340,13 +6341,13 @@ tym.View = new JS.Class('View', tym.Node, {
         this.callSuper(parent, attrs);
     },
     
-    /** @overrides tym.Node */
+    /** @overrides dr.Node */
     destroyBeforeOrphaning: function() {
         this.giveAwayFocus();
         this.callSuper();
     },
     
-    /** @overrides tym.Node */
+    /** @overrides dr.Node */
     destroyAfterOrphaning: function() {
         this.callSuper();
         
@@ -6362,7 +6363,7 @@ tym.View = new JS.Class('View', tym.Node, {
     },
     
     /** Gets the views that are our siblings.
-        @returns array of tym.View or null if this view is orphaned. */
+        @returns array of dr.View or null if this view is orphaned. */
     getSiblingViews: function() {
         if (!this.parent) return null;
         
@@ -6370,7 +6371,7 @@ tym.View = new JS.Class('View', tym.Node, {
         var svs = this.parent.getSubviews().concat();
         
         // Filter out ourself
-        tym.filterArray(svs, this);
+        dr.filterArray(svs, this);
         
         return svs;
     },
@@ -6382,7 +6383,7 @@ tym.View = new JS.Class('View', tym.Node, {
     },
     
     set_ignorelayout: function(v) {
-        if (this.ignorelayout !== (v = tym.coerce(v, 'boolean', false))) {
+        if (this.ignorelayout !== (v = dr.coerce(v, 'boolean', false))) {
             // Add or remove ourselves from any layouts on our parent.
             var ready = this.inited && this.parent, layouts, i;
             if (v) {
@@ -6412,7 +6413,7 @@ tym.View = new JS.Class('View', tym.Node, {
     set_focused: function(v) {
         if (this.setActual('focused', v, 'boolean', false)) {
             if (this.inited) {
-                tym.global.focus[v ? 'notifyFocus' : 'notifyBlur'](this);
+                dr.global.focus[v ? 'notifyFocus' : 'notifyBlur'](this);
             }
         }
     },
@@ -6459,38 +6460,38 @@ tym.View = new JS.Class('View', tym.Node, {
     
     /** Checks if this view is visible and each view in the parent chain to
         the RootView is also visible. Dom elements are not explicitly
-        checked. If you need to check that use tym.DomElementProxy.isDomElementVisible.
+        checked. If you need to check that use dr.DomElementProxy.isDomElementVisible.
         @returns true if this view is visible, false otherwise. */
     isVisible: function() {
         return this.searchAncestorsOrSelf(function(v) {return !v.visible;}) === null;
     },
     
-    /** @overrides tym.Node
-        Calls this.subviewAdded if the added subnode is a tym.View. 
+    /** @overrides dr.Node
+        Calls this.subviewAdded if the added subnode is a dr.View. 
         @fires subviewAdded event with the provided Node if it's a View. 
         @fires layoutAdded event with the provided node if it's a Layout. */
     subnodeAdded: function(node) {
-        if (node instanceof tym.View) {
+        if (node instanceof dr.View) {
             this.sprite.appendSprite(node.sprite);
             this.getSubviews().push(node);
             this.fireNewEvent('subviewAdded', node);
             this.subviewAdded(node);
-        } else if (node instanceof tym.Layout) {
+        } else if (node instanceof dr.Layout) {
             this.getLayouts().push(node);
             this.fireNewEvent('layoutAdded', node);
             this.layoutAdded(node);
         }
     },
     
-    /** @overrides tym.Node
-        Calls this.subviewRemoved if the remove subnode is a tym.View.
+    /** @overrides dr.Node
+        Calls this.subviewRemoved if the remove subnode is a dr.View.
         @fires subviewRemoved event with the provided Node if it's a View
             and removal succeeds. 
         @fires layoutRemoved event with the provided Node if it's a Layout
             and removal succeeds. */
     subnodeRemoved: function(node) {
         var idx;
-        if (node instanceof tym.View) {
+        if (node instanceof dr.View) {
             idx = this.getSubviewIndex(node);
             if (idx !== -1) {
                 this.fireNewEvent('subviewRemoved', node);
@@ -6498,7 +6499,7 @@ tym.View = new JS.Class('View', tym.Node, {
                 this.subviews.splice(idx, 1);
                 this.subviewRemoved(node);
             }
-        } else if (node instanceof tym.Layout) {
+        } else if (node instanceof dr.Layout) {
             idx = this.getLayoutIndex(node);
             if (idx !== -1) {
                 this.fireNewEvent('layoutRemoved', node);
@@ -6589,7 +6590,7 @@ tym.View = new JS.Class('View', tym.Node, {
     giveAwayFocus: function() {
         if (this.focused) {
             // Try to go to next focusable element.
-            tym.global.focus.next();
+            dr.global.focus.next();
             
             // If focus loops around to ourself make sure we don't keep it.
             if (this.focused) this.blur();
@@ -6659,8 +6660,8 @@ tym.View = new JS.Class('View', tym.Node, {
 });
 
 
-/** Provides events when a new tym.RootView is created or destroyed.
-    Registered in tym.global as 'roots'.
+/** Provides events when a new dr.RootView is created or destroyed.
+    Registered in dr.global as 'roots'.
     
     Events:
         rootAdded:RootView Fired when a RootView is added. The value is the 
@@ -6675,13 +6676,13 @@ tym.View = new JS.Class('View', tym.Node, {
         __roots:array Holds an array of RootViews.
 */
 new JS.Singleton('GlobalRootViewRegistry', {
-    include: [tym.Observable],
+    include: [dr.Observable],
     
     
     // Life Cycle //////////////////////////////////////////////////////////////
     initialize: function() {
         this.__roots = [];
-        tym.global.register('roots', this);
+        dr.global.register('roots', this);
     },
     
     
@@ -6726,27 +6727,27 @@ new JS.Singleton('GlobalRootViewRegistry', {
     Events:
         None
 */
-tym.RootView = new JS.Module('RootView', {
+dr.RootView = new JS.Module('RootView', {
     // Life Cycle //////////////////////////////////////////////////////////////
     initNode: function(parent, attrs) {
         this.callSuper(parent, attrs);
-        tym.global.roots.addRoot(this);
+        dr.global.roots.addRoot(this);
     },
     
     createSprite: function(attrs) {
         attrs.__isRootView = true;
-        return tym.sprite.createSprite(this, attrs);
+        return dr.sprite.createSprite(this, attrs);
     },
     
-    /** @overrides tym.View */
+    /** @overrides dr.View */
     destroyAfterOrphaning: function() {
-        tym.global.roots.removeRoot(this);
+        dr.global.roots.removeRoot(this);
         this.callSuper();
     },
     
     
     // Accessors ///////////////////////////////////////////////////////////////
-    /** @overrides tym.Node */
+    /** @overrides dr.Node */
     set_parent: function(parent) {
         // A root view doesn't have a parent view.
         this.callSuper(undefined);
@@ -6755,7 +6756,7 @@ tym.RootView = new JS.Module('RootView', {
 
 
 /** Provides an interface to platform specific viewport resize functionality. */
-tym.sprite.GlobalViewportResize = new JS.Class('sprite.GlobalViewportResize', {
+dr.sprite.GlobalViewportResize = new JS.Class('sprite.GlobalViewportResize', {
     // Constructor /////////////////////////////////////////////////////////////
     /** The standard JSClass initializer function. Subclasses should not
         override this function.
@@ -6765,7 +6766,7 @@ tym.sprite.GlobalViewportResize = new JS.Class('sprite.GlobalViewportResize', {
         this.view = view;
         
         var self = this;
-        tym.sprite.addEventListener(global, 'resize', function(domEvent) {
+        dr.sprite.addEventListener(global, 'resize', function(domEvent) {
             view.__handleResizeEvent(self.getViewportWidth(), self.getViewportHeight());
         });
     },
@@ -6782,12 +6783,12 @@ tym.sprite.GlobalViewportResize = new JS.Class('sprite.GlobalViewportResize', {
 });
 
 
-/** Provides events when the viewport is resized. Registered with tym.global
+/** Provides events when the viewport is resized. Registered with dr.global
     as 'viewportResize'.
     
     Events:
         resize:object Fired when the viewport is resized. This is a
-            reused event stored at tym.global.viewportResize.EVENT. The type
+            reused event stored at dr.global.viewportResize.EVENT. The type
             is 'resize' and the value is an object containing:
                 w:number the new viewport width.
                 h:number the new viewport height.
@@ -6801,8 +6802,8 @@ tym.sprite.GlobalViewportResize = new JS.Class('sprite.GlobalViewportResize', {
 */
 new JS.Singleton('GlobalViewportResize', {
     include: [
-        tym.SpriteBacked,
-        tym.Observable
+        dr.SpriteBacked,
+        dr.Observable
     ],
     
     
@@ -6816,11 +6817,11 @@ new JS.Singleton('GlobalViewportResize', {
             value:{w:this.getWidth(), h:this.getHeight()}
         };
         
-        tym.global.register('viewportResize', this);
+        dr.global.register('viewportResize', this);
     },
     
     createSprite: function(attrs) {
-        return new tym.sprite.GlobalViewportResize(this);
+        return new dr.sprite.GlobalViewportResize(this);
     },
     
     
@@ -6870,8 +6871,8 @@ new JS.Singleton('GlobalViewportResize', {
         minheight:number the minimum height below which this view will not
             resize its height. Defaults to 0.
 */
-tym.SizeToViewport = new JS.Module('SizeToViewport', {
-    include: [tym.RootView],
+dr.SizeToViewport = new JS.Module('SizeToViewport', {
+    include: [dr.RootView],
     
     
     // Life Cycle //////////////////////////////////////////////////////////////
@@ -6880,7 +6881,7 @@ tym.SizeToViewport = new JS.Module('SizeToViewport', {
         this.minwidth = this.minheight = 0;
         if (attrs.resizedimension === undefined) attrs.resizedimension = 'both';
         
-        this.attachTo(tym.global.viewportResize, '__handleResize', 'resize');
+        this.attachTo(dr.global.viewportResize, '__handleResize', 'resize');
         this.callSuper(parent, attrs);
     },
     
@@ -6908,7 +6909,7 @@ tym.SizeToViewport = new JS.Module('SizeToViewport', {
     // Methods /////////////////////////////////////////////////////////////////
     /** @private */
     __handleResize: function(event) {
-        var v = tym.global.viewportResize.EVENT.value, // Ignore the provided event.
+        var v = dr.global.viewportResize.EVENT.value, // Ignore the provided event.
             dim = this.resizedimension;
         if (dim === 'width' || dim === 'both') this.set_width(Math.max(this.minwidth, v.w));
         if (dim === 'height' || dim === 'both') this.set_height(Math.max(this.minheight, v.h));
@@ -6917,7 +6918,7 @@ tym.SizeToViewport = new JS.Module('SizeToViewport', {
 
 
 /** Provides an interface to platform specific Idle functionality. */
-tym.sprite.GlobalIdle = new JS.Class('sprite.GlobalIdle', {
+dr.sprite.GlobalIdle = new JS.Class('sprite.GlobalIdle', {
     // Constructor /////////////////////////////////////////////////////////////
     /** The standard JSClass initializer function. Subclasses should not
         override this function.
@@ -6944,7 +6945,7 @@ tym.sprite.GlobalIdle = new JS.Class('sprite.GlobalIdle', {
                 var event = self.__event;
                 event.delta = time - lastTime;
                 event.time = time;
-                view.fireNewEvent('idle', event);
+                view.fireNewEvent('onidle', event);
             }
             self.lastTime = time;
         };
@@ -6963,10 +6964,10 @@ tym.sprite.GlobalIdle = new JS.Class('sprite.GlobalIdle', {
 });
 
 
-/** Provides idle events. Registered with tym.global as 'idle'.
+/** Provides idle events. Registered with dr.global as 'idle'.
     
     Events:
-        idle:object Fired when a browser idle event occurs. The event value is
+        onidle:object Fired when a browser idle event occurs. The event value is
             an object containing:
                 delta: The time in millis since the last idle evnet.
                 time: The time in millis of this idle event.
@@ -6977,14 +6978,14 @@ tym.sprite.GlobalIdle = new JS.Class('sprite.GlobalIdle', {
         lastTime:number The millis of the last idle event fired.
     
     Private Attributes:
-        __timerId:number The ID of the last idle event in the browser.
+        __timerId:number The ID of the last onidle event in the browser.
         __doIdle:function The function that gets executed on idle.
-        __event:object The idle event object that gets reused.
+        __event:object The onidle event object that gets reused.
 */
 new JS.Singleton('GlobalIdle', {
     include: [
-        tym.SpriteBacked,
-        tym.Observable
+        dr.SpriteBacked,
+        dr.Observable
     ],
     
     
@@ -6992,21 +6993,32 @@ new JS.Singleton('GlobalIdle', {
     initialize: function() {
         this.running = false;
         this.set_sprite(this.createSprite());
-        tym.global.register('idle', this);
+        
+        // Stores Eventables for callOnIdle
+        this.__callOnIdleRegistry = {};
+        
+        // Store in dr namespace for backwards compatibility with dreem
+        if (dr.idle) {
+            dr.dumpStack('dr.idle already set.');
+        } else {
+            dr.idle = this;
+        }
+        
+        dr.global.register('idle', this);
     },
     
     createSprite: function(attrs) {
-        return new tym.sprite.GlobalIdle(this);
+        return new dr.sprite.GlobalIdle(this);
     },
     
     
     // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides tym.Observable */
+    /** @overrides dr.Observable */
     attachObserver: function(observer, methodName, type) {
         var retval = this.callSuper(observer, methodName, type);
         
-        // Start firing idle events
-        if (!this.running && this.hasObservers('idle')) {
+        // Start firing onidle events
+        if (!this.running && this.hasObservers('onidle')) {
             this.running = true;
             this.sprite.start();
         }
@@ -7014,17 +7026,41 @@ new JS.Singleton('GlobalIdle', {
         return retval;
     },
     
-    /** @overrides tym.Observable */
+    /** @overrides dr.Observable */
     detachObserver: function(observer, methodName, type) {
         var retval = this.callSuper(observer, methodName, type);
         
-        // Stop firing idle events
-        if (this.running && !this.hasObservers('idle')) {
+        // Stop firing onidle events
+        if (this.running && !this.hasObservers('onidle')) {
             this.sprite.stop();
             this.running = false;
         }
         
         return retval;
+    },
+    
+    /** Invokes the provided callback function once on the next idle event.
+        @param callback:function The function to call.
+        @returns void */
+    callOnIdle: function(callback) {
+        if (callback) {
+            var guid = dr.generateGuid(),
+                registry = this.__callOnIdleRegistry,
+                observer = registry[guid] = new dr.Eventable({}, [{
+                invoke: function(event) {
+                        try {
+                            var value = event.value;
+                            callback(value.time, value.delta);
+                        } catch (e) {
+                            dr.dumpStack(e);
+                        } finally {
+                            delete registry[guid];
+                            this.destroy();
+                        }
+                    }
+                }]);
+            observer.attachTo(this, 'invoke', 'onidle', true);
+        }
     }
 });
 
@@ -7094,17 +7130,17 @@ new JS.Singleton('GlobalIdle', {
             undefined after the animation completes so that subsequent calls 
             to start the animation will behave the same.
 */
-tym.Animator = new JS.Class('Animator', tym.Node, {
-    include: [tym.Reusable],
+dr.Animator = new JS.Class('Animator', dr.Node, {
+    include: [dr.Reusable],
     
     
     // Life Cycle //////////////////////////////////////////////////////////////
-    /** @overrides tym.Node */
+    /** @overrides dr.Node */
     initNode: function(parent, attrs) {
         this.duration = 1000;
         this.relative = this.reverse = this.running = this.paused = false;
         this.repeat = 1;
-        this.easingfunction = tym.Animator.DEFAULT_EASING_FUNCTION;
+        this.easingfunction = dr.Animator.DEFAULT_EASING_FUNCTION;
         
         this.callSuper(parent, attrs);
         
@@ -7132,11 +7168,11 @@ tym.Animator = new JS.Class('Animator', tym.Node, {
         if (this.setActual('running', v, 'boolean', false)) {
             if (!this.paused) {
                 if (v) {
-                    this.attachTo(tym.global.idle, '__update', 'idle');
+                    this.attachTo(dr.global.idle, '__update', 'onidle');
                 } else {
                     if (this.__temporaryFrom) this.from = undefined;
                     this.__reset();
-                    this.detachFrom(tym.global.idle, '__update', 'idle');
+                    this.detachFrom(dr.global.idle, '__update', 'onidle');
                 }
             }
         }
@@ -7146,9 +7182,9 @@ tym.Animator = new JS.Class('Animator', tym.Node, {
         if (this.setActual('paused', v, 'boolean', false)) {
             if (this.running) {
                 if (v) {
-                    this.detachFrom(tym.global.idle, '__update', 'idle');
+                    this.detachFrom(dr.global.idle, '__update', 'onidle');
                 } else {
-                    this.attachTo(tym.global.idle, '__update', 'idle');
+                    this.attachTo(dr.global.idle, '__update', 'onidle');
                 }
             }
         }
@@ -7191,13 +7227,13 @@ tym.Animator = new JS.Class('Animator', tym.Node, {
         if (executeCallback && this.callback) this.callback.call(this, false);
     },
     
-    /** @overrides tym.Reusable */
+    /** @overrides dr.Reusable */
     clean: function() {
         this.to = this.from = this.attribute = this.callback = undefined;
         this.duration = 1000;
         this.relative = this.reverse = false;
         this.repeat = 1;
-        this.easingfunction = tym.Animator.DEFAULT_EASING_FUNCTION;
+        this.easingfunction = dr.Animator.DEFAULT_EASING_FUNCTION;
         
         this.reset(false);
     },
@@ -7210,8 +7246,8 @@ tym.Animator = new JS.Class('Animator', tym.Node, {
     },
     
     /** @private */
-    __update: function(idleEvent) {
-        this.__advance(idleEvent.value.delta);
+    __update: function(onidleEvent) {
+        this.__advance(onidleEvent.value.delta);
     },
     
     /** @private */
@@ -7332,7 +7368,7 @@ tym.Animator = new JS.Class('Animator', tym.Node, {
  * https://raw.github.com/danro/jquery-easing/master/LICENSE
  * ============================================================
  */
-tym.Animator.easingFunctions = {
+dr.Animator.easingFunctions = {
     linear:function(t, c, d) {
         return c*(t/d);
     },
@@ -7461,7 +7497,7 @@ tym.Animator.easingFunctions = {
         return c/2*((t-=2)*t*(((s*=(1.525))+1)*t + s) + 2);
     },
     easeInBounce: function (t, c, d) {
-        return c - tym.Animator.easingFunctions.easeOutBounce(d-t, c, d);
+        return c - dr.Animator.easingFunctions.easeOutBounce(d-t, c, d);
     },
     easeOutBounce: function (t, c, d) {
         if ((t/=d) < (1/2.75)) {
@@ -7475,18 +7511,18 @@ tym.Animator.easingFunctions = {
         }
     },
     easeInOutBounce: function (t, c, d) {
-        if (t < d/2) return tym.Animator.easingFunctions.easeInBounce(t*2, c, d) * .5;
-        return tym.Animator.easingFunctions.easeOutBounce(t*2-d, c, d) * .5 + c*.5;
+        if (t < d/2) return dr.Animator.easingFunctions.easeInBounce(t*2, c, d) * .5;
+        return dr.Animator.easingFunctions.easeOutBounce(t*2-d, c, d) * .5 + c*.5;
     }
 };
 
 /** Setup the default easing function. */
-tym.Animator.DEFAULT_EASING_FUNCTION = tym.Animator.easingFunctions.easeInOutQuad;
+dr.Animator.DEFAULT_EASING_FUNCTION = dr.Animator.easingFunctions.easeInOutQuad;
 
 
-/** Adds the capability for an tym.View to be "activated". A doActivated method
+/** Adds the capability for an dr.View to be "activated". A doActivated method
     is added that gets called when the view is "activated". */
-tym.Activateable = new JS.Module('Activateable', {
+dr.Activateable = new JS.Module('Activateable', {
     // Methods /////////////////////////////////////////////////////////////////
     /** Called when this view should be activated.
         @returns void */
@@ -7505,7 +7541,7 @@ tym.Activateable = new JS.Module('Activateable', {
     Attributes:
         None
 */
-tym.UpdateableUI = new JS.Module('UpdateableUI', {
+dr.UpdateableUI = new JS.Module('UpdateableUI', {
     // Life Cycle //////////////////////////////////////////////////////////////
     /** @overrides */
     initNode: function(parent, attrs) {
@@ -7527,11 +7563,11 @@ tym.UpdateableUI = new JS.Module('UpdateableUI', {
 });
 
 
-/** Adds the capability to be "disabled" to an tym.Node. When an tym.Node is 
+/** Adds the capability to be "disabled" to an dr.Node. When an dr.Node is 
     disabled the user should typically not be able to interact with it.
     
     When disabled becomes true an attempt will be made to give away the focus
-    using tym.FocusObservable's giveAwayFocus method.
+    using dr.FocusObservable's giveAwayFocus method.
     
     Events:
         disabled:boolean Fired when the disabled attribute is modified
@@ -7540,7 +7576,7 @@ tym.UpdateableUI = new JS.Module('UpdateableUI', {
     Attributes:
         disabled:boolean Indicates that this component is disabled.
 */
-tym.Disableable = new JS.Module('Disableable', {
+dr.Disableable = new JS.Module('Disableable', {
     // Life Cycle //////////////////////////////////////////////////////////////
     /** @overrides */
     initNode: function(parent, attrs) {
@@ -7558,7 +7594,7 @@ tym.Disableable = new JS.Module('Disableable', {
     
     // Methods /////////////////////////////////////////////////////////////////
     /** Called after the disabled attribute is set. Default behavior attempts
-        to give away focus and calls the updateUI method of tym.UpdateableUI if 
+        to give away focus and calls the updateUI method of dr.UpdateableUI if 
         it is defined.
         @returns void */
     doDisabled: function() {
@@ -7575,9 +7611,9 @@ tym.Disableable = new JS.Module('Disableable', {
 
 /** Provides a 'mouseover' attribute that tracks mouse over/out state. Also
     provides a mechanism to smoothe over/out events so only one call to
-    'doSmoothMouseOver' occurs per idle event.
+    'doSmoothMouseOver' occurs per onidle event.
     
-    Requires tym.Disableable and tym.MouseObservable callSuper mixins.
+    Requires dr.Disableable and dr.MouseObservable callSuper mixins.
     
     Events:
         None
@@ -7588,11 +7624,11 @@ tym.Disableable = new JS.Module('Disableable', {
     Private Attributes:
         __attachedToOverIdle:boolean Used by the code that smoothes out
             mouseover events. Indicates that we are registered with the
-            idle event.
+            onidle event.
         __lastOverIdleValue:boolean Used by the code that smoothes out
             mouseover events. Stores the last mouseover value.
 */
-tym.MouseOver = new JS.Module('MouseOver', {
+dr.MouseOver = new JS.Module('MouseOver', {
     // Life Cycle //////////////////////////////////////////////////////////////
     /** @overrides */
     initNode: function(parent, attrs) {
@@ -7608,15 +7644,15 @@ tym.MouseOver = new JS.Module('MouseOver', {
     // Accessors ///////////////////////////////////////////////////////////////
     set_mouseover: function(v) {
         if (this.setActual('mouseover', v, 'boolean', false)) {
-            // Smooth out over/out events by delaying until the next idle event.
+            // Smooth over/out events by delaying until the next onidle event.
             if (this.inited && !this.__attachedToOverIdle) {
                 this.__attachedToOverIdle = true;
-                this.attachTo(tym.global.idle, '__doMouseOverOnIdle', 'idle');
+                this.attachTo(dr.global.idle, '__doMouseOverOnIdle', 'onidle');
             }
         }
     },
     
-    /** @overrides tym.Disableable */
+    /** @overrides dr.Disableable */
     set_disabled: function(v) {
         // When about to disable make sure mouseover is not true. This 
         // helps prevent unwanted behavior of a disabled view.
@@ -7629,7 +7665,7 @@ tym.MouseOver = new JS.Module('MouseOver', {
     // Methods /////////////////////////////////////////////////////////////////
     /** @private */
     __doMouseOverOnIdle: function() {
-        this.detachFrom(tym.global.idle, '__doMouseOverOnIdle', 'idle');
+        this.detachFrom(dr.global.idle, '__doMouseOverOnIdle', 'onidle');
         this.__attachedToOverIdle = false;
         
         // Only call doSmoothOver if the over/out state has changed since the
@@ -7664,10 +7700,10 @@ tym.MouseOver = new JS.Module('MouseOver', {
 
 
 /** Provides an interface to platform specific global mouse functionality. */
-tym.sprite.GlobalMouse = new JS.Class('sprite.GlobalMouse', {
+dr.sprite.GlobalMouse = new JS.Class('sprite.GlobalMouse', {
     include: [
-        tym.sprite.PlatformObservable,
-        tym.sprite.MouseObservable
+        dr.sprite.PlatformObservable,
+        dr.sprite.MouseObservable
     ],
     
     
@@ -7684,11 +7720,11 @@ tym.sprite.GlobalMouse = new JS.Class('sprite.GlobalMouse', {
 
 
 /** Provides global mouse events by listening to mouse events on the 
-    viewport. Registered with tym.global as 'mouse'. */
+    viewport. Registered with dr.global as 'mouse'. */
 new JS.Singleton('GlobalMouse', {
     include: [
-        tym.SpriteBacked,
-        tym.Observable
+        dr.SpriteBacked,
+        dr.Observable
     ],
     
     
@@ -7696,20 +7732,27 @@ new JS.Singleton('GlobalMouse', {
     initialize: function() {
         this.set_sprite(this.createSprite());
         
-        tym.global.register('mouse', this);
+        // Store in dr namespace for backwards compatibility with dreem
+        if (dr.mouse) {
+            dr.dumpStack('dr.mouse already set.');
+        } else {
+            dr.mouse = this;
+        }
+        
+        dr.global.register('mouse', this);
     },
     
     createSprite: function(attrs) {
-        return new tym.sprite.GlobalMouse(this);
+        return new dr.sprite.GlobalMouse(this);
     }
 });
 
 
 /** Provides a 'mousedown' attribute that tracks mouse up/down state.
     
-    Requires: tym.MouseOver, tym.Disableable, tym.MouseObservable callSuper mixins.
+    Requires: dr.MouseOver, dr.Disableable, dr.MouseObservable super mixins.
     
-    Suggested: tym.UpdateableUI and tym.Activateable callSuper mixins.
+    Suggested: dr.UpdateableUI and dr.Activateable callSuper mixins.
     
     Events:
         None
@@ -7717,7 +7760,7 @@ new JS.Singleton('GlobalMouse', {
     Attributes:
         mousedown:boolean Indicates if the mouse is down or not.
 */
-tym.MouseDown = new JS.Module('MouseDown', {
+dr.MouseDown = new JS.Module('MouseDown', {
     // Life Cycle //////////////////////////////////////////////////////////////
     /** @overrides */
     initNode: function(parent, attrs) {
@@ -7740,7 +7783,7 @@ tym.MouseDown = new JS.Module('MouseDown', {
         }
     },
     
-    /** @overrides tym.Disableable */
+    /** @overrides dr.Disableable */
     set_disabled: function(v) {
         // When about to disable the view make sure mousedown is not true. This 
         // helps prevent unwanted activation of a disabled view.
@@ -7751,13 +7794,13 @@ tym.MouseDown = new JS.Module('MouseDown', {
     
     
     // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides tym.MouseOver */
+    /** @overrides dr.MouseOver */
     doMouseOver: function(event) {
         this.callSuper(event);
-        if (this.mousedown) this.detachFromPlatform(tym.global.mouse, 'doMouseUp', 'mouseup', true);
+        if (this.mousedown) this.detachFromPlatform(dr.global.mouse, 'doMouseUp', 'mouseup', true);
     },
     
-    /** @overrides tym.MouseOver */
+    /** @overrides dr.MouseOver */
     doMouseOut: function(event) {
         this.callSuper(event);
         
@@ -7765,7 +7808,7 @@ tym.MouseDown = new JS.Module('MouseDown', {
         // view while the mouse is still down. This allows the user to move
         // the mouse in and out of the view with the view still behaving 
         // as moused down.
-        if (!this.disabled && this.mousedown) this.attachToPlatform(tym.global.mouse, 'doMouseUp', 'mouseup', true);
+        if (!this.disabled && this.mousedown) this.attachToPlatform(dr.global.mouse, 'doMouseUp', 'mouseup', true);
     },
     
     /** Called when the mouse is down on this view. Subclasses must call callSuper.
@@ -7779,7 +7822,7 @@ tym.MouseDown = new JS.Module('MouseDown', {
     doMouseUp: function(event) {
         // Cleanup global mouse listener since the mouseUp occurred outside
         // the view.
-        if (!this.mouseover) this.detachFromPlatform(tym.global.mouse, 'doMouseUp', 'mouseup', true);
+        if (!this.mouseover) this.detachFromPlatform(dr.global.mouse, 'doMouseUp', 'mouseup', true);
         
         if (!this.disabled && this.mousedown) {
             this.set_mousedown(false);
@@ -7801,16 +7844,16 @@ tym.MouseDown = new JS.Module('MouseDown', {
 
 
 /** Provides both MouseOver and MouseDown mixins as a single mixin. */
-tym.MouseOverAndDown = new JS.Module('MouseOverAndDown', {
-    include: [tym.MouseOver, tym.MouseDown]
+dr.MouseOverAndDown = new JS.Module('MouseOverAndDown', {
+    include: [dr.MouseOver, dr.MouseDown]
 });
 
 
 /** Provides an interface to platform specific global keyboard functionality. */
-tym.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
+dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
     include: [
-        tym.sprite.PlatformObservable,
-        tym.sprite.KeyObservable
+        dr.sprite.PlatformObservable,
+        dr.sprite.KeyObservable
     ],
     
     
@@ -7827,7 +7870,7 @@ tym.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
         this.KEYCODE_SHIFT = 16;
         this.KEYCODE_CONTROL = 17;
         this.KEYCODE_ALT = 18;
-        var isFirefox = tym.sprite.platform.browser === 'Firefox';
+        var isFirefox = dr.sprite.platform.browser === 'Firefox';
         this.KEYCODE_COMMAND = isFirefox ? 224 : 91;
         this.KEYCODE_RIGHT_COMMAND = isFirefox ? 224 : 93;
         
@@ -7857,7 +7900,7 @@ tym.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
     
     /** Tests if the platform specific "accelerator" key is down. */
     isAcceleratorKeyDown: function() {
-        return tym.sprite.platform.os === 'Mac' ? this.isCommandKeyDown() : this.isControlKeyDown();
+        return dr.sprite.platform.os === 'Mac' ? this.isCommandKeyDown() : this.isControlKeyDown();
     },
     
     /** @private */
@@ -7870,7 +7913,7 @@ tym.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
             view.attachToPlatform(focused, '__handleKeyPress', 'keypress');
             view.attachToPlatform(focused, '__handleKeyUp', 'keyup');
         } else {
-            var prevFocused = tym.sprite.focus.prevFocusedView;
+            var prevFocused = dr.sprite.focus.prevFocusedView;
             if (prevFocused) {
                 view.detachFromPlatform(prevFocused, '__handleKeyDown', 'keydown');
                 view.detachFromPlatform(prevFocused, '__handleKeyPress', 'keypress');
@@ -7899,9 +7942,9 @@ tym.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
     
     /** @private */
     __handleKeyDown: function(event) {
-        var keyCode = tym.sprite.KeyObservable.getKeyCodeFromEvent(event),
+        var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event),
             platformEvent = event.value;
-        if (this.__shouldPreventDefault(keyCode, platformEvent.target)) tym.sprite.preventDefault(platformEvent);
+        if (this.__shouldPreventDefault(keyCode, platformEvent.target)) dr.sprite.preventDefault(platformEvent);
         
         // Keyup events do not fire when command key is down so fire a keyup
         // event immediately. Not an issue for other meta keys: shift, ctrl 
@@ -7924,7 +7967,7 @@ tym.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
             
             // Check for 'tab' key and do focus traversal.
             if (keyCode === 9) {
-                var ift = this.view.ignoreFocusTrap(), gf = tym.global.focus;
+                var ift = this.view.ignoreFocusTrap(), gf = dr.global.focus;
                 if (this.isShiftKeyDown()) {
                     gf.prev(ift);
                 } else {
@@ -7938,15 +7981,15 @@ tym.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
     
     /** @private */
     __handleKeyPress: function(event) {
-        var keyCode = tym.sprite.KeyObservable.getKeyCodeFromEvent(event);
+        var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event);
         this.view.fireNewEvent('keypress', keyCode);
     },
     
     /** @private */
     __handleKeyUp: function(event) {
-        var keyCode = tym.sprite.KeyObservable.getKeyCodeFromEvent(event),
+        var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event),
             platformEvent = event.value;
-        if (this.__shouldPreventDefault(keyCode, platformEvent.target)) tym.sprite.preventDefault(platformEvent);
+        if (this.__shouldPreventDefault(keyCode, platformEvent.target)) dr.sprite.preventDefault(platformEvent);
         this.__keysDown[keyCode] = false;
         this.view.fireNewEvent('keyup', keyCode);
     },
@@ -7974,7 +8017,7 @@ tym.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
 });
 
 
-/** Provides global keyboard events. Registered with tym.global as 'keys'.
+/** Provides global keyboard events. Registered with dr.global as 'keys'.
     
     Also works with GlobalFocus to navigate the focus hierarchy when the 
     focus traversal keys are used.
@@ -8090,10 +8133,10 @@ tym.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
 */
 new JS.Singleton('GlobalKeys', {
     include: [
-        tym.SpriteBacked,
-        tym.PlatformObserver,
-        tym.Observable,
-        tym.Observer
+        dr.SpriteBacked,
+        dr.PlatformObserver,
+        dr.Observable,
+        dr.Observer
     ],
     
     
@@ -8101,15 +8144,22 @@ new JS.Singleton('GlobalKeys', {
     initialize: function() {
         this.set_sprite(this.createSprite());
         
-        this.attachTo(tym.global.focus, '__handleFocused', 'focused');
+        this.attachTo(dr.global.focus, '__handleFocused', 'focused');
         
         this.sprite.__listenToDocument();
         
-        tym.global.register('keys', this);
+        // Store in dr namespace for backwards compatibility with dreem
+        if (dr.keys) {
+            dr.dumpStack('dr.keys already set.');
+        } else {
+            dr.keys = this;
+        }
+        
+        dr.global.register('keys', this);
     },
     
     createSprite: function(attrs) {
-        return new tym.sprite.GlobalKeys(this, attrs);
+        return new dr.sprite.GlobalKeys(this, attrs);
     },
     
     
@@ -8177,9 +8227,6 @@ new JS.Singleton('GlobalKeys', {
     an activation key and this view is not disabled, the 'doActivated' method
     will get called.
     
-    Requires: tym.Activateable, tym.Disableable, tym.KeyObservable and 
-        tym.FocusObservable callSuper mixins.
-    
     Events:
         None
     
@@ -8193,7 +8240,7 @@ new JS.Singleton('GlobalKeys', {
         repeatkeydown:boolean Indicates if doActivationKeyDown will be called
             for repeated keydown events or not. Defaults to false.
 */
-tym.KeyActivation = new JS.Module('KeyActivation', {
+dr.KeyActivation = new JS.Module('KeyActivation', {
     // Class Methods and Attributes ////////////////////////////////////////////
     extend: {
         /** The default activation keys are enter (13) and spacebar (32). */
@@ -8207,7 +8254,7 @@ tym.KeyActivation = new JS.Module('KeyActivation', {
         this.activateKeyDown = -1;
         
         if (attrs.activationkeys === undefined) {
-            attrs.activationkeys = tym.KeyActivation.DEFAULT_ACTIVATION_KEYS;
+            attrs.activationkeys = dr.KeyActivation.DEFAULT_ACTIVATION_KEYS;
         }
         
         this.callSuper(parent, attrs);
@@ -8228,7 +8275,7 @@ tym.KeyActivation = new JS.Module('KeyActivation', {
     __handleKeyDown: function(event) {
         if (!this.disabled) {
             if (this.activateKeyDown === -1 || this.repeatkeydown) {
-                var keyCode = tym.sprite.KeyObservable.getKeyCodeFromEvent(event),
+                var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event),
                     keys = this.activationkeys, i = keys.length;
                 while (i) {
                     if (keyCode === keys[--i]) {
@@ -8238,7 +8285,7 @@ tym.KeyActivation = new JS.Module('KeyActivation', {
                             this.activateKeyDown = keyCode;
                             this.doActivationKeyDown(keyCode, false);
                         }
-                        tym.sprite.preventDefault(event.value);
+                        dr.sprite.preventDefault(event.value);
                         return;
                     }
                 }
@@ -8249,12 +8296,12 @@ tym.KeyActivation = new JS.Module('KeyActivation', {
     /** @private */
     __handleKeyPress: function(event) {
         if (!this.disabled) {
-            var keyCode = tym.sprite.KeyObservable.getKeyCodeFromEvent(event);
+            var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event);
             if (this.activateKeyDown === keyCode) {
                 var keys = this.activationkeys, i = keys.length;
                 while (i) {
                     if (keyCode === keys[--i]) {
-                        tym.sprite.preventDefault(event.value);
+                        dr.sprite.preventDefault(event.value);
                         return;
                     }
                 }
@@ -8265,14 +8312,14 @@ tym.KeyActivation = new JS.Module('KeyActivation', {
     /** @private */
     __handleKeyUp: function(event) {
         if (!this.disabled) {
-            var keyCode = tym.sprite.KeyObservable.getKeyCodeFromEvent(event);
+            var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event);
             if (this.activateKeyDown === keyCode) {
                 var keys = this.activationkeys, i = keys.length;
                 while (i) {
                     if (keyCode === keys[--i]) {
                         this.activateKeyDown = -1;
                         this.doActivationKeyUp(keyCode);
-                        tym.sprite.preventDefault(event.value);
+                        dr.sprite.preventDefault(event.value);
                         return;
                     }
                 }
@@ -8319,11 +8366,11 @@ tym.KeyActivation = new JS.Module('KeyActivation', {
 });
 
 
-/** Provides button functionality to an tym.View. Most of the functionality 
+/** Provides button functionality to an dr.View. Most of the functionality 
     comes from the mixins included by this mixin. This mixin resolves issues 
     that arise when the various mixins are used together.
     
-    By default tym.Button instances are focusable.
+    By default dr.Button instances are focusable.
     
     Events:
         None
@@ -8335,13 +8382,13 @@ tym.KeyActivation = new JS.Module('KeyActivation', {
         __restoreCursor:string The cursor to restore to when the button is
             no longer disabled.
 */
-tym.Button = new JS.Module('Button', {
+dr.Button = new JS.Module('Button', {
     include: [
-        tym.Activateable, 
-        tym.UpdateableUI, 
-        tym.Disableable, 
-        tym.MouseOverAndDown, 
-        tym.KeyActivation
+        dr.Activateable, 
+        dr.UpdateableUI, 
+        dr.Disableable, 
+        dr.MouseOverAndDown, 
+        dr.KeyActivation
     ],
     
     
@@ -8362,7 +8409,7 @@ tym.Button = new JS.Module('Button', {
     
     
     // Accessors ///////////////////////////////////////////////////////////////
-    /** @overrides tym.FocusObservable */
+    /** @overrides dr.FocusObservable */
     set_focused: function(v) {
         var existing = this.focused;
         this.callSuper(v);
@@ -8371,25 +8418,25 @@ tym.Button = new JS.Module('Button', {
     
     
     // Methods /////////////////////////////////////////////////////////////////
-    /** @overrides tym.KeyActivation. */
+    /** @overrides dr.KeyActivation. */
     doActivationKeyDown: function(key, isRepeat) {
         // Prevent unnecessary UI updates when the activation key is repeating.
         if (!isRepeat) this.updateUI();
     },
     
-    /** @overrides tym.KeyActivation. */
+    /** @overrides dr.KeyActivation. */
     doActivationKeyUp: function(key) {
         this.callSuper(key);
         this.updateUI();
     },
     
-    /** @overrides tym.KeyActivation. */
+    /** @overrides dr.KeyActivation. */
     doActivationKeyAborted: function(key) {
         this.callSuper(key);
         this.updateUI();
     },
     
-    /** @overrides tym.UpdateableUI. */
+    /** @overrides dr.UpdateableUI. */
     updateUI: function() {
         if (this.disabled) {
             // Remember the cursor to change back to, but don't re-remember
@@ -8453,6 +8500,6 @@ tym.Button = new JS.Module('Button', {
 });
 
 
-/** Provides a dependency target that pulls in all of the tym package. */
-tym.all = true;
+/** Provides a dependency target that pulls in all of the dr package. */
+dr.all = true;
 
