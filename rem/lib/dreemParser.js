@@ -647,11 +647,9 @@ define(function(require, exports){
           String.fromCharCode(entities[name])
         }
         else if(num !== undefined){
-          console.log('we haz num', num)
           return String.fromCharCode(parseInt(num))
         }
         else if(hex !== undefined){
-          console.log('we haz hex', hex)
           return String.fromCharCode(parseInt(hex, 16))
         }
       })
