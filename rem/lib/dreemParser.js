@@ -485,7 +485,7 @@ define(function(require, exports){
     HTMLParser.prototype.onText = function(value, start){
       if(!value.match(isempty)){
         var node = this.createNode('$text')
-        node.value = value
+        node.value = this.processEntities(value, start)
         this.appendChild(this.node,node)
       }
     }
@@ -582,7 +582,7 @@ define(function(require, exports){
         this.error('Unexpected attribute value ' + val, start)
       }
       else{
-        this.node.attr[this.last_attr] = val
+        this.node.attr[this.last_attr] = this.processEntities(val, start)
       }
     } 
 
@@ -594,7 +594,7 @@ define(function(require, exports){
 
     // todo use these
     var entities = {
-      "amp":"&","gt":">","lt":"<","quot":"\"","apos":"'","AElig":198,"Aacute":193,"Acirc":194,
+      "amp":38,"gt":62,"lt":60,"quot":34,"apos":39,"AElig":198,"Aacute":193,"Acirc":194,
       "Agrave":192,"Aring":197,"Atilde":195,"Auml":196,"Ccedil":199,"ETH":208,"Eacute":201,"Ecirc":202,
       "Egrave":200,"Euml":203,"Iacute":205,"Icirc":206,"Igrave":204,"Iuml":207,"Ntilde":209,"Oacute":211,
       "Ocirc":212,"Ograve":210,"Oslash":216,"Otilde":213,"Ouml":214,"THORN":222,"Uacute":218,"Ucirc":219,
@@ -626,6 +626,31 @@ define(function(require, exports){
       "sube":8838,"supe":8839,"oplus":8853,"otimes":8855,"perp":8869,"sdot":8901,"lceil":8968,"rceil":8969,
       "lfloor":8970,"rfloor":8971,"lang":9001,"rang":9002,"loz":9674,"spades":9824,"clubs":9827,"hearts":9829,
       "diams":9830
+    }
+
+    var entity_rx = new RegExp("&("+Object.keys(entities).join('|')+");|&#([0-9]+);|&x([0-9a-fA-F]+);","g")
+
+    /* Internal Called when processing entities */
+    HTMLParser.prototype.processEntities = function(value, start){
+      if(typeof value != 'string') value = new String(value)
+
+      return value.replace(entity_rx, function(m, name, num, hex, off){
+        if(name !== undefined){
+          if(!(name in entities)){
+            this.error('Entity not found &'+m, start + off)
+            return m
+          }
+          String.fromCharCode(entities[name])
+        }
+        else if(num !== undefined){
+          console.log('we haz num', num)
+          return String.fromCharCode(parseInt(num))
+        }
+        else if(hex !== undefined){
+          console.log('we haz hex', hex)
+          return String.fromCharCode(parseInt(hex, 16))
+        }
+      })
     }
 
     /**
