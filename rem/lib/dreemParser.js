@@ -273,7 +273,10 @@ define(function(require, exports){
             errors.push(this.originError('Class has no name ', node._))
             return
           }
-          if (node.attr && node.attr.type) language = node.attr.type
+          if (node.attr && node.attr.type) {
+            language = node.attr.type
+            delete node.attr.type
+          }
           
           // create a new tag
           output.classes[nameattr] = node
@@ -301,7 +304,10 @@ define(function(require, exports){
         } else if (node.tag == 'method' || node.tag=='handler' || node.tag == 'getter' || node.tag == 'setter') {
           // potentially 'regexp' createTag or something here?
 
-          if(node.attr && node.attr.type) language = node.attr.type
+          if(node.attr && node.attr.type) {
+            language = node.attr.type
+            delete node.attr.type
+          }
           
           // lets on-demand load the language
           var langproc = this.languages[language]

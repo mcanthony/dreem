@@ -63,8 +63,8 @@ SOFTWARE. -->
 
     # Listen to the parent for added/removed views. Bind needed because the
     # callback scope is the monitored object not the monitoring object.
-    @attachTo(@parent, '__handleAddSubviewEvent', 'subviewAdded')
-    @attachTo(@parent, '__handleRemoveSubviewEvent', 'subviewRemoved')
+    @attachTo(@parent, 'addSubview', 'onsubviewAdded')
+    @attachTo(@parent, 'removeSubview', 'onsubviewRemoved')
     @attachTo(@parent, 'update', 'oninit')
 
     @parent.fireNewEvent('layouts', @parent.layouts)
@@ -90,11 +90,6 @@ SOFTWARE. -->
     @super()
   </method>
 
-  <method name="__handleAddSubviewEvent" args="event">
-    this.addSubview(event.value)
-    return undefined
-  </method>
-
   <!--/**
     * Adds the provided view to the subviews array of this layout, starts
     * monitoring the view for changes and updates the layout.
@@ -102,7 +97,10 @@ SOFTWARE. -->
     * @return {void}
     */-->
   <method name="addSubview" args="view">
-    @startMonitoringSubviewForIgnore(view)
+    self = @
+    func = this.__ignoreFunc = (ignorelayout) ->
+      if self.__removeSubview(view) is -1 then self.__addSubview(view)
+    @startMonitoringSubviewForIgnore(view, func)
     @__addSubview(view)
   </method>
 
@@ -112,11 +110,6 @@ SOFTWARE. -->
     @startMonitoringSubview(view)
     @update() unless @locked
   </method>
-
-  <method name="__handleRemoveSubviewEvent" args="event">
-    this.removeSubview(event.value)
-    return undefined
-  </method>
   
   <!--/**
     * Removes the provided View from the subviews array of this Layout,
@@ -125,7 +118,7 @@ SOFTWARE. -->
     * @return {number} the index of the removed subview or -1 if not removed.
     */-->
   <method name="removeSubview" args="view">
-    @stopMonitoringSubviewForIgnore(view)
+    @stopMonitoringSubviewForIgnore(view, @__ignoreFunc)
     if @ignore(view) then return -1 else return @__removeSubview(view)
   </method>
 
@@ -146,8 +139,8 @@ SOFTWARE. -->
     * @param {dr.view} view The view to monitor.
     * @return {void}
     */-->
-  <method name="startMonitoringSubviewForIgnore" args="view">
-    @attachTo(view, 'handleIgnore', 'ignorelayout')
+  <method name="startMonitoringSubviewForIgnore" args="view, func">
+    @attachTo(view, func, 'onignorelayout')
   </method>
 
   <!--/**
@@ -158,13 +151,8 @@ SOFTWARE. -->
     * @param {dr.view} view The view to monitor.
     * @return {void}
     */-->
-  <method name="stopMonitoringSubviewForIgnore" args="view">
-    @detachFrom(view, 'handleIgnore', 'ignorelayout')
-  </method>
-
-  <method name="handleIgnore" args="event">
-    sourceView = event.source
-    if @__removeSubview(sourceView) is -1 then @__addSubview(sourceView)
+  <method name="stopMonitoringSubviewForIgnore" args="view, func">
+    @detachFrom(view, func, 'onignorelayout')
   </method>
 
   <!--/**

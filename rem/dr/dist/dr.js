@@ -620,6 +620,20 @@ dr = {
             }
         }
     },
+    
+    /** Called at the end of instantiation. Bind all the constraints registered
+        during instantiation and notifies each root view that we are "ready". */
+    notifyReady: function() {
+        dr.AccessorSupport.CONSTRAINTS.notifyReadyForConstraints();
+        
+        var rootViews = dr.global.roots.getRoots(), len = rootViews.length, i = 0, rootView;
+        for (; len > i;) {
+            rootView = rootViews[i++];
+            rootView.set('ready', true);
+        }
+        
+        this.ready = true;
+    }
 };
 
 
@@ -747,18 +761,18 @@ dr.Observable = new JS.Module('Observable', {
         "consumed" and will not be sent to any other observers. Consuming an 
         event should be used when more than one observer may be listening for 
         an Event but only one observer needs to handle the Event.
+        @param type:string The type of event to fire.
         @param event:object The event to fire.
         @param observers:array (Optional) If provided the event will
             be sent to this specific list of observers and no others.
         @return void */
-    fireEvent: function(event, observers) {
-        if (event && event.source === this) {
+    fireEvent: function(type, event, observers) {
+        if (type) {
             // Determine observers to use
-            var type = event.type;
             observers = observers || (this.hasObservers(type) ? this.__obsbt[type] : null);
             
             // Fire event
-            if (observers) this.__fireEvent(event, observers);
+            if (observers) this.__fireEvent(type, event, observers);
         }
     },
     
@@ -774,28 +788,28 @@ dr.Observable = new JS.Module('Observable', {
         observers = observers || (this.hasObservers(type) ? this.__obsbt[type] : null);
         
         // Fire event
-        if (observers) this.__fireEvent({source:this, type:type, value:value}, observers); // Inlined from this.createEvent
+        if (observers) this.__fireEvent(type, value, observers); // Inlined from this.createEvent
     },
     
     /** Creates a new event with the type and value and using this as 
         the source.
         @param type:string The event type.
         @param value:* The event value.
-        @returns An event object consisting of source, type and value. */
+        @returns An event object */
     createEvent: function(type, value) {
-        return {source:this, type:type, value:value}; // Inlined in this.fireNewEvent
+        return value; // Inlined in this.fireNewEvent
     },
     
     /** Fire the event to the observers.
         @private
+        @param type:string The type of event to fire.
         @param event:Object The event to fire.
         @param observers:array An array of method names and contexts to invoke
             providing the event as the sole argument.
         @returns void */
-    __fireEvent: function(event, observers) {
+    __fireEvent: function(type, event, observers) {
         // Prevent "active" events from being fired again
-        var activeEventTypes = this.__aet || (this.__aet = {}),
-            type = event.type;
+        var activeEventTypes = this.__aet || (this.__aet = {});
         if (activeEventTypes[type] === true) {
             dr.global.error.notifyError('eventLoop', "Attempt to refire active event: " + type);
         } else {
@@ -814,12 +828,11 @@ dr.Observable = new JS.Module('Observable', {
                 // Sometimes the list gets shortened by the method we called so
                 // just continue decrementing downwards.
                 if (observer && methodName) {
-                    // Stop firing the event if it was "consumed".
                     try {
                         if (typeof methodName === 'function') {
-                            if (methodName.call(observer, event)) break;
+                            methodName.call(observer, event);
                         } else {
-                            if (observer[methodName](event)) break;
+                            observer[methodName](event);
                         }
                     } catch (err) {
                         dr.dumpStack(err);
@@ -1078,104 +1091,12 @@ dr.Observer = new JS.Module('Observer', {
 });
 
 
-/** Provides the ability to apply and release constraints.
-    
-    Events:
-        None
-    
-    Attributes:
-        None
-    
-    Private Attributes:
-        __cbmn:object Holds arrays of constraints by method name.
-*/
-dr.Constrainable = new JS.Module('Constrainable', {
-    include: [dr.Observer],
-    
-    
-    // Methods /////////////////////////////////////////////////////////////////
-    /** Creates a constraint. The method will be executed on this object
-        whenever any of the provided observables fire the indicated event type.
-        @param methodName:String The name of the method to call on this object.
-        @param observables:array An array of observable/type pairs. An observer
-            will attach to each observable for the event type.
-        @returns void */
-    applyConstraint: function(methodName, observables) {
-        if (methodName && observables) {
-            // Make sure an even number of observable/type was provided
-            var len = observables.length;
-            if (len % 2 !== 0) {
-                console.log("Observables was not even.", this);
-                return;
-            }
-            
-            // Lazy instantiate constraints array.
-            var constraints = this.__cbmn || (this.__cbmn = {});
-            var constraint = constraints[methodName] || (constraints[methodName] = []);
-            
-            // Don't allow a constraint to be clobbered.
-            if (constraint.length > 0) {
-                console.log("Constraint already exists for " + methodName + " on " + this);
-                return;
-            }
-            
-            var observable, type, i = 0;
-            for (; len !== i;) {
-                observable = observables[i++];
-                type = observables[i++];
-                if (observable && type) {
-                    this.attachTo(observable, methodName, type);
-                    constraint.push(observable, type);
-                }
-            }
-            
-            // Call constraint method once so it can "sync" the constraint
-            try {
-                this[methodName]();
-            } catch (err) {
-                dr.dumpStack(err);
-            }
-        }
-    },
-    
-    /** Removes a constraint.
-        @returns void */
-    releaseConstraint: function(methodName) {
-        if (methodName) {
-            // No need to remove if the constraint is already empty.
-            var constraints = this.__cbmn;
-            if (constraints) {
-                var constraint = constraints[methodName];
-                if (constraint) {
-                    var i = constraint.length, type, observable;
-                    while (i) {
-                        type = constraint[--i];
-                        observable = constraint[--i];
-                        this.detachFrom(observable, methodName, type);
-                    }
-                    constraint.length = 0;
-                }
-            }
-        }
-    },
-    
-    /** Removes all constraints.
-        @returns void */
-    releaseAllConstraints: function() {
-        var constraints = this.__cbmn;
-        if (constraints) {
-            for (var methodName in constraints) this.releaseConstraint(methodName);
-        }
-    }
-});
-
-
 /** Holds references to "global" objects. Fires events when these globals
     are registered and unregistered.
     
     Events:
-        register<key>:object Fired when an object is stored under the key.
-        unregister<key>:object Fired when an object is removed from the key.
+        onregister<key>:object Fired when an object is stored under the key.
+        onunregister<key>:object Fired when an object is removed from the key.
 */
 dr.global = new JS.Singleton('Global', {
     include: [dr.Observable],
@@ -1192,7 +1113,7 @@ dr.global = new JS.Singleton('Global', {
             this.unregister(key);
         }
         this[key] = v;
-        this.fireNewEvent('register' + key, v);
+        this.fireNewEvent('onregister' + key, v);
     },
     
     /** Unegisters the global for the provided key. Fires an unregister<key>
@@ -1202,7 +1123,7 @@ dr.global = new JS.Singleton('Global', {
         if (this.hasOwnProperty(key)) {
             var v = this[key];
             delete this[key];
-            this.fireNewEvent('unregister' + key, v);
+            this.fireNewEvent('onunregister' + key, v);
         } else {
             console.log("Warning: dr.global key not in use: ", key);
         }
@@ -1621,7 +1542,7 @@ new JS.Singleton('GlobalError', {
     notify: function(consoleFuncName, eventType, msg, err) {
         var stacktrace = dr.sprite.generateStacktrace(eventType, msg, err);
         
-        this.fireNewEvent(eventType || 'error', {msg:msg, stacktrace:stacktrace});
+        this.fireNewEvent('on' + (eventType || 'error'), {msg:msg, stacktrace:stacktrace});
         if (this.consoleLogging && consoleFuncName) dr.sprite.console[consoleFuncName](stacktrace);
     }
 });
@@ -3808,7 +3729,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
             
             // Fire an event if possible
             if (this.inited !== false && this.fireNewEvent) { // !== false allows this to work with non-nodes.
-                this.fireNewEvent(attrName, this[attrName]);
+                this.fireNewEvent('on' + attrName, this[attrName]);
             }
             return true;
         }
@@ -3901,7 +3822,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
                 }
                 
                 if (target) {
-                    eventName = scope.property;
+                    eventName = 'on' + scope.property;
                     this.attachTo(target, funcName, eventName);
                     bindings.push({target:target, eventName:eventName});
                 }
@@ -4186,7 +4107,7 @@ dr.TrackActivesPool = new JS.Class('TrackActivesPool', dr.SimplePool, {
             initializing.
 */
 dr.Eventable = new JS.Class('Eventable', {
-    include: [dr.AccessorSupport, dr.Destructible, dr.Observable, dr.Constrainable],
+    include: [dr.AccessorSupport, dr.Destructible, dr.Observable, dr.Observer],
     
     
     // Constructor /////////////////////////////////////////////////////////////
@@ -4217,7 +4138,6 @@ dr.Eventable = new JS.Class('Eventable', {
     
     /** @overrides dr.Destructible. */
     destroy: function() {
-        this.releaseAllConstraints();
         this.detachFromAllObservables();
         this.detachAllObservers();
         
@@ -4389,7 +4309,8 @@ dr.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
                     platformObservers.push(platformObserver, methodName, methodRef, capture);
                 }
                 
-                dr.sprite.addEventListener(this.platformObject, eventType, methodRef, capture);
+                var platformEventType = eventType.substring(2); // Remove the 'on' prefix
+                dr.sprite.addEventListener(this.platformObject, platformEventType, methodRef, capture);
                 
                 return true;
             }
@@ -4423,24 +4344,15 @@ dr.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
             event will not be handled. */
     createStandardPlatformMethodRef: function(platformObserver, methodName, eventType, observableClass, preventDefault) {
         if (observableClass.EVENT_TYPES[eventType]) {
-            var self = this, 
-                event = observableClass.EVENT;
             return function(platformEvent) {
                 if (!platformEvent) var platformEvent = global.event;
                 
-                event.source = self;
-                event.type = platformEvent.type;
-                event.value = platformEvent;
-                
-                var allowBubble = platformObserver[methodName](event);
+                var allowBubble = platformObserver[methodName](platformEvent);
                 if (!allowBubble) {
                     platformEvent.cancelBubble = true;
                     if (platformEvent.stopPropagation) platformEvent.stopPropagation();
-                    
                     if (preventDefault) dr.sprite.preventDefault(platformEvent);
                 }
-                
-                event.source = undefined;
             };
         }
     },
@@ -4464,14 +4376,15 @@ dr.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
                 var platformObservers = platformObserversByType[eventType];
                 if (platformObservers) {
                     // Remove platform observer
-                    var retval = false, platformObject = this.platformObject, i = platformObservers.length;
+                    var retval = false, platformObject = this.platformObject, i = platformObservers.length,
+                        platformEventType = eventType.substring(2); // Remove the 'on' prefix
                     while (i) {
                         i -= 4;
                         if (platformObserver === platformObservers[i] && 
                             methodName === platformObservers[i + 1] && 
                             capture === platformObservers[i + 3]
                         ) {
-                            if (platformObject) dr.sprite.removeEventListener(platformObject, eventType, platformObservers[i + 2], capture);
+                            if (platformObject) dr.sprite.removeEventListener(platformObject, platformEventType, platformObservers[i + 2], capture);
                             platformObservers.splice(i, 4);
                             retval = true;
                         }
@@ -4490,15 +4403,16 @@ dr.sprite.PlatformObservable = new JS.Module('sprite.PlatformObservable', {
         if (platformObject) {
             var platformObserversByType = this.__dobsbt;
             if (platformObserversByType) {
-                var platformObservers, methodRef, capture, i, eventType;
+                var platformObservers, methodRef, capture, i, eventType, platformEventType;
                 for (eventType in platformObserversByType) {
                     platformObservers = platformObserversByType[eventType];
                     i = platformObservers.length;
+                    platformEventType = eventType.substring(2); // Remove the 'on' prefix
                     while (i) {
                         capture = platformObservers[--i];
                         methodRef = platformObservers[--i];
                         i -= 2; // methodName and platformObserver
-                        dr.sprite.removeEventListener(platformObject, eventType, methodRef, capture);
+                        dr.sprite.removeEventListener(platformObject, platformEventType, methodRef, capture);
                     }
                     platformObservers.length = 0;
                 }
@@ -4519,32 +4433,28 @@ dr.sprite.MouseObservable = new JS.Module('sprite.MouseObservable', {
     extend: {
         /** A map of supported mouse event types. */
         EVENT_TYPES:{
-            mouseover:true,
-            mouseout:true,
-            mousedown:true,
-            mouseup:true,
-            click:true,
-            dblclick:true,
-            mousemove:true,
-            contextmenu:true,
-            wheel:true
+            onmouseover:true,
+            onmouseout:true,
+            onmousedown:true,
+            onmouseup:true,
+            onclick:true,
+            ondblclick:true,
+            onmousemove:true,
+            oncontextmenu:true,
+            onwheel:true
         },
         
-        /** The common mouse event that gets reused. */
-        EVENT:{source:null, type:null, value:null},
-        
         /** Gets the mouse coordinates from the provided event.
-            @param event
+            @param platformEvent
             @returns object: An object with 'x' and 'y' keys containing the
                 x and y mouse position. */
-        getMouseFromEvent: function(event) {
-            var platformEvent = event.value;
+        getMouseFromEvent: function(platformEvent) {
             return {x:platformEvent.pageX, y:platformEvent.pageY};
         },
         
-        getMouseFromEventRelativeToView: function(event, view) {
+        getMouseFromEventRelativeToView: function(platformEvent, view) {
             var viewPos = view.getAbsolutePosition(),
-                pos = this.getMouseFromEvent(event);
+                pos = this.getMouseFromEvent(platformEvent);
             pos.x -= viewPos.x;
             pos.y -= viewPos.y;
             return pos;
@@ -4568,21 +4478,16 @@ dr.sprite.KeyObservable = new JS.Module('sprite.KeyObservable', {
     extend: {
         /** A map of supported key event types. */
         EVENT_TYPES:{
-            keypress:true,
-            keydown:true,
-            keyup:true
+            onkeypress:true,
+            onkeydown:true,
+            onkeyup:true
         },
         
-        /** The common key event that gets reused. */
-        EVENT:{source:null, type:null, value:null},
-        
         /** Gets the key code from the provided key event.
-            @param event:event
+            @param platformEvent:event
             @returns number The keycode from the event. */
-        getKeyCodeFromEvent: function(event) {
-            var platformEvent = event.value, 
-                keyCode = platformEvent.keyCode;
-            return keyCode || platformEvent.charCode;
+        getKeyCodeFromEvent: function(platformEvent) {
+            return platformEvent.keyCode || platformEvent.charCode;
         }
     },
     
@@ -4600,7 +4505,7 @@ dr.sprite.KeyObservable = new JS.Module('sprite.KeyObservable', {
     as 'focus'.
     
     Events:
-        focused:View Fired when the focused view changes. The event value is
+        onfocused:View Fired when the focused view changes. The event value is
             the newly focused view.
     
     Attributes:
@@ -4624,7 +4529,7 @@ new JS.Singleton('GlobalFocus', {
     // Accessors ///////////////////////////////////////////////////////////////
     /** Sets the currently focused view. */
     set_focusedView: function(v) {
-        if (dr.sprite.focus.set_focusedView(v)) this.fireNewEvent('focused', v);
+        if (dr.sprite.focus.set_focusedView(v)) this.fireNewEvent('onfocused', v);
     },
     
     
@@ -4688,12 +4593,9 @@ dr.sprite.FocusObservable = new JS.Module('sprite.FocusObservable', {
     extend: {
         /** A map of supported focus event types. */
         EVENT_TYPES:{
-            focus:true,
-            blur:true
-        },
-        
-        /** The common focus/blur event that gets reused. */
-        EVENT:{source:null, type:null, value:null}
+            onfocus:true,
+            onblur:true
+        }
     },
     
     
@@ -4702,12 +4604,12 @@ dr.sprite.FocusObservable = new JS.Module('sprite.FocusObservable', {
         var view = this.view;
         if (v) {
             this.platformObject.tabIndex = 0; // Make focusable. -1 is programtic only
-            view.attachToPlatform(view, '__handleFocus', 'focus');
-            view.attachToPlatform(view, '__handleBlur', 'blur');
+            view.attachToPlatform(view, '__handleFocus', 'onfocus');
+            view.attachToPlatform(view, '__handleBlur', 'onblur');
         } else if (wasFocusable) {
             this.platformObject.removeAttribute('tabIndex'); // Make unfocusable
-            view.detachFromPlatform(view, '__handleFocus', 'focus');
-            view.detachFromPlatform(view, '__handleBlur', 'blur');
+            view.detachFromPlatform(view, '__handleFocus', 'onfocus');
+            view.detachFromPlatform(view, '__handleBlur', 'onblur');
         }
         return v;
     },
@@ -4788,19 +4690,11 @@ dr.sprite.FocusObservable = new JS.Module('sprite.FocusObservable', {
                     return;
                 }
                 
-                // Configure common focus event.
-                var event = dr.sprite.FocusObservable.EVENT;
-                event.source = self;
-                event.type = platformEvent.type;
-                event.value = platformEvent;
-                
-                var allowBubble = platformObserver[methodName](event);
+                var allowBubble = platformObserver[methodName](platformEvent);
                 if (!allowBubble) {
                     platformEvent.cancelBubble = true;
                     if (platformEvent.stopPropagation) platformEvent.stopPropagation();
                 }
-                
-                event.source = undefined;
             };
         }
         
@@ -5021,10 +4915,10 @@ dr.sprite.View = new JS.Class('sprite.View', {
 */
 dr.Node = new JS.Class('Node', {
     include: [
-        dr.AccessorSupport, 
-        dr.Destructible, 
-        dr.Observable, 
-        dr.Constrainable
+        dr.AccessorSupport,
+        dr.Destructible,
+        dr.Observable,
+        dr.Observer
     ],
     
     
@@ -5106,7 +5000,10 @@ dr.Node = new JS.Class('Node', {
         this.__registerHandlers();
         
         this.inited = true;
-        this.fireNewEvent('oninit', true);
+        
+        // oninit event will be fired by dr.RootView once the root view
+        // is ready. We only fire it here if the root is already ready.
+        if (this.getRoot().ready) this.fireNewEvent('oninit', true);
     },
     
     /** Provides a hook for subclasses to do things before this Node has its
@@ -5168,7 +5065,6 @@ dr.Node = new JS.Class('Node', {
         Subclasses must call callSuper.
         @returns void */
     destroyAfterOrphaning: function() {
-        this.releaseAllConstraints();
         this.detachFromAllObservables();
         this.detachAllObservers();
     },
@@ -5210,7 +5106,7 @@ dr.Node = new JS.Class('Node', {
             }
             
             // Fire an event
-            if (this.inited) this.fireNewEvent('parent', newParent);
+            if (this.inited) this.fireNewEvent('onparent', newParent);
         }
     },
     
@@ -5238,7 +5134,7 @@ dr.Node = new JS.Class('Node', {
             delete global[existing];
             this.id = v;
             if (v) global[v] = this;
-            if (this.inited) this.fireNewEvent('id', v);
+            if (this.inited) this.fireNewEvent('onid', v);
         }
     },
     
@@ -5420,6 +5316,13 @@ dr.Node = new JS.Class('Node', {
             node = node.parent;
         }
         return ancestors;
+    },
+    
+    walk: function(processBeforeFunc, processAfterFunc) {
+        if (processBeforeFunc) processBeforeFunc(this);
+        var subnodes = this.getSubnodes(), len = subnodes.length, i = 0;
+        for (; len > i;) subnodes[i++].walk(processBeforeFunc, processAfterFunc);
+        if (processAfterFunc) processAfterFunc(this);
     },
     
     // Subnode Methods //
@@ -5631,7 +5534,7 @@ dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
                 
                 if (curValue !== value) {
                     this[counterAttrName] = value;
-                    this.fireNewEvent(counterAttrName, value);
+                    this.fireNewEvent('on' + counterAttrName, value);
                     this.setActual(exceededAttrName, value >= this[thresholdAttrName], 'boolean'); // Check threshold
                 }
             };
@@ -5651,7 +5554,7 @@ dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
             mod[thresholdSetterName] = function(v) {
                 if (this[thresholdAttrName] === v) return;
                 this[thresholdAttrName] = v;
-                this.fireNewEvent(thresholdAttrName, v);
+                this.fireNewEvent('on' + thresholdAttrName, v);
                 this.setActual(exceededAttrName, this[counterAttrName] >= v, 'boolean'); // Check threshold
             };
             
@@ -5719,7 +5622,7 @@ dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
             mod[incrName] = function() {
                 var value = this[counterAttrName] + 1;
                 this[counterAttrName] = value;
-                this.fireNewEvent(counterAttrName, value);
+                this.fireNewEvent('on' + counterAttrName, value);
                 if (value === thresholdValue) this.setActual(exceededAttrName, true, 'boolean');
             };
             
@@ -5730,7 +5633,7 @@ dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
                 if (curValue === 0) return;
                 var value = curValue - 1;
                 this[counterAttrName] = value;
-                this.fireNewEvent(counterAttrName, value);
+                this.fireNewEvent('on' + counterAttrName, value);
                 if (curValue === thresholdValue) this.setActual(exceededAttrName, false, 'boolean');
             };
             
@@ -5785,19 +5688,19 @@ dr.ThresholdCounter.createThresholdCounter(
     an absolutely positioned div element.
     
     Events:
-        x:number
-        y:number
-        width:number (supressable)
-        height:number (supressable)
-        boundsWidth:number Fired when the bounds width of the view changes.
-        boundsHeight:number Fired when the bounds height of the view changes.
-        bgcolor:string
-        opacity:number
-        visible:boolean
-        subviewAdded:dr.View Fired when a subview is added to this view.
-        subviewRemoved:dr.View Fired when a subview is removed from this view.
-        layoutAdded:dr.BaseLayout Fired when a layout is added to this view.
-        layoutRemoved:dr.BaseLayout Fired when a layout is removed from this view.
+        onx:number
+        ony:number
+        onwidth:number (supressable)
+        onheight:number (supressable)
+        onboundswidth:number Fired when the bounds width of the view changes.
+        onboundsheight:number Fired when the bounds height of the view changes.
+        onbgcolor:string
+        onopacity:number
+        onvisible:boolean
+        onsubviewAdded:dr.View Fired when a subview is added to this view.
+        onsubviewRemoved:dr.View Fired when a subview is removed from this view.
+        onlayoutAdded:dr.BaseLayout Fired when a layout is added to this view.
+        onlayoutRemoved:dr.BaseLayout Fired when a layout is removed from this view.
     
     Attributes:
         Layout Related:
@@ -5840,10 +5743,10 @@ dr.ThresholdCounter.createThresholdCounter(
             y:number The y-position of this view in pixels. Defaults to 0.
             width:number The width of this view in pixels. Defaults to 0.
             height:number the height of this view in pixels. Defaults to 0.
-            boundsWidth:number (read only) The actual bounds of the view in the
+            boundswidth:number (read only) The actual bounds of the view in the
                 x-dimension. This value is in pixels relative to the RootView 
                 and thus compensates for rotation and scaling.
-            boundsHeight:number (read only) The actual bounds of the view in 
+            boundsheight:number (read only) The actual bounds of the view in 
                 the y-dimension. This value is in pixels relative to the 
                 RootView and thus compensates for rotation and scaling.
             bgcolor:string The background color of this view. Use a value of 
@@ -5967,15 +5870,28 @@ dr.View = new JS.Class('View', dr.Node, {
     set_cursor: function(v) {this.setActual('cursor', v, 'string', 'auto');},
     set_x: function(v) {this.setActual('x', v, 'number', 0);},
     set_y: function(v) {this.setActual('y', v, 'number', 0);},
-    set_width: function(v) {this.setActual('width', v, 'number', 0, this.__updateBounds.bind(this));},
-    set_height: function(v) {this.setActual('height', v, 'number', 0, this.__updateBounds.bind(this));},
+    set_width: function(v) {this.setActual('width', v, 'number', 0, this.__updateWidth.bind(this));},
+    set_height: function(v) {this.setActual('height', v, 'number', 0, this.__updateHeight.bind(this));},
     
-    /** Updates the boundsWidth and boundsHeight attributes.
+    __updateWidth: function() {
+        this.setActual('innerwidth', this.width, 'number', 0); // FIXME
+        this.__updateBounds();
+    },
+    
+    __updateHeight: function() {
+        this.setActual('innerheight', this.width, 'number', 0); // FIXME
+        this.__updateBounds();
+    },
+    
+    /** Updates the boundswidth and boundsheight attributes.
         @private
         @returns void */
     __updateBounds: function() {
-        this.setActual('boundsWidth', this.width, 'number', 0);
-        this.setActual('boundsHeight', this.height, 'number', 0);
+        this.setActual('boundsxdiff', 0, 'number', 0); // FIXME
+        this.setActual('boundswidth', this.width, 'number', 0);
+        
+        this.setActual('boundsydiff', 0, 'number', 0); // FIXME
+        this.setActual('boundsheight', this.height, 'number', 0);
     },
     
     
@@ -6004,11 +5920,11 @@ dr.View = new JS.Class('View', dr.Node, {
         if (node instanceof dr.View) {
             this.sprite.appendSprite(node.sprite);
             this.getSubviews().push(node);
-            this.fireNewEvent('subviewAdded', node);
+            this.fireNewEvent('onsubviewAdded', node);
             this.subviewAdded(node);
         } else if (node instanceof dr.BaseLayout) {
             this.getLayouts().push(node);
-            this.fireNewEvent('layoutAdded', node);
+            this.fireNewEvent('onlayoutAdded', node);
             this.layoutAdded(node);
         }
     },
@@ -6024,7 +5940,7 @@ dr.View = new JS.Class('View', dr.Node, {
         if (node instanceof dr.View) {
             idx = this.getSubviewIndex(node);
             if (idx !== -1) {
-                this.fireNewEvent('subviewRemoved', node);
+                this.fireNewEvent('onsubviewRemoved', node);
                 this.sprite.removeSprite(node.sprite);
                 this.subviews.splice(idx, 1);
                 this.subviewRemoved(node);
@@ -6032,7 +5948,7 @@ dr.View = new JS.Class('View', dr.Node, {
         } else if (node instanceof dr.BaseLayout) {
             idx = this.getLayoutIndex(node);
             if (idx !== -1) {
-                this.fireNewEvent('layoutRemoved', node);
+                this.fireNewEvent('onlayoutRemoved', node);
                 this.layouts.splice(idx, 1);
                 this.layoutRemoved(node);
             }
@@ -6214,9 +6130,9 @@ dr.View = new JS.Class('View', dr.Node, {
     Registered in dr.global as 'roots'.
     
     Events:
-        rootAdded:RootView Fired when a RootView is added. The value is the 
+        onrootAdded:RootView Fired when a RootView is added. The value is the 
             RootView added.
-        rootRemoved:RootView Fired when a RootView is removed. The value is the 
+        onrootRemoved:RootView Fired when a RootView is removed. The value is the 
             RootView removed.
     
     Attributes:
@@ -6250,7 +6166,7 @@ new JS.Singleton('GlobalRootViewRegistry', {
         @returns void */
     addRoot: function(r) {
         this.__roots.push(r);
-        this.fireNewEvent('rootAdded', r);
+        this.fireNewEvent('onrootAdded', r);
     },
     
     /** Remove a rootable from the global list of root views.
@@ -6262,7 +6178,7 @@ new JS.Singleton('GlobalRootViewRegistry', {
             root = roots[--i];
             if (root === r) {
                 roots.splice(i, 1);
-                this.fireNewEvent('rootRemoved', root);
+                this.fireNewEvent('onrootRemoved', root);
                 break;
             }
         }
@@ -6275,7 +6191,7 @@ new JS.Singleton('GlobalRootViewRegistry', {
     by the view.
     
     Events:
-        None
+        onready:boolean Fired when the view has been completely instantiated.
 */
 dr.RootView = new JS.Module('RootView', {
     // Life Cycle //////////////////////////////////////////////////////////////
@@ -6301,6 +6217,18 @@ dr.RootView = new JS.Module('RootView', {
     set_parent: function(parent) {
         // A root view doesn't have a parent view.
         this.callSuper(undefined);
+    },
+    
+    set_ready: function(v) {
+        if (this.setActual('ready', v, 'boolean', false)) {
+            // Fire oninit event for all descendants since initialization
+            // is now done.
+            if (this.ready) {
+                this.walk(null, function(node) {
+                    node.fireNewEvent('oninit', true);
+                });
+            }
+        }
     }
 });
 
@@ -6362,10 +6290,7 @@ new JS.Singleton('GlobalViewportResize', {
         this.set_sprite(this.createSprite());
         
         // The common resize event that gets reused.
-        this.EVENT = {
-            source:this, type:'resize', 
-            value:{w:this.getWidth(), h:this.getHeight()}
-        };
+        this.EVENT = {w:this.getWidth(), h:this.getHeight()};
         
         dr.global.register('viewportResize', this);
     },
@@ -6392,18 +6317,16 @@ new JS.Singleton('GlobalViewportResize', {
     // Methods /////////////////////////////////////////////////////////////////
     /** @private */
     __handleResizeEvent: function(w, h) {
-        var event = this.EVENT,
-            eventValue = event.value,
-            isChanged = false;
-        if (w !== eventValue.w) {
-            eventValue.w = this.__viewportWidth = w;
+        var event = this.EVENT, isChanged;
+        if (w !== event.w) {
+            event.w = this.__viewportWidth = w;
             isChanged = true;
         }
-        if (h !== eventValue.h) {
-            eventValue.h = this.__viewportHeight = h;
+        if (h !== event.h) {
+            event.h = this.__viewportHeight = h;
             isChanged = true;
         }
-        if (isChanged) this.fireEvent(event);
+        if (isChanged) this.fireEvent('onresize', event);
     }
 });
 
@@ -6431,7 +6354,7 @@ dr.SizeToViewport = new JS.Module('SizeToViewport', {
         this.minwidth = this.minheight = 0;
         if (attrs.resizedimension === undefined) attrs.resizedimension = 'both';
         
-        this.attachTo(dr.global.viewportResize, '__handleResize', 'resize');
+        this.attachTo(dr.global.viewportResize, '__handleResize', 'onresize');
         this.callSuper(parent, attrs);
     },
     
@@ -6459,7 +6382,7 @@ dr.SizeToViewport = new JS.Module('SizeToViewport', {
     // Methods /////////////////////////////////////////////////////////////////
     /** @private */
     __handleResize: function(event) {
-        var v = dr.global.viewportResize.EVENT.value, // Ignore the provided event.
+        var v = dr.global.viewportResize.EVENT, // Ignore the provided event.
             dim = this.resizedimension;
         if (dim === 'width' || dim === 'both') this.set_width(Math.max(this.minwidth, v.w));
         if (dim === 'height' || dim === 'both') this.set_height(Math.max(this.minheight, v.h));
@@ -6599,8 +6522,7 @@ new JS.Singleton('GlobalIdle', {
                 observer = registry[guid] = new dr.Eventable({}, [{
                 invoke: function(event) {
                         try {
-                            var value = event.value;
-                            callback(value.time, value.delta);
+                            callback(event.time, event.delta);
                         } catch (e) {
                             dr.dumpStack(e);
                         } finally {
@@ -6797,7 +6719,7 @@ dr.Animator = new JS.Class('Animator', dr.Node, {
     
     /** @private */
     __update: function(onidleEvent) {
-        this.__advance(onidleEvent.value.delta);
+        this.__advance(onidleEvent.delta);
     },
     
     /** @private */
@@ -6864,7 +6786,7 @@ dr.Animator = new JS.Class('Animator', dr.Node, {
                     // Advance again if time is remaining. This occurs when
                     // the timeDiff provided was greater than the animation
                     // duration and the animation loops.
-                    this.fireNewEvent('repeat', this.__loopCount);
+                    this.fireNewEvent('onrepeat', this.__loopCount);
                     this.__progress = reverse ? duration : 0;
                     this.__advance(remainderTime);
                 }
@@ -7077,7 +6999,7 @@ dr.Activateable = new JS.Module('Activateable', {
     /** Called when this view should be activated.
         @returns void */
     doActivated: function() {
-        this.fireNewEvent('activated', true);
+        this.fireNewEvent('onactivated', true);
     }
 });
 
@@ -7186,8 +7108,8 @@ dr.MouseOver = new JS.Module('MouseOver', {
         
         this.callSuper(parent, attrs);
         
-        this.attachToPlatform(this, 'doMouseOver', 'mouseover');
-        this.attachToPlatform(this, 'doMouseOut', 'mouseout');
+        this.attachToPlatform(this, 'doMouseOver', 'onmouseover');
+        this.attachToPlatform(this, 'doMouseOut', 'onmouseout');
     },
     
     
@@ -7318,8 +7240,8 @@ dr.MouseDown = new JS.Module('MouseDown', {
         
         this.callSuper(parent, attrs);
         
-        this.attachToPlatform(this, 'doMouseDown', 'mousedown');
-        this.attachToPlatform(this, 'doMouseUp', 'mouseup');
+        this.attachToPlatform(this, 'doMouseDown', 'onmousedown');
+        this.attachToPlatform(this, 'doMouseUp', 'onmouseup');
     },
     
     
@@ -7347,7 +7269,7 @@ dr.MouseDown = new JS.Module('MouseDown', {
     /** @overrides dr.MouseOver */
     doMouseOver: function(event) {
         this.callSuper(event);
-        if (this.mousedown) this.detachFromPlatform(dr.global.mouse, 'doMouseUp', 'mouseup', true);
+        if (this.mousedown) this.detachFromPlatform(dr.global.mouse, 'doMouseUp', 'onmouseup', true);
     },
     
     /** @overrides dr.MouseOver */
@@ -7358,7 +7280,7 @@ dr.MouseDown = new JS.Module('MouseDown', {
         // view while the mouse is still down. This allows the user to move
         // the mouse in and out of the view with the view still behaving 
         // as moused down.
-        if (!this.disabled && this.mousedown) this.attachToPlatform(dr.global.mouse, 'doMouseUp', 'mouseup', true);
+        if (!this.disabled && this.mousedown) this.attachToPlatform(dr.global.mouse, 'doMouseUp', 'onmouseup', true);
     },
     
     /** Called when the mouse is down on this view. Subclasses must call callSuper.
@@ -7372,7 +7294,7 @@ dr.MouseDown = new JS.Module('MouseDown', {
     doMouseUp: function(event) {
         // Cleanup global mouse listener since the mouseUp occurred outside
         // the view.
-        if (!this.mouseover) this.detachFromPlatform(dr.global.mouse, 'doMouseUp', 'mouseup', true);
+        if (!this.mouseover) this.detachFromPlatform(dr.global.mouse, 'doMouseUp', 'onmouseup', true);
         
         if (!this.disabled && this.mousedown) {
             this.set_mousedown(false);
@@ -7459,15 +7381,15 @@ dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
         if (focused) {
             this.__unlistenToDocument();
             
-            view.attachToPlatform(focused, '__handleKeyDown', 'keydown');
-            view.attachToPlatform(focused, '__handleKeyPress', 'keypress');
-            view.attachToPlatform(focused, '__handleKeyUp', 'keyup');
+            view.attachToPlatform(focused, '__handleKeyDown', 'onkeydown');
+            view.attachToPlatform(focused, '__handleKeyPress', 'onkeypress');
+            view.attachToPlatform(focused, '__handleKeyUp', 'onkeyup');
         } else {
             var prevFocused = dr.sprite.focus.prevFocusedView;
             if (prevFocused) {
-                view.detachFromPlatform(prevFocused, '__handleKeyDown', 'keydown');
-                view.detachFromPlatform(prevFocused, '__handleKeyPress', 'keypress');
-                view.detachFromPlatform(prevFocused, '__handleKeyUp', 'keyup');
+                view.detachFromPlatform(prevFocused, '__handleKeyDown', 'onkeydown');
+                view.detachFromPlatform(prevFocused, '__handleKeyPress', 'onkeypress');
+                view.detachFromPlatform(prevFocused, '__handleKeyUp', 'onkeyup');
             }
             
             this.__listenToDocument();
@@ -7477,31 +7399,30 @@ dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
     /** @private */
     __listenToDocument: function() {
         var view = this.view;
-        view.attachToPlatform(view, '__handleKeyDown', 'keydown');
-        view.attachToPlatform(view, '__handleKeyPress', 'keypress');
-        view.attachToPlatform(view, '__handleKeyUp', 'keyup');
+        view.attachToPlatform(view, '__handleKeyDown', 'onkeydown');
+        view.attachToPlatform(view, '__handleKeyPress', 'onkeypress');
+        view.attachToPlatform(view, '__handleKeyUp', 'onkeyup');
     },
     
     /** @private */
     __unlistenToDocument: function() {
         var view = this.view;
-        view.detachFromPlatform(view, '__handleKeyDown', 'keydown');
-        view.detachFromPlatform(view, '__handleKeyPress', 'keypress');
-        view.detachFromPlatform(view, '__handleKeyUp', 'keyup');
+        view.detachFromPlatform(view, '__handleKeyDown', 'onkeydown');
+        view.detachFromPlatform(view, '__handleKeyPress', 'onkeypress');
+        view.detachFromPlatform(view, '__handleKeyUp', 'onkeyup');
     },
     
     /** @private */
-    __handleKeyDown: function(event) {
-        var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event),
-            platformEvent = event.value;
+    __handleKeyDown: function(platformEvent) {
+        var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(platformEvent);
         if (this.__shouldPreventDefault(keyCode, platformEvent.target)) dr.sprite.preventDefault(platformEvent);
         
         // Keyup events do not fire when command key is down so fire a keyup
         // event immediately. Not an issue for other meta keys: shift, ctrl 
         // and option.
         if (this.isCommandKeyDown() && keyCode !== 16 && keyCode !== 17 && keyCode !== 18) {
-            this.view.fireNewEvent('keydown', keyCode);
-            this.view.fireNewEvent('keyup', keyCode);
+            this.view.fireNewEvent('onkeydown', keyCode);
+            this.view.fireNewEvent('onkeyup', keyCode);
             
             // Assume command key goes back up since it is common for the page
             // to lose focus after the command key is used. Do this for every 
@@ -7509,7 +7430,7 @@ dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
             // nice to have and doesn't typically result in loss of focus 
             // to the page.
             if (keyCode !== 90) {
-                this.view.fireNewEvent('keyup', this.KEYCODE_COMMAND);
+                this.view.fireNewEvent('onkeyup', this.KEYCODE_COMMAND);
                 this.__keysDown[this.KEYCODE_COMMAND] = false;
             }
         } else {
@@ -7525,23 +7446,22 @@ dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
                 }
             }
             
-            this.view.fireNewEvent('keydown', keyCode);
+            this.view.fireNewEvent('onkeydown', keyCode);
         }
     },
     
     /** @private */
-    __handleKeyPress: function(event) {
-        var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event);
-        this.view.fireNewEvent('keypress', keyCode);
+    __handleKeyPress: function(platformEvent) {
+        var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(platformEvent);
+        this.view.fireNewEvent('onkeypress', keyCode);
     },
     
     /** @private */
-    __handleKeyUp: function(event) {
-        var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event),
-            platformEvent = event.value;
+    __handleKeyUp: function(platformEvent) {
+        var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(platformEvent);
         if (this.__shouldPreventDefault(keyCode, platformEvent.target)) dr.sprite.preventDefault(platformEvent);
         this.__keysDown[keyCode] = false;
-        this.view.fireNewEvent('keyup', keyCode);
+        this.view.fireNewEvent('onkeyup', keyCode);
     },
     
     /** @private */
@@ -7694,7 +7614,7 @@ new JS.Singleton('GlobalKeys', {
     initialize: function() {
         this.set_sprite(this.createSprite());
         
-        this.attachTo(dr.global.focus, '__handleFocused', 'focused');
+        this.attachTo(dr.global.focus, '__handleFocused', 'onfocused');
         
         this.sprite.__listenToDocument();
         
@@ -7751,23 +7671,23 @@ new JS.Singleton('GlobalKeys', {
     },
     
     /** @private */
-    __handleKeyDown: function(event) {
-        this.sprite.__handleKeyDown(event);
+    __handleKeyDown: function(platformEvent) {
+        this.sprite.__handleKeyDown(platformEvent);
     },
     
     /** @private */
-    __handleKeyPress: function(event) {
-        this.sprite.__handleKeyPress(event);
+    __handleKeyPress: function(platformEvent) {
+        this.sprite.__handleKeyPress(platformEvent);
     },
     
     /** @private */
-    __handleKeyUp: function(event) {
-        this.sprite.__handleKeyUp(event);
+    __handleKeyUp: function(platformEvent) {
+        this.sprite.__handleKeyUp(platformEvent);
     },
     
     /** @private */
-    __handleFocused: function(event) {
-        this.sprite.handleFocusChange(event.value);
+    __handleFocused: function(platformEvent) {
+        this.sprite.handleFocusChange(platformEvent);
     }
 });
 
@@ -7809,9 +7729,9 @@ dr.KeyActivation = new JS.Module('KeyActivation', {
         
         this.callSuper(parent, attrs);
         
-        this.attachToPlatform(this, '__handleKeyDown', 'keydown');
-        this.attachToPlatform(this, '__handleKeyPress', 'keypress');
-        this.attachToPlatform(this, '__handleKeyUp', 'keyup');
+        this.attachToPlatform(this, '__handleKeyDown', 'onkeydown');
+        this.attachToPlatform(this, '__handleKeyPress', 'onkeypress');
+        this.attachToPlatform(this, '__handleKeyUp', 'onkeyup');
     },
     
     
@@ -7822,10 +7742,10 @@ dr.KeyActivation = new JS.Module('KeyActivation', {
     
     // Methods /////////////////////////////////////////////////////////////////
     /** @private */
-    __handleKeyDown: function(event) {
+    __handleKeyDown: function(platformEvent) {
         if (!this.disabled) {
             if (this.activateKeyDown === -1 || this.repeatkeydown) {
-                var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event),
+                var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(platformEvent),
                     keys = this.activationkeys, i = keys.length;
                 while (i) {
                     if (keyCode === keys[--i]) {
@@ -7835,7 +7755,7 @@ dr.KeyActivation = new JS.Module('KeyActivation', {
                             this.activateKeyDown = keyCode;
                             this.doActivationKeyDown(keyCode, false);
                         }
-                        dr.sprite.preventDefault(event.value);
+                        dr.sprite.preventDefault(platformEvent);
                         return;
                     }
                 }
@@ -7844,14 +7764,14 @@ dr.KeyActivation = new JS.Module('KeyActivation', {
     },
     
     /** @private */
-    __handleKeyPress: function(event) {
+    __handleKeyPress: function(platformEvent) {
         if (!this.disabled) {
-            var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event);
+            var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(platformEvent);
             if (this.activateKeyDown === keyCode) {
                 var keys = this.activationkeys, i = keys.length;
                 while (i) {
                     if (keyCode === keys[--i]) {
-                        dr.sprite.preventDefault(event.value);
+                        dr.sprite.preventDefault(platformEvent);
                         return;
                     }
                 }
@@ -7860,16 +7780,16 @@ dr.KeyActivation = new JS.Module('KeyActivation', {
     },
     
     /** @private */
-    __handleKeyUp: function(event) {
+    __handleKeyUp: function(platformEvent) {
         if (!this.disabled) {
-            var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(event);
+            var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(platformEvent);
             if (this.activateKeyDown === keyCode) {
                 var keys = this.activationkeys, i = keys.length;
                 while (i) {
                     if (keyCode === keys[--i]) {
                         this.activateKeyDown = -1;
                         this.doActivationKeyUp(keyCode);
-                        dr.sprite.preventDefault(event.value);
+                        dr.sprite.preventDefault(platformEvent);
                         return;
                     }
                 }

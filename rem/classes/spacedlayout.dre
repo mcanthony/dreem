@@ -55,16 +55,16 @@ SOFTWARE. -->
       *     <view width="100" height="15" bgcolor="lightblue"></view>
       */-->
 <class name="spacedlayout" extends="variablelayout" type="coffee">
-  <method name="construct" args="el, attributes">
+  <method name="initNode" args="parent, attrs">
     # Use whichever attribute or aliased attribute is not the default and
     # delete the unnecessary initial value.
-    if attributes.value isnt '0' and attributes.inset is '0'
-      attributes.inset = attributes.value
-    delete attributes.value
+    if attrs.value isnt '0' and attrs.inset is '0'
+      attrs.inset = attrs.value
+    delete attrs.value
     
-    if attributes.attribute isnt 'x' and attributes.axis is 'x'
-      attributes.axis = attributes.attribute
-    delete attributes.attribute
+    if attrs.attribute isnt 'x' and attrs.axis is 'x'
+      attrs.axis = attrs.attribute
+    delete attrs.attribute
     
     @super()
   </method>
@@ -92,7 +92,6 @@ SOFTWARE. -->
   <setter name="inset" args="inset">
     # An alias for value.
     @setAttribute('value', inset)
-    return inset
   </setter>
   
   <!--/**
@@ -106,7 +105,6 @@ SOFTWARE. -->
   <setter name="axis" args="axis">
     # An alias for attribute.
     @setAttribute('attribute', axis)
-    return axis
   </setter>
   
   <!--/**
@@ -122,7 +120,7 @@ SOFTWARE. -->
       @stopMonitoringAllSubviews()
       
       # Setup private attributes based on axis
-      if attribute == 'y'
+      if attribute is 'y'
         # The layout is oriented vertically
         @__parentAttrName = 'height'        # The attr to update on the parent if updateparent is true
         @__innerAttrName = 'innerheight'    # The attr used to get available space
@@ -135,7 +133,7 @@ SOFTWARE. -->
         @__measureAttrName = 'boundswidth'
         @__diffAttrName = 'boundsxdiff'
       
-      @setAndFire('attribute', attribute)
+      @setActual('attribute', attribute, 'string')
       
       if @inited
         # Start monitoring again and update since we have a new axis. This needs
@@ -145,8 +143,6 @@ SOFTWARE. -->
         @update()
       else
         @__redoMonitoring = true
-    
-    return dr._noop
   </setter>
   
   <handler event="oninit">
@@ -159,18 +155,18 @@ SOFTWARE. -->
     @super()
     
     # Monitor each subview's measure and bounds offset
-    @listenTo(view, @__measureAttrName, @update)
-    @listenTo(view, @__diffAttrName, @update)
-    @listenTo(view, 'layouthint', @update)
+    @attachTo(view, 'update', 'on' + @__measureAttrName)
+    @attachTo(view, 'update', 'on' + @__diffAttrName)
+    @attachTo(view, 'update', 'onlayouthint')
   </method>
   
   <method name="stopMonitoringSubview" args="view">
     @super()
     
     # No longer monitor each subview's measure and bounds offset
-    @stopListening(view, @__measureAttrName, @update)
-    @stopListening(view, @__diffAttrName, @update)
-    @stopListening(view, 'layouthint', @update)
+    @detachFrom(view, 'update', 'on' + @__measureAttrName)
+    @detachFrom(view, 'update', 'on' + @__diffAttrName)
+    @detachFrom(view, 'update', 'onlayouthint')
   </method>
   
   <method name="updateSubview" args="count, view, attribute, value">

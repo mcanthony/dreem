@@ -116,7 +116,7 @@ SOFTWARE. -->
     * views.
     */-->
   <attribute name="updateparent" type="boolean" value="false"></attribute>
-  <handler event="updateparent" method="update"></handler>
+  <handler event="onupdateparent" method="update"></handler>
 
   <!--/**
     * @attribute {boolean} [reverse=false]
@@ -127,7 +127,7 @@ SOFTWARE. -->
     * bottom, etc.
     */-->
   <attribute name="reverse" type="boolean" value="false"></attribute>
-  <handler event="reverse" method="update"></handler>
+  <handler event="onreverse" method="update"></handler>
 
   <!--/**
     * @method doBeforeUpdate
@@ -163,7 +163,7 @@ SOFTWARE. -->
     * @param {dr.view} view
     */-->
   <method name="startMonitoringSubview" args="view">
-    @attachTo(view, 'update', 'visible')
+    @attachTo(view, 'update', 'onvisible')
   </method>
 
   <!--/**
@@ -173,7 +173,7 @@ SOFTWARE. -->
     * @param {dr.view} view
     */-->
   <method name="stopMonitoringSubview" args="view">
-    @detachFrom(view, 'update', 'visible')
+    @detachFrom(view, 'update', 'onvisible')
   </method>
 
   <!--/**

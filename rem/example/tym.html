@@ -15,7 +15,7 @@
     <!--// Class Definitions //-->
     <class name="item" with="button" extends="view" height="15" width="100" bgcolor="#ff0000">
       <attribute name="thing" type="number" value="20"></attribute>
-      <handler event="activated" args="activated" type="coffee">
+      <handler event="onactivated" args="activated" type="coffee">
         @count ?= 0
         @count++
         
@@ -70,13 +70,13 @@
       <attribute name="another" type="string" value="hello"></attribute>
       <attribute name="again" type="boolean" value="true"></attribute>
       
-      <handler event="activated" args="activated">
+      <handler event="onactivated" args="activated">
         console.log('activated', activated, this.thing, this.another, this.again);
       </handler>
-      <handler event="another" args="another">
+      <handler event="onanother" args="another">
         console.log('instance handler: another', another);
       </handler>
-      <handler event="thing" args="thing">
+      <handler event="onthing" args="thing">
         console.log('instance handler: thing', thing);
       </handler>
       <setter name="width" args="width">
@@ -92,10 +92,10 @@
       <animator attribute="y" to="-25" relative="true" running="true"></animator>
     blah
     </item>
-    <handler event="another" args="another" reference="this.theItem">
+    <handler event="onanother" args="another" reference="this.theItem">
       console.log('another', another);
     </handler>
-    <handler event="thing" args="thing" reference="foo">
+    <handler event="onthing" args="thing" reference="foo">
       console.log('thing', thing);
     </handler>
     

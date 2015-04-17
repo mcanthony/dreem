@@ -83,7 +83,7 @@ define(function(require, exports){
     // Start processing from the root downward
     maker.walkDreemJSXML(pkg.root.child[0], null, pkg);
     
-    dr.AccessorSupport.CONSTRAINTS.notifyReadyForConstraints();
+    dr.notifyReady();
   };
 
   maker.walkDreemJSXML = function(node, parentInstance, pkg) {
@@ -166,7 +166,7 @@ define(function(require, exports){
                 var compiledMethod = compiledMethods[methodId];
                 if (compiledMethod) {
                   var methodName = '__handler_' + methodId;
-                  instanceMixin[methodName] = maker._buildHandlerFunction(compiledMethod);
+                  instanceMixin[methodName] = compiledMethod;
                   instanceHandlers.push({name:methodName, event:childAttrs.event, reference:childAttrs.reference});
                 } else {
                   throw new Error('Cannot find method id' + methodId);
@@ -232,10 +232,6 @@ define(function(require, exports){
     if (!parentInstance) mixins.push(dr.SizeToViewport); // Root View case
     
     new klass(parentInstance, combinedAttrs, mixins);
-  };
-  
-  maker._buildHandlerFunction = function(compiledMethod) {
-    return function(event) {compiledMethod.call(this, event.value);}; // Convert event to a simple value
   };
   
   maker.lookupClass = function(tagName, pkg) {
@@ -325,7 +321,7 @@ define(function(require, exports){
                 var compiledMethod = compiledMethods[methodId];
                 if (compiledMethod) {
                   var methodName = '__handler_' + methodId;
-                  klassBody[methodName] = maker._buildHandlerFunction(compiledMethod);
+                  klassBody[methodName] = compiledMethod;
                   klassHandlers.push({name:methodName, event:childAttrs.event, reference:childAttrs.reference});
                 } else {
                   throw new Error('Cannot find method id' + methodId);
@@ -405,19 +401,24 @@ define(function(require, exports){
 /*
 TODO:
   - Handle body text
-  - Events should be named onfoo not foo
+  - Do we need to register constraints for runtime view instantiation?
+  
+  - Add in notify cascade method notify: function(key, value,    cascade=true, matchFunction(node));
   
   - Percent x,y,w,h
+    - SizeToViewport needs to be rewritten to support % values
   - auto w,h
   - align x,y
   
-  - layouts
   - z-order
   - borders
   - padding
   - transforms
   - scroll
   - clip
+  - rounded corners
+  
+  - layouts
   
   - Setter return values and default behavior
   
