@@ -410,12 +410,13 @@ TODO:
   - auto w,h
   - align x,y
   
+  - clickable
+  - scroll
+  - clip
   - z-order
   - borders
   - padding
   - transforms
-  - scroll
-  - clip
   - rounded corners
   
   - layouts

@@ -11,7 +11,11 @@
   <script type="text/javascript" src="../lib/define.js"></script>
 </head>
 <body>
-  <view width="500" height="400" minwidth="1000" bgcolor="#cc99cc">
+  <view width="500" height="400" minwidth="1000" bgcolor="#cc99cc" scrollable="true">
+    <handler event="onscroll" args="scroll">
+      console.log('scroll event', scroll);
+    </handler>
+    
     <!--// Class Definitions //-->
     <class name="item" with="button" extends="view" height="15" width="100" bgcolor="#ff0000">
       <attribute name="thing" type="number" value="20"></attribute>

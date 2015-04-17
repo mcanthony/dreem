@@ -3728,7 +3728,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
             if (beforeEventFunc) beforeEventFunc();
             
             // Fire an event if possible
-            if (this.inited !== false && this.fireNewEvent) { // !== false allows this to work with non-nodes.
+            if (this.initing === false && this.fireNewEvent) { // !== false allows this to work with non-nodes.
                 this.fireNewEvent('on' + attrName, this[attrName]);
             }
             return true;
@@ -4103,6 +4103,8 @@ dr.TrackActivesPool = new JS.Class('TrackActivesPool', dr.SimplePool, {
         None.
     
     Attributes:
+        initing:boolean Set to true during initialization and then false
+            when initialization is complete.
         inited:boolean Set to true after this Eventable has completed 
             initializing.
 */
@@ -4122,17 +4124,19 @@ dr.Eventable = new JS.Class('Eventable', {
         }
         
         this.inited = false;
+        this.initing = true;
         this.init(attrs || {});
     },
     
     
     // Life Cycle //////////////////////////////////////////////////////////////
     /** Called during initialization. Calls setter methods and lastly, sets 
-        inited to true. Subclasses must callSuper.
+        inited to true and initing to false. Subclasses must callSuper.
         @param attrs:object A map of attribute names and values.
         @returns void */
     init: function(attrs) {
         this.callSetters(attrs);
+        this.initing = false;
         this.inited = true;
     },
     
@@ -4445,7 +4449,7 @@ dr.sprite.MouseObservable = new JS.Module('sprite.MouseObservable', {
         },
         
         /** Gets the mouse coordinates from the provided event.
-            @param platformEvent
+            @param platformEvent:domEvent
             @returns object: An object with 'x' and 'y' keys containing the
                 x and y mouse position. */
         getMouseFromEvent: function(platformEvent) {
@@ -4466,6 +4470,29 @@ dr.sprite.MouseObservable = new JS.Module('sprite.MouseObservable', {
     /** @overrides dr.sprite.PlatformObservable */
     createPlatformMethodRef: function(platformObserver, methodName, type) {
         return this.createStandardPlatformMethodRef(platformObserver, methodName, type, dr.sprite.MouseObservable, true) || 
+            this.callSuper(platformObserver, methodName, type);
+    }
+});
+
+
+/** Generates Scroll Events and passes them on to one or more event observers.
+    
+    Requires: dr.sprite.PlatformObservable callSuper mixin.
+*/
+dr.sprite.ScrollObservable = new JS.Module('sprite.ScrollObservable', {
+    // Class Methods and Attributes ////////////////////////////////////////////
+    extend: {
+        /** A map of supported scroll event types. */
+        EVENT_TYPES:{
+            onscroll:true
+        }
+    },
+    
+    
+    // Methods /////////////////////////////////////////////////////////////////
+    /** @overrides dr.sprite.PlatformObservable */
+    createPlatformMethodRef: function(platformObserver, methodName, type) {
+        return this.createStandardPlatformMethodRef(platformObserver, methodName, type, dr.sprite.ScrollObservable) || 
             this.callSuper(platformObserver, methodName, type);
     }
 });
@@ -4710,6 +4737,7 @@ dr.sprite.View = new JS.Class('sprite.View', {
         dr.sprite.PlatformObservable,
         dr.sprite.KeyObservable,
         dr.sprite.MouseObservable,
+        dr.sprite.ScrollObservable,
         dr.sprite.FocusObservable
     ],
     
@@ -4734,6 +4762,7 @@ dr.sprite.View = new JS.Class('sprite.View', {
             elem = document.createElement('div'),
             s = elem.style;
         s.position = 'absolute';
+        s.pointerEvents = 'none';
         
         // Necessary since x and y of 0 won't update deStyle so this gets
         // things initialized correctly. Without this RootViews will have
@@ -4805,8 +4834,69 @@ dr.sprite.View = new JS.Class('sprite.View', {
         return v;
     },
     
+    set_clickable: function(v) {
+        this.__clickable = v;
+        this.__updatePointerEvents();
+        return v;
+    },
+
+    set_clip: function(v) {
+        this.__clip = v;
+        this.__updateOverflow();
+        return v;
+    },
+    
+    set_scrollx: function(v) {
+        if (this.platformObject.scrollLeft !== v) this.platformObject.scrollLeft = v;
+        return v;
+    },
+
+    set_scrolly: function(v) {
+        if (this.platformObject.scrollTop !== v) this.platformObject.scrollTop = v;
+        return v;
+    },
+
+    set_scrollable: function(v) {
+        this.__scrollable = v;
+        this.__updateOverflow();
+        this.__updatePointerEvents();
+        return v;
+    },
+    
     
     // Methods /////////////////////////////////////////////////////////////////
+    /** @private */
+    __updateOverflow: function() {
+        var v = '';
+        if (this.__scrollable) {
+            v = 'auto';
+        } else if (this.__clip || this.__ellipsis) {
+            v = 'hidden';
+        }
+        this.styleObj.overflow = v;
+    },
+    
+    /** @private */
+    __updatePointerEvents: function() {
+        this.styleObj.pointerEvents = this.__clickable || this.__scrollable ? 'auto' : 'none';
+    },
+    
+    getScrollX: function() {
+        return this.platformObject.scrollLeft;
+    },
+    
+    getScrollY: function() {
+        return this.platformObject.scrollTop;
+    },
+    
+    getScrollWidth: function() {
+        return this.platformObject.scrollWidth;
+    },
+    
+    getScrollHeight: function() {
+        return this.platformObject.scrollHeight;
+    },
+    
     appendSprite: function(sprite) {
         this.platformObject.appendChild(sprite.platformObject);
     },
@@ -4889,6 +4979,8 @@ dr.sprite.View = new JS.Class('sprite.View', {
         id:string The unique ID of this node in the global namespace.
         
         Lifecycle Related:
+            initing:boolean Set to true during initialization and then false
+                when initialization is complete.
             inited:boolean Set to true after this Node has completed 
                 initializing.
             isBeingDestroyed:boolean (read only) Indicates that this node is in 
@@ -4974,6 +5066,7 @@ dr.Node = new JS.Class('Node', {
         }
         
         this.inited = false;
+        this.initing = true;
         
         var defaultKlassAttrValues = this.klass.defaultAttrValues;
         if (defaultKlassAttrValues) attrs = dr.extend({}, defaultKlassAttrValues, attrs);
@@ -4984,7 +5077,8 @@ dr.Node = new JS.Class('Node', {
     
     // Life Cycle //////////////////////////////////////////////////////////////
     /** Called during initialization. Sets initial state for life cycle attrs,
-        calls setter methods, sets parent and lastly, sets inited to true.
+        calls setter methods, sets parent and lastly, sets inited to true if
+        the root view that contains this node is ready. Sets initing to false.
         Subclasses must callSuper.
         @param parent:Node (or dom element for RootViews) the parent of 
             this Node.
@@ -4992,18 +5086,23 @@ dr.Node = new JS.Class('Node', {
         @returns void */
     initNode: function(parent, attrs) {
         this.callSetters(attrs);
-        
         this.doBeforeAdoption();
         this.set_parent(parent);
         this.doAfterAdoption();
         this.__makeChildren();
         this.__registerHandlers();
         
-        this.inited = true;
+        this.initing = false;
         
         // oninit event will be fired by dr.RootView once the root view
         // is ready. We only fire it here if the root is already ready.
-        if (this.getRoot().ready) this.fireNewEvent('oninit', true);
+        if (this.getRoot().ready) this.notifyReady();
+    },
+    
+    /** Called by dr.RootView once the root view is ready. */
+    notifyReady: function() {
+        this.inited = true;
+        this.fireNewEvent('oninit', true);
     },
     
     /** Provides a hook for subclasses to do things before this Node has its
@@ -5106,7 +5205,7 @@ dr.Node = new JS.Class('Node', {
             }
             
             // Fire an event
-            if (this.inited) this.fireNewEvent('onparent', newParent);
+            if (this.initing === false) this.fireNewEvent('onparent', newParent);
         }
     },
     
@@ -5134,7 +5233,7 @@ dr.Node = new JS.Class('Node', {
             delete global[existing];
             this.id = v;
             if (v) global[v] = this;
-            if (this.inited) this.fireNewEvent('onid', v);
+            if (this.initing === false) this.fireNewEvent('onid', v);
         }
     },
     
@@ -5781,10 +5880,18 @@ dr.View = new JS.Class('View', dr.Node, {
     // Life Cycle //////////////////////////////////////////////////////////////
     /** @overrides dr.Node */
     initNode: function(parent, attrs) {
-        this.x = this.y = this.width = this.height = 0;
+        // Initialize default values to reduce setter calls during initialization
+        // FIXME: __cfg_ values should be set too.
+        this.x = this.y = this.width = this.height = 
+            this.leftborder = this.rightborder = this.topborder = this.bottomborder = 
+            this.scrollx = this.scrolly = 0;
+        
         this.opacity = 1;
+        
         this.visible = this.focusembellishment = true;
-        this.focusable = this.ignorelayout = false;
+        
+        this.focusable = this.clickable = this.ignorelayout = this.clip = this.scrollable = false;
+        
         this.bgcolor = 'transparent';
         this.cursor = 'auto';
         
@@ -5845,7 +5952,7 @@ dr.View = new JS.Class('View', dr.Node, {
     
     set_focused: function(v) {
         if (this.setActual('focused', v, 'boolean', false)) {
-            if (this.inited) {
+            if (this.initing === false) {
                 dr.global.focus[v ? 'notifyFocus' : 'notifyBlur'](this);
             }
         }
@@ -5864,6 +5971,34 @@ dr.View = new JS.Class('View', dr.Node, {
     },
     
     // Visual Attributes //
+    set_clickable: function(v) {this.setActual('clickable', v, 'boolean', false);},
+    set_clip: function(v) {this.setActual('clip', v, 'boolean', false);},
+    set_scrollable: function(v) {
+        if (this.setActual('scrollable', v, 'boolean', false)) {
+            if (this.scrollable) {
+                this.attachToPlatform(this, '__handleScroll', 'onscroll');
+            } else {
+                this.detachFromPlatform(this, '__handleScroll', 'onscroll');
+            }
+        }
+    },
+    set_scrollx: function(v) {
+        if (isNaN(v)) {
+            v = 0;
+        } else {
+            v = Math.max(0, Math.min(this.sprite.getScrollWidth() - this.width + this.leftborder + this.rightborder, v));
+        }
+        this.setActual('scrollx', v, 'number', 0);
+    },
+    set_scrolly: function(v) {
+        if (isNaN(v)) {
+            v = 0;
+        } else {
+            v = Math.max(0, Math.min(this.sprite.getScrollHeight() - this.height + this.topborder + this.bottomborder, v));
+        }
+        this.setActual('scrolly', v, 'number', 0);
+    },
+    
     set_bgcolor: function(v) {this.setActual('bgcolor', v, 'color', 'transparent');},
     set_opacity: function(v) {this.setActual('opacity', v, 'number', 1);},
     set_visible: function(v) {this.setActual('visible', v, 'boolean', true);},
@@ -5892,6 +6027,23 @@ dr.View = new JS.Class('View', dr.Node, {
         
         this.setActual('boundsydiff', 0, 'number', 0); // FIXME
         this.setActual('boundsheight', this.height, 'number', 0);
+    },
+    
+    /** @private */
+    __handleScroll: function(platformEvent) {
+        var sprite = this.sprite,
+            x = sprite.getScrollX(),
+            y = sprite.getScrollY();
+        
+        if (this.scrollx !== x) this.set_scrollx(x);
+        if (this.scrolly !== y) this.set_scrolly(y);
+        
+        this.fireNewEvent('onscroll', {
+            scrollx:x,
+            scrolly:y,
+            scrollwidth:sprite.getScrollWidth(),
+            scrollheight:sprite.getScrollHeight()
+        });
     },
     
     
@@ -6166,6 +6318,11 @@ new JS.Singleton('GlobalRootViewRegistry', {
         @returns void */
     addRoot: function(r) {
         this.__roots.push(r);
+        
+        // If dr is already ready then make the new root view ready
+        // immediately.
+        if (dr.ready) r.set('ready', true);
+        
         this.fireNewEvent('onrootAdded', r);
     },
     
@@ -6191,7 +6348,13 @@ new JS.Singleton('GlobalRootViewRegistry', {
     by the view.
     
     Events:
-        onready:boolean Fired when the view has been completely instantiated.
+        onready:boolean Fired when the root view has been 
+            completely instantiated.
+    
+    Attributes:
+        ready:boolean Indicates that this root view is now ready for use. This
+            starts as undefined and gets set to true when dr.notifyReady is
+            called.
 */
 dr.RootView = new JS.Module('RootView', {
     // Life Cycle //////////////////////////////////////////////////////////////
@@ -6221,13 +6384,9 @@ dr.RootView = new JS.Module('RootView', {
     
     set_ready: function(v) {
         if (this.setActual('ready', v, 'boolean', false)) {
-            // Fire oninit event for all descendants since initialization
-            // is now done.
-            if (this.ready) {
-                this.walk(null, function(node) {
-                    node.fireNewEvent('oninit', true);
-                });
-            }
+            // Notify all descendants in a depth first manner since 
+            // initialization is now done.
+            if (this.ready) this.walk(null, function(node) {node.notifyReady();});
         }
     }
 });
@@ -7070,7 +7229,7 @@ dr.Disableable = new JS.Module('Disableable', {
         it is defined.
         @returns void */
     doDisabled: function() {
-        if (this.inited) {
+        if (this.initing === false) {
             // Give away focus if we become disabled and this instance is
             // a FocusObservable
             if (this.disabled && this.giveAwayFocus) this.giveAwayFocus();
@@ -7105,6 +7264,7 @@ dr.MouseOver = new JS.Module('MouseOver', {
     /** @overrides */
     initNode: function(parent, attrs) {
         if (attrs.mouseover === undefined) attrs.mouseover = false;
+        if (attrs.clickable === undefined) attrs.clickable = true;
         
         this.callSuper(parent, attrs);
         
@@ -7117,7 +7277,7 @@ dr.MouseOver = new JS.Module('MouseOver', {
     set_mouseover: function(v) {
         if (this.setActual('mouseover', v, 'boolean', false)) {
             // Smooth over/out events by delaying until the next onidle event.
-            if (this.inited && !this.__attachedToOverIdle) {
+            if (this.initing === false && !this.__attachedToOverIdle) {
                 this.__attachedToOverIdle = true;
                 this.attachTo(dr.global.idle, '__doMouseOverOnIdle', 'onidle');
             }
@@ -7154,7 +7314,7 @@ dr.MouseOver = new JS.Module('MouseOver', {
         originating from the dom.
         @returns void */
     doSmoothMouseOver: function(isOver) {
-        if (this.inited && this.updateUI) this.updateUI();
+        if (this.initing === false && this.updateUI) this.updateUI();
     },
     
     /** Called when the mouse is over this view. Subclasses must call callSuper.
@@ -7237,6 +7397,7 @@ dr.MouseDown = new JS.Module('MouseDown', {
     /** @overrides */
     initNode: function(parent, attrs) {
         if (attrs.mousedown === undefined) attrs.mousedown = false;
+        if (attrs.clickable === undefined) attrs.clickable = true;
         
         this.callSuper(parent, attrs);
         
@@ -7248,7 +7409,7 @@ dr.MouseDown = new JS.Module('MouseDown', {
     // Accessors ///////////////////////////////////////////////////////////////
     set_mousedown: function(v) {
         if (this.setActual('mousedown', v, 'boolean', false)) {
-            if (this.inited) {
+            if (this.initing === false) {
                 if (this.mousedown) this.focus(true);
                 if (this.updateUI) this.updateUI();
             }
@@ -7883,7 +8044,7 @@ dr.Button = new JS.Module('Button', {
     set_focused: function(v) {
         var existing = this.focused;
         this.callSuper(v);
-        if (this.inited && this.focused !== existing) this.updateUI();
+        if (this.initing === false && this.focused !== existing) this.updateUI();
     },
     
     
