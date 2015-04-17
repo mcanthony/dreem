@@ -1182,6 +1182,20 @@ dr.sprite = {
                 {str:platform,  sub:"Mac",    id:"Mac"},
                 {str:platform,  sub:"Win",    id:"Windows"}
             ]) || unknown,
+            
+            prefix:(
+                function() {
+                    var styles = global.getComputedStyle(document.documentElement, '');
+                    var pre = (Array.prototype.slice.call(styles).join('').match(/-(moz|webkit|ms)-/) || (styles.OLink === '' && ['', 'o']))[1];
+                    var dom = ('WebKit|Moz|MS|O').match(new RegExp('(' + pre + ')', 'i'))[1];
+                    return {
+                        dom:dom,
+                        lowercase:pre,
+                        css:'-' + pre + '-',
+                        js:pre[0].toUpperCase() + pre.substr(1)
+                    }
+                }
+            )()
         };
     })(),
 
@@ -4742,6 +4756,11 @@ dr.sprite.View = new JS.Class('sprite.View', {
     ],
     
     
+    // Class Methods and Attributes ////////////////////////////////////////////
+    extend: {
+        CSS_USER_SELECT:dr.sprite.platform.prefix.css + 'user-select'
+    },
+    
     // Constructor /////////////////////////////////////////////////////////////
     /** The standard JSClass initializer function. Subclasses should not
         override this function.
@@ -4762,7 +4781,7 @@ dr.sprite.View = new JS.Class('sprite.View', {
             elem = document.createElement('div'),
             s = elem.style;
         s.position = 'absolute';
-        s.pointerEvents = 'none';
+        s.pointerEvents = s[dr.sprite.View.CSS_USER_SELECT] = 'none';
         
         // Necessary since x and y of 0 won't update deStyle so this gets
         // things initialized correctly. Without this RootViews will have
