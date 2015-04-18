@@ -403,20 +403,15 @@ TODO:
   - Handle body text
   - Do we need to register constraints for runtime view instantiation?
   
-  - Add in notify cascade method notify: function(key, value,    cascade=true, matchFunction(node));
-  
   - Percent x,y,w,h
     - SizeToViewport needs to be rewritten to support % values
   - auto w,h
   - align x,y
   
-  - clickable
-  - scroll
-  - clip
-  - z-order
   - borders
   - padding
   - transforms
+  - z-order
   - rounded corners
   
   - layouts

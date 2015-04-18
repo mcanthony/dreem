@@ -3575,6 +3575,18 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
                     }
                 }
                 break;
+
+            case 'positivenumber':
+                value = Number(value);
+                if (isNaN(value)) {
+                    if (defaultValue !== undefined) {
+                        value = defaultValue;
+                    } else {
+                        value = 0;
+                    }
+                }
+                value = Math.max(0, value);
+                break;
             case 'boolean':
                 if (value == null) {
                     value = defaultValue !== undefined ? defaultValue : false;
@@ -3753,10 +3765,19 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
     /** Sets the actual value of an attribute on an object.
         @param attrName:string The name of the attribute to set.
         @param value:* The value to set.
+        @param fireEvent:boolean (optional) If true an attempt will be made
+            to fire an event. Defaults to undefined which is equivalent 
+            to false.
         @returns boolean: True if the value was changed, false otherwise. */
-    setSimpleActual: function(attrName, value) {
+    setSimpleActual: function(attrName, value, fireEvent) {
         if (this[attrName] !== value) {
             this[attrName] = value;
+            
+            // Fire an event if possible
+            if (fireEvent && this.initing === false && this.fireNewEvent) { // !== false allows this to work with non-nodes.
+                this.fireNewEvent('on' + attrName, this[attrName]);
+            }
+            
             return true;
         }
         return false;
@@ -4782,11 +4803,15 @@ dr.sprite.View = new JS.Class('sprite.View', {
             s = elem.style;
         s.position = 'absolute';
         s.pointerEvents = s[dr.sprite.View.CSS_USER_SELECT] = 'none';
+        s.borderStyle = 'solid';
+        s.borderColor = 'transparent';
+        s.padding = s.margin = s.borderWidth = '0px';
+        s.boxSizing = 'border-box';
         
         // Necessary since x and y of 0 won't update deStyle so this gets
         // things initialized correctly. Without this RootViews will have
         // an incorrect initial position for x or y of 0.
-        s.left = s.top = '0px';
+        s.marginLeft = s.marginTop = '0px';
         
         // Root views need to be attached to an existing dom element
         if (attrs.__isRootView) document.getElementsByTagName('body')[0].appendChild(elem);
@@ -4803,25 +4828,21 @@ dr.sprite.View = new JS.Class('sprite.View', {
     
     // Attributes //////////////////////////////////////////////////////////////
     set_x: function(v) {
-        if (this.view.visible) this.styleObj.left = v + 'px';
+        if (this.view.visible) this.styleObj.marginLeft = v + 'px';
         return v;
     },
     
     set_y: function(v) {
-        if (this.view.visible) this.styleObj.top = v + 'px';
+        if (this.view.visible) this.styleObj.marginTop = v + 'px';
         return v;
     },
     
     set_width: function(v) {
-        // Dom elements don't support negative width
-        if (0 > v) v = 0;
         this.styleObj.width = v + 'px';
         return v;
     },
     
     set_height: function(v, supressEvent) {
-        // Dom elements don't support negative height
-        if (0 > v) v = 0;
         this.styleObj.height = v + 'px';
         return v;
     },
@@ -4843,8 +4864,8 @@ dr.sprite.View = new JS.Class('sprite.View', {
         // Move invisible elements to a very negative location so they won't
         // effect scrollable area. Ideally we could use display:none but we
         // can't because that makes measuring bounds not work.
-        s.left = v ? this.view.x + 'px' : '-100000px';
-        s.top = v ? this.view.y + 'px' : '-100000px';
+        s.marginLeft = v ? this.view.x + 'px' : '-100000px';
+        s.marginTop = v ? this.view.y + 'px' : '-100000px';
         return v;
     },
     
@@ -4882,8 +4903,88 @@ dr.sprite.View = new JS.Class('sprite.View', {
         return v;
     },
     
+    // Borders //
+    set_bordercolor: function(v) {
+        this.styleObj.borderColor = v;
+        return v;
+    },
+    
+    set_borderstyle: function(v) {
+        this.styleObj.borderStyle = v;
+        return v;
+    },
+    
+    set_border: function(v) {
+        this.styleObj.borderWidth = v + 'px';
+        return v;
+    },
+    
+    set_topborder: function(v) {
+        this.styleObj.borderTopWidth = v + 'px';
+        if (dr.sprite.platform.prefix.dom === 'WebKit') this.__WebkitPositionHack();
+        return v;
+    },
+    
+    set_bottomborder: function(v) {
+        this.styleObj.borderBottomWidth = v + 'px';
+        return v;
+    },
+    
+    set_leftborder: function(v) {
+        this.styleObj.borderLeftWidth = v + 'px';
+        return v;
+    },
+    
+    set_rightborder: function(v) {
+        this.styleObj.borderRightWidth = v + 'px';
+        return v;
+    },
+    
+    // Padding //
+    set_padding: function(v) {
+        this.styleObj.padding = v + 'px';
+        return v;
+    },
+    
+    set_toppadding: function(v) {
+        this.styleObj.paddingTop = v + 'px';
+        if (dr.sprite.platform.prefix.dom === 'WebKit') this.__WebkitPositionHack();
+        return v;
+    },
+    
+    set_bottompadding: function(v) {
+        this.styleObj.paddingBottom = v + 'px';
+        return v;
+    },
+    
+    set_leftpadding: function(v) {
+        this.styleObj.paddingLeft = v + 'px';
+        return v;
+    },
+    
+    set_rightpadding: function(v) {
+        this.styleObj.paddingRight = v + 'px';
+        return v;
+    },
+    
     
     // Methods /////////////////////////////////////////////////////////////////
+    /** @private */
+    __WebkitPositionHack: function() {
+        // WORKAROUND: Chrome and Safari (Webkit?) browsers only update position on
+        // borderLeftWidth and paddingLeft change. Fix is to tweak the padding 
+        // by +/- a small value to trigger a change but prevent value drift.
+        // 
+        // Perturb smaller since the browser appears to do a ceiling for
+        // calculating the DOM element scrollLeft. This will give the expected
+        // value whereas pertubing larger would give a value 1 greater than
+        // expected for scrollLeft.
+        var perturb = (this.__BP_TOGGLE = !this.__BP_TOGGLE) ? -0.001 : 0.001, 
+            s = this.styleObj, 
+            v = s.paddingLeft;
+        s.paddingLeft = Number(v.substring(0, v.length - 2)) + perturb + 'px'
+    },
+    
     /** @private */
     __updateOverflow: function() {
         var v = '';
@@ -5899,10 +6000,14 @@ dr.View = new JS.Class('View', dr.Node, {
     // Life Cycle //////////////////////////////////////////////////////////////
     /** @overrides dr.Node */
     initNode: function(parent, attrs) {
+        // Used in many calculations so precalculating for performance.
+        this.__fullBorderPaddingWidth = this.__fullBorderPaddingHeight = 0;
+        
         // Initialize default values to reduce setter calls during initialization
         // FIXME: __cfg_ values should be set too.
         this.x = this.y = this.width = this.height = 
-            this.leftborder = this.rightborder = this.topborder = this.bottomborder = 
+            this.leftborder = this.rightborder = this.topborder = this.bottomborder = this.border = 
+            this.leftpadding = this.rightpadding = this.toppadding = this.bottompadding = this.padding = 
             this.scrollx = this.scrolly = 0;
         
         this.opacity = 1;
@@ -5911,7 +6016,8 @@ dr.View = new JS.Class('View', dr.Node, {
         
         this.focusable = this.clickable = this.ignorelayout = this.clip = this.scrollable = false;
         
-        this.bgcolor = 'transparent';
+        this.bgcolor = this.bordercolor = 'transparent';
+        this.borderstyle = 'solid';
         this.cursor = 'auto';
         
         this.set_sprite(this.createSprite(attrs));
@@ -5989,9 +6095,7 @@ dr.View = new JS.Class('View', dr.Node, {
         }
     },
     
-    // Visual Attributes //
-    set_clickable: function(v) {this.setActual('clickable', v, 'boolean', false);},
-    set_clip: function(v) {this.setActual('clip', v, 'boolean', false);},
+    // Scroll Attributes //
     set_scrollable: function(v) {
         if (this.setActual('scrollable', v, 'boolean', false)) {
             if (this.scrollable) {
@@ -6018,23 +6122,156 @@ dr.View = new JS.Class('View', dr.Node, {
         this.setActual('scrolly', v, 'number', 0);
     },
     
+    // Border Attributes //
+    set_bordercolor: function(v) {this.setActual('bordercolor', v, 'color', 'transparent');},
+    set_borderstyle: function(v) {this.setActual('borderstyle', v, 'string', 'solid');},
+    
+    set_border: function(v) {
+        this.__lockBPRecalc = true;
+        this.setAttribute('topborder', v);
+        this.setAttribute('bottomborder', v);
+        this.setAttribute('leftborder', v);
+        this.setAttribute('rightborder', v);
+        this.__lockBPRecalc = false;
+        
+        this.setActual('border', v, 'positivenumber', 0);
+        
+        this.__updateInnerWidth();
+        this.__updateInnerHeight();
+    },
+
+    set_topborder: function(v) {
+        if (this.setActual('topborder', v, 'positivenumber', 0) && !this.__lockBPRecalc) {
+            this.__updateBorder();
+            this.__updateInnerHeight();
+        }
+    },
+
+    set_bottomborder: function(v) {
+        if (this.setActual('bottomborder', v, 'positivenumber', 0) && !this.__lockBPRecalc) {
+            this.__updateBorder();
+            this.__updateInnerHeight();
+        }
+    },
+
+    set_leftborder: function(v) {
+        if (this.setActual('leftborder', v, 'positivenumber', 0) && !this.__lockBPRecalc) {
+            this.__updateBorder();
+            this.__updateInnerWidth();
+        }
+    },
+
+    set_rightborder: function(v) {
+        if (this.setActual('rightborder', v, 'positivenumber', 0) && !this.__lockBPRecalc) {
+            this.__updateBorder();
+            this.__updateInnerWidth();
+        }
+    },
+
+    /** @private */
+    __updateBorder: function() {
+        var test = this.topborder
+        if (this.bottomborder === test && this.leftborder === test && this.rightborder === test) {
+            this.setSimpleActual('border', test, true);
+        } else if (this.border != null) {
+            this.setSimpleActual('border', undefined, true);
+        }
+    },
+    
+    // Padding Attributes //
+    set_padding: function(v) {
+        this.__lockBPRecalc = true;
+        this.setAttribute('toppadding', v);
+        this.setAttribute('bottompadding', v);
+        this.setAttribute('leftpadding', v);
+        this.setAttribute('rightpadding', v);
+        this.__lockBPRecalc = false;
+        
+        this.setActual('padding', v, 'positivenumber', 0);
+        
+        this.__updateInnerWidth();
+        this.__updateInnerHeight();
+    },
+
+    set_toppadding: function(v) {
+        if (this.setActual('toppadding', v, 'positivenumber', 0) && !this.__lockBPRecalc) {
+            this.__updatePadding();
+            this.__updateInnerHeight();
+        }
+    },
+
+    set_bottompadding: function(v) {
+        if (this.setActual('bottompadding', v, 'positivenumber', 0) && !this.__lockBPRecalc) {
+            this.__updatePadding();
+            this.__updateInnerHeight();
+        }
+    },
+
+    set_leftpadding: function(v) {
+        if (this.setActual('leftpadding', v, 'positivenumber', 0) && !this.__lockBPRecalc) {
+            this.__updatePadding();
+            this.__updateInnerWidth();
+        }
+    },
+
+    set_rightpadding: function(v) {
+        if (this.setActual('rightpadding', v, 'positivenumber', 0) && !this.__lockBPRecalc) {
+            this.__updatePadding();
+            this.__updateInnerWidth();
+        }
+    },
+
+    /** @private */
+    __updatePadding: function() {
+        var test = this.toppadding
+        if (this.bottompadding === test && this.leftpadding === test && this.rightpadding === test) {
+            this.setSimpleActual('padding', test, true);
+        } else if (this.padding != null) {
+            this.setSimpleActual('padding', undefined, true);
+        }
+    },
+    
+    // Visual Attributes //
+    set_clickable: function(v) {this.setActual('clickable', v, 'boolean', false);},
+    set_clip: function(v) {this.setActual('clip', v, 'boolean', false);},
     set_bgcolor: function(v) {this.setActual('bgcolor', v, 'color', 'transparent');},
     set_opacity: function(v) {this.setActual('opacity', v, 'number', 1);},
     set_visible: function(v) {this.setActual('visible', v, 'boolean', true);},
     set_cursor: function(v) {this.setActual('cursor', v, 'string', 'auto');},
     set_x: function(v) {this.setActual('x', v, 'number', 0);},
     set_y: function(v) {this.setActual('y', v, 'number', 0);},
-    set_width: function(v) {this.setActual('width', v, 'number', 0, this.__updateWidth.bind(this));},
-    set_height: function(v) {this.setActual('height', v, 'number', 0, this.__updateHeight.bind(this));},
     
-    __updateWidth: function() {
-        this.setActual('innerwidth', this.width, 'number', 0); // FIXME
-        this.__updateBounds();
+    set_width: function(v) {
+        // Prevent width smaller than border and padding
+        v = Math.max(v, this.__fullBorderPaddingWidth);
+        
+        if (this.setActual('width', v, 'positivenumber', 0, this.__updateBounds.bind(this))) {
+            this.setSimpleActual('innerwidth', this.width - this.__fullBorderPaddingWidth, true);
+        }
+    },
+    set_height: function(v) {
+        // Prevent height smaller than border and padding
+        v = Math.max(v, this.__fullBorderPaddingHeight);
+        
+        if (this.setActual('height', v, 'positivenumber', 0, this.__updateBounds.bind(this))) {
+            this.setSimpleActual('innerheight', this.height - this.__fullBorderPaddingHeight, true);
+        }
     },
     
-    __updateHeight: function() {
-        this.setActual('innerheight', this.width, 'number', 0); // FIXME
-        this.__updateBounds();
+    /** @private */
+    __updateInnerWidth: function() {
+        var inset = this.__fullBorderPaddingWidth = this.leftborder + this.rightborder  + this.leftpadding + this.rightpadding;
+        // Prevent width less than horizontal border padding
+        if (inset > this.width) this.set_width(inset);
+        this.setActual('innerwidth', this.width - inset, 'positivenumber', 0);
+    },
+    
+    /** @private */
+    __updateInnerHeight: function() {
+        var inset = this.__fullBorderPaddingHeight = this.topborder  + this.bottomborder + this.toppadding + this.bottompadding
+        // Prevent height less than vertical border padding
+        if (inset > this.height) this.set_height(inset);
+        this.setActual('innerheight', this.height - inset, 'positivenumber', 0);
     },
     
     /** Updates the boundswidth and boundsheight attributes.
@@ -6042,10 +6279,10 @@ dr.View = new JS.Class('View', dr.Node, {
         @returns void */
     __updateBounds: function() {
         this.setActual('boundsxdiff', 0, 'number', 0); // FIXME
-        this.setActual('boundswidth', this.width, 'number', 0);
+        this.setActual('boundswidth', this.width, 'positivenumber', 0);
         
         this.setActual('boundsydiff', 0, 'number', 0); // FIXME
-        this.setActual('boundsheight', this.height, 'number', 0);
+        this.setActual('boundsheight', this.height, 'positivenumber', 0);
     },
     
     /** @private */
