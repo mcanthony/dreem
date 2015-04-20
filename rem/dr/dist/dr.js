@@ -615,7 +615,7 @@ dr = {
                             refTarget = dr.resolveName(ref);
                         }
                     }
-                    if (refTarget) target.attachTo(refTarget, handler.name, handler.event);
+                    if (refTarget) target.listenTo(refTarget, handler.event, handler.name);
                 }
             }
         }
@@ -629,10 +629,16 @@ dr = {
         var rootViews = dr.global.roots.getRoots(), len = rootViews.length, i = 0, rootView;
         for (; len > i;) {
             rootView = rootViews[i++];
-            rootView.set('ready', true);
+            rootView.setAttribute('ready', true);
         }
         
         this.ready = true;
+    },
+    
+    /** Common float comparison function. */
+    closeTo: function(a, b, epsilon) {
+        // Default of 0.01 is appropriate for many pixel related comparisons
+        return Math.abs(a - b) < (epsilon != null ? epsilon : 0.01);
     }
 };
 
@@ -717,15 +723,15 @@ dr.Observable = new JS.Module('Observable', {
                     methodName = observers[--i];
                     
                     // If an observer is registered more than once the list may 
-                    // get shortened by observer.detachFrom. If so, just 
+                    // get shortened by observer.stopListening. If so, just 
                     // continue decrementing downwards.
                     if (observer && methodName) {
-                        if (typeof observer.detachFrom !== 'function' || 
-                            !observer.detachFrom(this, methodName, type)
+                        if (typeof observer.stopListening !== 'function' || 
+                            !observer.stopListening(this, type, methodName)
                         ) {
-                            // Observer may not have a detachFrom function or 
+                            // Observer may not have a stopListening function or 
                             // observer may not have attached via 
-                            // Observer.attachTo so do default detach activity 
+                            // Observer.listenTo so do default detach activity 
                             // as implemented in Observable.detachObserver
                             observers.splice(i, 2);
                         }
@@ -869,82 +875,26 @@ dr.Observable = new JS.Module('Observable', {
             one time. */
 dr.Observer = new JS.Module('Observer', {
     // Methods /////////////////////////////////////////////////////////////////
-    /** Does the same thing as this.attachToAndCallbackIfAttrNotEqual with
-        a value of undefined.
-        @param observable:dr.Observable the Observable to attach to.
-        @param methodName:string the method name on this instance to execute.
-        @param eventType:string the event type to attach for.
-        @param attrName:string (optional: the eventType will be used if not
-            provided) the name of the attribute on the Observable
-            to pull the value from.
-        @param once:boolean (optional) if true  this Observer will detach
-            from the Observable after the event is handled once.
-        @returns void */
-    attachToAndCallbackIfAttrExists: function(observable, methodName, eventType, attrName, once) {
-        this.attachToAndCallbackIfAttrNotEqual(observable, methodName, eventType, undefined, attrName, once);
-    },
-    
-    /** Does the same thing as this.attachTo and also immediately calls the
-        method if the provided attrName on the observable is exactly equal to 
-        the provided value.
-        @param observable:dr.Observable the Observable to attach to.
-        @param methodName:string the method name on this instance to execute.
-        @param eventType:string the event type to attach for.
-        @param value:* the value to test equality against.
-        @param attrName:string (optional: the eventType will be used if not
-            provided) the name of the attribute on the Observable
-            to pull the value from.
-        @param once:boolean (optional) if true  this Observer will detach
-            from the Observable after the event is handled once.
-        @returns void */
-    attachToAndCallbackIfAttrEqual: function(observable, methodName, eventType, value, attrName, once) {
-        if (attrName === undefined) attrName = eventType;
-        if (observable.get(attrName) === value) {
-            this.syncTo(observable, methodName, eventType, attrName, once);
-        } else {
-            this.attachTo(observable, methodName, eventType, once);
-        }
-    },
-    
-    /** Does the same thing as this.attachTo and also immediately calls the
-        method if the provided attrName on the observable does not exactly 
-        equal the provided value.
-        @param observable:dr.Observable the Observable to attach to.
-        @param methodName:string the method name on this instance to execute.
-        @param eventType:string the event type to attach for.
-        @param value:* the value to test inequality against.
-        @param attrName:string (optional: the eventType will be used if not
-            provided) the name of the attribute on the Observable
-            to pull the value from.
-        @param once:boolean (optional) if true  this Observer will detach
-            from the Observable after the event is handled once.
-        @returns void */
-    attachToAndCallbackIfAttrNotEqual: function(observable, methodName, eventType, value, attrName, once) {
-        if (attrName === undefined) attrName = eventType;
-        if (observable.get(attrName) !== value) {
-            this.syncTo(observable, methodName, eventType, attrName, once);
-        } else {
-            this.attachTo(observable, methodName, eventType, once);
-        }
-    },
-    
-    /** Does the same thing as this.attachTo and also immediately calls the
+    /** Does the same thing as this.listenTo and also immediately calls the
         method with an event containing the attributes value. If 'once' is
         true no attachment will occur which means this probably isn't the
         correct method to use in that situation.
         @param observable:dr.Observable the Observable to attach to.
-        @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to attach for.
+        @param methodName:string the method name on this instance to execute.
         @param attrName:string (optional: the eventType will be used if not
             provided) the name of the attribute on the Observable
             to pull the value from.
         @param once:boolean (optional) if true  this Observer will detach
             from the Observable after the event is handled once.
         @returns void */
-    syncTo: function(observable, methodName, eventType, attrName, once) {
-        if (attrName === undefined) attrName = eventType;
+    syncTo: function(observable, eventType, methodName, attrName, once) {
+        if (attrName === undefined) {
+            // Trim 'on' prefix if necessary
+            attrName = eventType.startsWith('on') ? eventType.substring(2) : eventType;
+        }
         try {
-            this[methodName](observable.createEvent(eventType, observable.get(attrName)));
+            this[methodName](observable.createEvent(eventType, observable.getAttribute(attrName)));
         } catch (err) {
             dr.dumpStack(err);
         }
@@ -952,16 +902,16 @@ dr.Observer = new JS.Module('Observer', {
         // Providing a true value for once means we'll never actually attach.
         if (once) return;
         
-        this.attachTo(observable, methodName, eventType, once);
+        this.listenTo(observable, eventType, methodName, once);
     },
     
     /** Checks if this Observer is attached to the provided observable for
         the methodName and eventType.
         @param observable:dr.Observable the Observable to check with.
-        @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to check for.
+        @param methodName:string the method name on this instance to execute.
         @returns true if attached, false otherwise. */
-    isAttachedTo: function(observable, methodName, eventType) {
+    isListeningTo: function(observable, eventType, methodName) {
         if (observable && methodName && eventType) {
             var observablesByType = this.__obt;
             if (observablesByType) {
@@ -1003,13 +953,13 @@ dr.Observer = new JS.Module('Observer', {
     /** Registers this Observer with the provided Observable
         for the provided eventType.
         @param observable:dr.Observable the Observable to attach to.
-        @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to attach for.
+        @param methodName:string the method name on this instance to execute.
         @param once:boolean (optional) if true  this Observer will detach
             from the Observable after the event is handled once.
         @returns boolean true if the observable was successfully registered, 
             false otherwise. */
-    attachTo: function(observable, methodName, eventType, once) {
+    listenTo: function(observable, eventType, methodName, once) {
         if (observable && methodName && eventType) {
             var observables = this.getObservables(eventType);
             
@@ -1021,9 +971,9 @@ dr.Observer = new JS.Module('Observer', {
                 if (this.__methodNameCounter === undefined) this.__methodNameCounter = 0;
                 methodName = '__DO_ONCE_' + this.__methodNameCounter++;
                 
-                // Setup wrapper method that will do the detachFrom.
+                // Setup wrapper method that will do the stopListening.
                 this[methodName] = function(event) {
-                    self.detachFrom(observable, methodName, eventType);
+                    self.stopListening(observable, eventType, methodName);
                     delete self[methodName];
                     return self[origMethodName](event);
                 };
@@ -1041,11 +991,11 @@ dr.Observer = new JS.Module('Observer', {
     /** Unregisters this Observer from the provided Observable
         for the provided eventType.
         @param observable:dr.Observable the Observable to attach to.
-        @param methodName:string the method name on this instance to execute.
         @param eventType:string the event type to attach for.
+        @param methodName:string the method name on this instance to execute.
         @returns boolean true if one or more detachments occurred, false 
             otherwise. */
-    detachFrom: function(observable, methodName, eventType) {
+    stopListening: function(observable, eventType, methodName) {
         if (observable && methodName && eventType) {
             // No need to unregister if observable array doesn't exist.
             var observablesByType = this.__obt;
@@ -1076,7 +1026,7 @@ dr.Observer = new JS.Module('Observer', {
     /** Tries to detach this Observer from all Observables it
         is attached to.
         @returns void */
-    detachFromAllObservables: function() {
+    stopListeningToAllObservables: function() {
         var observablesByType = this.__obt;
         if (observablesByType) {
             var observables, i;
@@ -3621,11 +3571,11 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
                 value = JSON.parse(value);
                 break;
             case 'expression':
-            case '*':
                 if (typeof value === 'string') {
                     value = (new Function('return ' + value)).bind(this)();
                 }
                 break;
+            case '*':
             case 'object':
             case 'function':
             default:
@@ -3654,7 +3604,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
                 while (len > i) {
                     attrName = earlyAttrs[i++];
                     if (attrName in attrs) {
-                        this.set(attrName, attrs[attrName]);
+                        this.setAttribute(attrName, attrs[attrName]);
                         delete attrs[attrName];
                     }
                 }
@@ -3676,13 +3626,13 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
         }
         
         // Do normal setters
-        for (var attrName in attrs) this.set(attrName, attrs[attrName]);
+        for (var attrName in attrs) this.setAttribute(attrName, attrs[attrName]);
         
         // Do late setters
         if (extractedLateAttrs) {
             i = 0;
             len = extractedLateAttrs.length;
-            while (len > i) this.set(extractedLateAttrs[i++], extractedLateAttrs[i++]);
+            while (len > i) this.setAttribute(extractedLateAttrs[i++], extractedLateAttrs[i++]);
         }
     },
     
@@ -3690,7 +3640,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
         object. Will defer to a defined getter if it exists.
         @param attrName:string The name of the attribute to get.
         @returns the attribute value. */
-    get: function(attrName) {
+    getAttribute: function(attrName) {
         var getterName = dr.AccessorSupport.generateGetterName(attrName);
         return this[getterName] ? this[getterName]() : this[attrName];
     },
@@ -3702,7 +3652,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
         @param attrName:string The name of the attribute to set.
         @param value:* The value to set.
         @returns void */
-    set: function(attrName, value, isActual) {
+    setAttribute: function(attrName, value, isActual) {
         if (isActual) {
             var setterName = dr.AccessorSupport.generateSetterName(attrName);
             if (this[setterName]) {
@@ -3721,15 +3671,10 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
                 // Bind New Constraint if necessary and return actual value
                 if (!this.setupConstraint(attrName, value)) {
                     // Call set for the actual value
-                    this.set(attrName, value, true);
+                    this.setAttribute(attrName, value, true);
                 }
             }
         }
-    },
-    
-    /** Provides compatibility with existing dreem syntax. */
-    setAttribute: function(attrName, v) {
-        this.set(attrName, v, false);
     },
     
     // Common Setter Helpers //
@@ -3754,7 +3699,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
             if (beforeEventFunc) beforeEventFunc();
             
             // Fire an event if possible
-            if (this.initing === false && this.fireNewEvent) { // !== false allows this to work with non-nodes.
+            if (this.initing === false && this.fireNewEvent) {
                 this.fireNewEvent('on' + attrName, this[attrName]);
             }
             return true;
@@ -3774,7 +3719,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
             this[attrName] = value;
             
             // Fire an event if possible
-            if (fireEvent && this.initing === false && this.fireNewEvent) { // !== false allows this to work with non-nodes.
+            if (fireEvent && this.initing === false && this.fireNewEvent) {
                 this.fireNewEvent('on' + attrName, this[attrName]);
             }
             
@@ -3792,7 +3737,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
                 bindings = constraintInfo.bindings, i = bindings.length, binding;
             while (i) {
                 binding = bindings[--i];
-                this.detachFrom(binding.target, funcName, binding.eventName);
+                this.stopListening(binding.target, binding.eventName, funcName);
             }
             delete this[funcName];
             delete constraints[attrName];
@@ -3836,7 +3781,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
         }
         
         // Create function to be called for the constraint.
-        var fn = (new Function('this.set("' + attrName + '",' + expression + ', true)')).bind(this);
+        var fn = (new Function('this.setAttribute("' + attrName + '",' + expression + ', true)')).bind(this);
         
         // Resolve binding paths and start listening to binding targets
         if (fn) {
@@ -3858,7 +3803,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
                 
                 if (target) {
                     eventName = 'on' + scope.property;
-                    this.attachTo(target, funcName, eventName);
+                    this.listenTo(target, eventName, funcName);
                     bindings.push({target:target, eventName:eventName});
                 }
             }
@@ -4177,7 +4122,7 @@ dr.Eventable = new JS.Class('Eventable', {
     
     /** @overrides dr.Destructible. */
     destroy: function() {
-        this.detachFromAllObservables();
+        this.stopListeningToAllObservables();
         this.detachAllObservers();
         
         this.callSuper();
@@ -4191,7 +4136,7 @@ dr.Eventable = new JS.Class('Eventable', {
     relationships.
     
     When this mixin is used attachment and detachment should be done 
-    using the 'attachToPlatform' and 'detachFromPlatform' methods of this 
+    using the 'listenToPlatform' and 'stopListeningToPlatform' methods of this 
     mixin. If this is not done, it is possible for the relationship between 
     observer and observable to become broken.
     
@@ -4209,7 +4154,7 @@ dr.PlatformObserver = new JS.Module('PlatformObserver', {
     /** Attaches this PlatformObserverAdapter to the a SpriteBacked Node
         for an event type.
         @returns void */
-    attachToPlatform: function(spriteBacked, methodName, eventType, capture) {
+    listenToPlatform: function(spriteBacked, eventType, methodName, capture) {
         if (spriteBacked && methodName && eventType) {
             capture = !!capture;
             
@@ -4230,7 +4175,7 @@ dr.PlatformObserver = new JS.Module('PlatformObserver', {
     /** Detaches this PlatformObserverAdapter from a SpriteBacked Node for an
         event type.
         @returns boolean True if detachment succeeded, false otherwise. */
-    detachFromPlatform: function(spriteBacked, methodName, eventType, capture) {
+    stopListeningToPlatform: function(spriteBacked, eventType, methodName, capture) {
         if (spriteBacked && methodName && eventType) {
             capture = !!capture;
             
@@ -4268,7 +4213,7 @@ dr.PlatformObserver = new JS.Module('PlatformObserver', {
     
     /** Detaches this PlatformObserver from all PlatformObservables it is attached to.
         @returns void */
-    detachFromAllPlatformSources: function() {
+    stopListeningToAllPlatformSources: function() {
         var observablesByType = this.__dobt;
         if (observablesByType) {
             var observables, i, eventType;
@@ -4666,12 +4611,12 @@ dr.sprite.FocusObservable = new JS.Module('sprite.FocusObservable', {
         var view = this.view;
         if (v) {
             this.platformObject.tabIndex = 0; // Make focusable. -1 is programtic only
-            view.attachToPlatform(view, '__handleFocus', 'onfocus');
-            view.attachToPlatform(view, '__handleBlur', 'onblur');
+            view.listenToPlatform(view, 'onfocus', '__handleFocus');
+            view.listenToPlatform(view, 'onblur', '__handleBlur');
         } else if (wasFocusable) {
             this.platformObject.removeAttribute('tabIndex'); // Make unfocusable
-            view.detachFromPlatform(view, '__handleFocus', 'onfocus');
-            view.detachFromPlatform(view, '__handleBlur', 'onblur');
+            view.stopListeningToPlatform(view, 'onfocus', '__handleFocus');
+            view.stopListeningToPlatform(view, 'onblur', '__handleBlur');
         }
         return v;
     },
@@ -4859,7 +4804,7 @@ dr.sprite.View = new JS.Class('sprite.View', {
     
     set_visible: function(v) {
         var s = this.styleObj;
-        s.visibility = v ? 'inherit' : 'hidden';
+        s.visibility = v ? '' : 'hidden';
         
         // Move invisible elements to a very negative location so they won't
         // effect scrollable area. Ideally we could use display:none but we
@@ -5075,6 +5020,29 @@ dr.sprite.View = new JS.Class('sprite.View', {
             elem = elem.parentNode;
         }
         return ancestors;
+    },
+    
+    // Transforms //
+    updateTransform: function(xscale, yscale, rotation, z) {
+        var transform = ''
+        
+        // Generate scale transform configuration
+        if (xscale !== 1 || yscale !== 1) transform += 'scale3d(' + xscale + ',' + yscale + ',1.0)'
+        
+        // Generate rotation transform configuration
+        if (rotation % 360 !== 0) transform += ' rotate3d(0,0,1.0,' + rotation + 'deg)';
+        
+        // Generate z-order transform configuration
+        if (z !== 0) transform += ' translate3d(0,0,' + z + 'px)';
+        
+        this.styleObj[dr.sprite.platform.prefix.css + 'transform'] = transform;
+    },
+    
+    updateTransformOrigin: function(xanchor, yanchor, zanchor) {
+        if (xanchor !== 'left' && xanchor !== 'right' && xanchor !== 'center') xanchor += 'px';
+        if (yanchor !== 'top' && yanchor !== 'bottom' && yanchor !== 'center') yanchor += 'px';
+        
+        this.styleObj[dr.sprite.platform.prefix.css + 'transform-origin'] = xanchor + ' ' + yanchor + ' ' + zanchor + 'px';
     }
 });
 
@@ -5284,7 +5252,7 @@ dr.Node = new JS.Class('Node', {
         Subclasses must call callSuper.
         @returns void */
     destroyAfterOrphaning: function() {
-        this.detachFromAllObservables();
+        this.stopListeningToAllObservables();
         this.detachAllObservers();
     },
     
@@ -5800,7 +5768,7 @@ dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
             
             scope[counterAttrName] = initialValue;
             scope[thresholdAttrName] = thresholdValue;
-            scope.set(exceededAttrName, initialValue >= thresholdValue); // Check threshold
+            scope.setAttribute(exceededAttrName, initialValue >= thresholdValue); // Check threshold
         },
         
         /** Mixes ThresholdCounter functionality with a fixed threshold onto 
@@ -5876,7 +5844,7 @@ dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
             counterAttrName = counterAttrName || dr.AccessorSupport.generateName('counter', exceededAttrName);
             
             scope[counterAttrName] = initialValue;
-            scope.set(exceededAttrName, initialValue >= thresholdValue);
+            scope.setAttribute(exceededAttrName, initialValue >= thresholdValue);
         }
     },
     
@@ -6006,11 +5974,13 @@ dr.View = new JS.Class('View', dr.Node, {
         // Initialize default values to reduce setter calls during initialization
         // FIXME: __cfg_ values should be set too.
         this.x = this.y = this.width = this.height = 
+            this.boundsx = this.boundsy = this.boundswidth = this.boundsheight = this.boundsxdiff = this.boundsydiff = 
+            this.rotation = this.z = 
             this.leftborder = this.rightborder = this.topborder = this.bottomborder = this.border = 
             this.leftpadding = this.rightpadding = this.toppadding = this.bottompadding = this.padding = 
             this.scrollx = this.scrolly = 0;
         
-        this.opacity = 1;
+        this.opacity = this.xscale = this.yscale = 1;
         
         this.visible = this.focusembellishment = true;
         
@@ -6020,9 +5990,14 @@ dr.View = new JS.Class('View', dr.Node, {
         this.borderstyle = 'solid';
         this.cursor = 'auto';
         
+        this.xanchor = this.yanchor = 'center';
+        this.zanchor = 0;
+        
         this.set_sprite(this.createSprite(attrs));
         
         this.callSuper(parent, attrs);
+        
+        this.__updateBounds();
     },
     
     /** @overrides dr.Node */
@@ -6035,7 +6010,7 @@ dr.View = new JS.Class('View', dr.Node, {
     destroyAfterOrphaning: function() {
         this.callSuper();
         
-        this.detachFromAllPlatformSources();
+        this.stopListeningToAllPlatformSources();
         this.sprite.destroy();
     },
     
@@ -6099,12 +6074,13 @@ dr.View = new JS.Class('View', dr.Node, {
     set_scrollable: function(v) {
         if (this.setActual('scrollable', v, 'boolean', false)) {
             if (this.scrollable) {
-                this.attachToPlatform(this, '__handleScroll', 'onscroll');
+                this.listenToPlatform(this, 'onscroll', '__handleScroll');
             } else {
-                this.detachFromPlatform(this, '__handleScroll', 'onscroll');
+                this.stopListeningToPlatform(this, 'onscroll', '__handleScroll');
             }
         }
     },
+    
     set_scrollx: function(v) {
         if (isNaN(v)) {
             v = 0;
@@ -6113,6 +6089,7 @@ dr.View = new JS.Class('View', dr.Node, {
         }
         this.setActual('scrollx', v, 'number', 0);
     },
+    
     set_scrolly: function(v) {
         if (isNaN(v)) {
             v = 0;
@@ -6120,6 +6097,23 @@ dr.View = new JS.Class('View', dr.Node, {
             v = Math.max(0, Math.min(this.sprite.getScrollHeight() - this.height + this.topborder + this.bottomborder, v));
         }
         this.setActual('scrolly', v, 'number', 0);
+    },
+    
+    /** @private */
+    __handleScroll: function(platformEvent) {
+        var sprite = this.sprite,
+            x = sprite.getScrollX(),
+            y = sprite.getScrollY();
+        
+        if (this.scrollx !== x) this.set_scrollx(x);
+        if (this.scrolly !== y) this.set_scrolly(y);
+        
+        this.fireNewEvent('onscroll', {
+            scrollx:x,
+            scrolly:y,
+            scrollwidth:sprite.getScrollWidth(),
+            scrollheight:sprite.getScrollHeight()
+        });
     },
     
     // Border Attributes //
@@ -6231,6 +6225,76 @@ dr.View = new JS.Class('View', dr.Node, {
         }
     },
     
+    // Transform Attributes //
+    set_xscale: function(v) {
+        var self = this;
+        this.setActual('xscale', v, 'positivenumber', 1, function() {
+            self.__updateTransform();
+            self.__updateBounds();
+        });
+    },
+
+    set_yscale: function(v) {
+        var self = this;
+        this.setActual('yscale', v, 'positivenumber', 1, function() {
+            self.__updateTransform();
+            self.__updateBounds();
+        });
+    },
+
+    set_rotation: function(v) {
+        var self = this;
+        this.setActual('rotation', v, 'number', 0, function() {
+            self.__updateTransform();
+            self.__updateBounds();
+        });
+    },
+
+    set_z: function(v) {
+        this.setActual('z', v, 'number', 0, this.__updateTransform.bind(this));
+    },
+    
+    set_xanchor: function(v) {
+        if (v == null || v === '' || v === 'undefined') v = 'center';
+        var self = this;
+        this.setActual('xanchor', v, '*', 'center', function() {
+            self.__updateTransform();
+            self.__updateBounds();
+        });
+    },
+
+    set_yanchor: function(v) {
+        if (v == null || v === '' || v === 'undefined') v = 'center';
+        var self = this;
+        this.setActual('yanchor', v, '*', 'center', function() {
+            self.__updateTransform();
+            self.__updateBounds();
+        });
+    },
+
+    set_zanchor: function(v) {
+        if (v == null || v === '') v = 0;
+        this.setActual('zanchor', v, '*', 0, this.__updateTransform.bind(this));
+    },
+
+    /** @private */
+    __updateTransform: function() {
+        var xscale = this.xscale == null ? 1 : this.xscale,
+            yscale = this.yscale == null ? 1 : this.yscale,
+            rotation = this.rotation || 0,
+            z = this.z || 0;
+        
+        // Make it easy to determine that the bounds are different than the
+        // simple x, y, width, height box
+        var boundsAreDifferent = this.__boundsAreDifferent = xscale !== 1 || yscale !== 1 || rotation % 360 !== 0;
+        
+        // Apply to sprite
+        if (boundsAreDifferent || z !== 0) {
+            this.sprite.updateTransformOrigin(this.xanchor, this.yanchor, this.zanchor);
+        }
+        this.sprite.updateTransform(xscale, yscale, rotation, z);
+    },
+
     // Visual Attributes //
     set_clickable: function(v) {this.setActual('clickable', v, 'boolean', false);},
     set_clip: function(v) {this.setActual('clip', v, 'boolean', false);},
@@ -6249,6 +6313,7 @@ dr.View = new JS.Class('View', dr.Node, {
             this.setSimpleActual('innerwidth', this.width - this.__fullBorderPaddingWidth, true);
         }
     },
+    
     set_height: function(v) {
         // Prevent height smaller than border and padding
         v = Math.max(v, this.__fullBorderPaddingHeight);
@@ -6278,28 +6343,30 @@ dr.View = new JS.Class('View', dr.Node, {
         @private
         @returns void */
     __updateBounds: function() {
-        this.setActual('boundsxdiff', 0, 'number', 0); // FIXME
-        this.setActual('boundswidth', this.width, 'positivenumber', 0);
-        
-        this.setActual('boundsydiff', 0, 'number', 0); // FIXME
-        this.setActual('boundsheight', this.height, 'positivenumber', 0);
-    },
-    
-    /** @private */
-    __handleScroll: function(platformEvent) {
-        var sprite = this.sprite,
-            x = sprite.getScrollX(),
-            y = sprite.getScrollY();
-        
-        if (this.scrollx !== x) this.set_scrollx(x);
-        if (this.scrolly !== y) this.set_scrolly(y);
-        
-        this.fireNewEvent('onscroll', {
-            scrollx:x,
-            scrolly:y,
-            scrollwidth:sprite.getScrollWidth(),
-            scrollheight:sprite.getScrollHeight()
-        });
+        if (this.initing === false) {
+            var bounds, width, height, x, y, xdiff, ydiff;
+            if (this.__boundsAreDifferent) {
+                bounds = this.getBoundsRelativeToParent();
+                width = bounds.width;
+                height = bounds.height;
+                x = bounds.x;
+                y = bounds.y;
+                xdiff = this.x - x;
+                ydiff = this.y - y;
+            } else {
+                x = this.x;
+                y = this.y;
+                xdiff = ydiff = 0;
+                width = this.width;
+                height = this.height;
+            }
+            if (!dr.closeTo(this.boundsx, x)) this.setActual('boundsx', x, 'number', 0);
+            if (!dr.closeTo(this.boundsy, y)) this.setActual('boundsy', y, 'number', 0);
+            if (!dr.closeTo(this.boundswidth, width)) this.setActual('boundswidth', width, 'positivenumber', 0);
+            if (!dr.closeTo(this.boundsheight, height)) this.setActual('boundsheight', height, 'positivenumber', 0);
+            if (!dr.closeTo(this.boundsxdiff, xdiff)) this.setActual('boundsxdiff', xdiff, 'number', 0);
+            if (!dr.closeTo(this.boundsydiff, ydiff)) this.setActual('boundsydiff', ydiff, 'number', 0);
+        }
     },
     
     
@@ -6310,6 +6377,43 @@ dr.View = new JS.Class('View', dr.Node, {
             be determined. */
     getAbsolutePosition: function() {
         return this.sprite.getAbsolutePosition();
+    },
+    
+    getBoundsRelativeToParent: function() {
+        var xanchor = this.xanchor,
+            yanchor = this.yanchor,
+            w = this.width,
+            h = this.height;
+        
+        if (xanchor === 'left') {
+            xanchor = 0;
+        } else if (xanchor === 'center') {
+            xanchor = w / 2;
+        } else if (xanchor === 'right') {
+            xanchor = w;
+        } else {
+            xanchor = Number(xanchor);
+        }
+        
+        if (yanchor === 'top') {
+            yanchor = 0;
+        } else if (yanchor === 'center') {
+            yanchor = h / 2;
+        } else if (yanchor === 'bottom') {
+            yanchor = h;
+        } else {
+            yanchor = Number(yanchor);
+        }
+        
+        // Create a path from the 4 corners of the normal view box and then apply
+        // the transform to get the bounding box.
+        var x1 = this.x,
+            x2 = x1 + w,
+            y1 = this.y,
+            y2 = y1 + h;
+        return (new dr.Path([x1,y1,x2,y1,x2,y2,x1,y2])).transformAroundOrigin(
+            this.xscale, this.yscale, this.rotation, xanchor + x1, yanchor + y1
+        ).getBoundingBox()
     },
     
     /** Checks if this view is visible and each view in the parent chain to
@@ -6425,13 +6529,13 @@ dr.View = new JS.Class('View', dr.Node, {
         var hints = this.layouthint;
         if (hints) {
             var hint = hints[layoutName + '/' + hintName];
-            if (hint) return hint;
+            if (hint != null) return hint;
             
             hint = hints[hintName];
-            if (hint) return hint;
+            if (hint != null) return hint;
             
             hint = hints['*/' + hintName];
-            if (hint) return hint;
+            if (hint != null) return hint;
         } else {
           // No hints exist
         }
@@ -6534,6 +6638,117 @@ dr.View = new JS.Class('View', dr.Node, {
 });
 
 
+/** An ordered collection of points that can be applied to a canvas.
+    
+    Attributes:
+        vectors:array The data is stored in a single array with the x coordinate
+            first and the y coordinate second.
+        _boundingBox:object the cached bounding box if it has been calculated.
+*/
+dr.Path = new JS.Class('Path', {
+    // Constructor /////////////////////////////////////////////////////////////
+    /** Create a new Path. */
+    initialize: function(vectors) {
+        this._boundingBox = null;
+        this.vectors = vectors || [];
+    },
+    
+    
+    // Methods /////////////////////////////////////////////////////////////////
+    /** Convert radians to degrees.
+        @param {Number} deg The degrees to convert.
+        @return {Number} The radians */
+    degreesToRadians: function(deg) {
+        return deg * Math.PI / 180;
+    },
+  
+    /** Convert degrees to radians.
+        @param {Number} rad The radians to convert.
+        @return {Number} The radians */
+    radiansToDegrees: function(rad) {
+        return rad * 180 / Math.PI;
+    },
+    
+    /** Shift this path by the provided x and y amount. */
+    translate: function(dx, dy) {
+        var vecs = this.vectors, i = vecs.length;
+        while (i) {
+            vecs[--i] += dy;
+            vecs[--i] += dx;
+        }
+        this._boundingBox = null;
+        return this;
+    },
+    
+    /** Rotates this path around 0,0 by the provided angle in degrees.
+        @param a:number The angle in degrees to rotate. */
+    rotate: function(a) {
+        a = this.degreesToRadians(a);
+        
+        var cosA = Math.cos(a), sinA = Math.sin(a),
+            vecs = this.vectors, len = vecs.length,
+            xNew, yNew, i = 0;
+        for (; len > i;) {
+            xNew = vecs[i] * cosA - vecs[i + 1] * sinA;
+            yNew = vecs[i] * sinA + vecs[i + 1] * cosA;
+            
+            vecs[i++] = xNew;
+            vecs[i++] = yNew;
+        }
+        this._boundingBox = null;
+        return this;
+    },
+    
+    /** Scales this path around the origin by the provided scale amount
+        @param sx:number The amount to scale along the x-axis.
+        @param sy:number The amount to scale along the y-axis. */
+    scale: function(sx, sy) {
+        var vecs = this.vectors, i = vecs.length;
+        while (i) {
+          vecs[--i] *= sy;
+          vecs[--i] *= sx;
+        }
+        this._boundingBox = null;
+        return this;
+    },
+    
+    /** Rotates and scales this path around the provided origin by the angle in
+        degrees, scalex and scaley.
+        @param scalex:number The amount to scale along the x axis.
+        @param scaley:number The amount to scale along the y axis.
+        @param angle:number The amount to scale.
+        @param xOrigin:number The amount to scale.
+        @param yOrigin:number The amount to scale. */
+    transformAroundOrigin: function(scalex, scaley, angle, xOrigin, yOrigin) {
+        return this.translate(-xOrigin, -yOrigin).rotate(angle).scale(scalex, scaley).translate(xOrigin, yOrigin);
+    },
+    
+    /** Gets the bounding box for this path.
+        @return object with properties x, y, width and height or null
+            if no bounding box could be calculated. */
+    getBoundingBox: function() {
+        if (this._boundingBox) return this._boundingBox;
+        
+        var vecs = this.vectors, i = vecs.length, x, y, minX, maxX, minY, maxY;
+        if (i >= 2) {
+            minY = maxY = vecs[--i];
+            minX = maxX = vecs[--i];
+            while (i) {
+                y = vecs[--i];
+                x = vecs[--i];
+                minY = Math.min(y, minY);
+                maxY = Math.max(y, maxY);
+                minX = Math.min(x, minX);
+                maxX = Math.max(x, maxX);
+            }
+            return this._boundingBox = {x:minX, y:minY, width:maxX - minX, height:maxY - minY};
+        }
+        
+        return this._boundingBox = null;
+    }
+});
+
+
 /** Provides events when a new dr.RootView is created or destroyed.
     Registered in dr.global as 'roots'.
     
@@ -6577,7 +6792,7 @@ new JS.Singleton('GlobalRootViewRegistry', {
         
         // If dr is already ready then make the new root view ready
         // immediately.
-        if (dr.ready) r.set('ready', true);
+        if (dr.ready) r.setAttribute('ready', true);
         
         this.fireNewEvent('onrootAdded', r);
     },
@@ -6769,7 +6984,7 @@ dr.SizeToViewport = new JS.Module('SizeToViewport', {
         this.minwidth = this.minheight = 0;
         if (attrs.resizedimension === undefined) attrs.resizedimension = 'both';
         
-        this.attachTo(dr.global.viewportResize, '__handleResize', 'onresize');
+        this.listenTo(dr.global.viewportResize, 'onresize', '__handleResize');
         this.callSuper(parent, attrs);
     },
     
@@ -6946,7 +7161,7 @@ new JS.Singleton('GlobalIdle', {
                         }
                     }
                 }]);
-            observer.attachTo(this, 'invoke', 'onidle', true);
+            observer.listenTo(this, 'onidle', 'invoke', true);
         }
     }
 });
@@ -7055,11 +7270,11 @@ dr.Animator = new JS.Class('Animator', dr.Node, {
         if (this.setActual('running', v, 'boolean', false)) {
             if (!this.paused) {
                 if (v) {
-                    this.attachTo(dr.global.idle, '__update', 'onidle');
+                    this.listenTo(dr.global.idle, 'onidle', '__update');
                 } else {
                     if (this.__temporaryFrom) this.from = undefined;
                     this.__reset();
-                    this.detachFrom(dr.global.idle, '__update', 'onidle');
+                    this.stopListening(dr.global.idle, 'onidle', '__update');
                 }
             }
         }
@@ -7069,9 +7284,9 @@ dr.Animator = new JS.Class('Animator', dr.Node, {
         if (this.setActual('paused', v, 'boolean', false)) {
             if (this.running) {
                 if (v) {
-                    this.detachFrom(dr.global.idle, '__update', 'onidle');
+                    this.stopListening(dr.global.idle, 'onidle', '__update');
                 } else {
-                    this.attachTo(dr.global.idle, '__update', 'onidle');
+                    this.listenTo(dr.global.idle, 'onidle', '__update');
                 }
             }
         }
@@ -7174,7 +7389,7 @@ dr.Animator = new JS.Class('Animator', dr.Node, {
                 // Apply to attribute
                 if (this.from == null) {
                     this.__temporaryFrom = true;
-                    this.from = this.relative ? 0 : target.get(attr);
+                    this.from = this.relative ? 0 : target.getAttribute(attr);
                 }
                 var from = this.from,
                     attrDiff = this.to - from,
@@ -7184,10 +7399,10 @@ dr.Animator = new JS.Class('Animator', dr.Node, {
                     // multiple animators to be animating the same attribute
                     // at one time.
                     var oldValue = this.easingfunction(oldProgress, attrDiff, duration),
-                        curValue = target.get(attr);
-                    target.set(attr, curValue + newValue - oldValue);
+                        curValue = target.getAttribute(attr);
+                    target.setAttribute(attr, curValue + newValue - oldValue);
                 } else {
-                    target.set(attr, from + newValue);
+                    target.setAttribute(attr, from + newValue);
                 }
                 
                 if (
@@ -7524,8 +7739,8 @@ dr.MouseOver = new JS.Module('MouseOver', {
         
         this.callSuper(parent, attrs);
         
-        this.attachToPlatform(this, 'doMouseOver', 'onmouseover');
-        this.attachToPlatform(this, 'doMouseOut', 'onmouseout');
+        this.listenToPlatform(this, 'onmouseover', 'doMouseOver');
+        this.listenToPlatform(this, 'onmouseout', 'doMouseOut');
     },
     
     
@@ -7535,7 +7750,7 @@ dr.MouseOver = new JS.Module('MouseOver', {
             // Smooth over/out events by delaying until the next onidle event.
             if (this.initing === false && !this.__attachedToOverIdle) {
                 this.__attachedToOverIdle = true;
-                this.attachTo(dr.global.idle, '__doMouseOverOnIdle', 'onidle');
+                this.listenTo(dr.global.idle, 'onidle', '__doMouseOverOnIdle');
             }
         }
     },
@@ -7553,7 +7768,7 @@ dr.MouseOver = new JS.Module('MouseOver', {
     // Methods /////////////////////////////////////////////////////////////////
     /** @private */
     __doMouseOverOnIdle: function() {
-        this.detachFrom(dr.global.idle, '__doMouseOverOnIdle', 'onidle');
+        this.stopListening(dr.global.idle, 'onidle', '__doMouseOverOnIdle');
         this.__attachedToOverIdle = false;
         
         // Only call doSmoothOver if the over/out state has changed since the
@@ -7657,8 +7872,8 @@ dr.MouseDown = new JS.Module('MouseDown', {
         
         this.callSuper(parent, attrs);
         
-        this.attachToPlatform(this, 'doMouseDown', 'onmousedown');
-        this.attachToPlatform(this, 'doMouseUp', 'onmouseup');
+        this.listenToPlatform(this, 'onmousedown', 'doMouseDown');
+        this.listenToPlatform(this, 'onmouseup', 'doMouseUp');
     },
     
     
@@ -7686,7 +7901,7 @@ dr.MouseDown = new JS.Module('MouseDown', {
     /** @overrides dr.MouseOver */
     doMouseOver: function(event) {
         this.callSuper(event);
-        if (this.mousedown) this.detachFromPlatform(dr.global.mouse, 'doMouseUp', 'onmouseup', true);
+        if (this.mousedown) this.stopListeningToPlatform(dr.global.mouse, 'onmouseup', 'doMouseUp', true);
     },
     
     /** @overrides dr.MouseOver */
@@ -7697,7 +7912,7 @@ dr.MouseDown = new JS.Module('MouseDown', {
         // view while the mouse is still down. This allows the user to move
         // the mouse in and out of the view with the view still behaving 
         // as moused down.
-        if (!this.disabled && this.mousedown) this.attachToPlatform(dr.global.mouse, 'doMouseUp', 'onmouseup', true);
+        if (!this.disabled && this.mousedown) this.listenToPlatform(dr.global.mouse, 'onmouseup', 'doMouseUp', true);
     },
     
     /** Called when the mouse is down on this view. Subclasses must call callSuper.
@@ -7711,7 +7926,7 @@ dr.MouseDown = new JS.Module('MouseDown', {
     doMouseUp: function(event) {
         // Cleanup global mouse listener since the mouseUp occurred outside
         // the view.
-        if (!this.mouseover) this.detachFromPlatform(dr.global.mouse, 'doMouseUp', 'onmouseup', true);
+        if (!this.mouseover) this.stopListeningToPlatform(dr.global.mouse, 'onmouseup', 'doMouseUp', true);
         
         if (!this.disabled && this.mousedown) {
             this.set_mousedown(false);
@@ -7798,15 +8013,15 @@ dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
         if (focused) {
             this.__unlistenToDocument();
             
-            view.attachToPlatform(focused, '__handleKeyDown', 'onkeydown');
-            view.attachToPlatform(focused, '__handleKeyPress', 'onkeypress');
-            view.attachToPlatform(focused, '__handleKeyUp', 'onkeyup');
+            view.listenToPlatform(focused, 'onkeydown', '__handleKeyDown');
+            view.listenToPlatform(focused, 'onkeypress', '__handleKeyPress');
+            view.listenToPlatform(focused, 'onkeyup', '__handleKeyUp');
         } else {
             var prevFocused = dr.sprite.focus.prevFocusedView;
             if (prevFocused) {
-                view.detachFromPlatform(prevFocused, '__handleKeyDown', 'onkeydown');
-                view.detachFromPlatform(prevFocused, '__handleKeyPress', 'onkeypress');
-                view.detachFromPlatform(prevFocused, '__handleKeyUp', 'onkeyup');
+                view.stopListeningToPlatform(prevFocused, 'onkeydown', '__handleKeyDown');
+                view.stopListeningToPlatform(prevFocused, 'onkeypress', '__handleKeyPress');
+                view.stopListeningToPlatform(prevFocused, 'onkeyup', '__handleKeyUp');
             }
             
             this.__listenToDocument();
@@ -7816,17 +8031,17 @@ dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
     /** @private */
     __listenToDocument: function() {
         var view = this.view;
-        view.attachToPlatform(view, '__handleKeyDown', 'onkeydown');
-        view.attachToPlatform(view, '__handleKeyPress', 'onkeypress');
-        view.attachToPlatform(view, '__handleKeyUp', 'onkeyup');
+        view.listenToPlatform(view, 'onkeydown', '__handleKeyDown');
+        view.listenToPlatform(view, 'onkeypress', '__handleKeyPress');
+        view.listenToPlatform(view, 'onkeyup', '__handleKeyUp');
     },
     
     /** @private */
     __unlistenToDocument: function() {
         var view = this.view;
-        view.detachFromPlatform(view, '__handleKeyDown', 'onkeydown');
-        view.detachFromPlatform(view, '__handleKeyPress', 'onkeypress');
-        view.detachFromPlatform(view, '__handleKeyUp', 'onkeyup');
+        view.stopListeningToPlatform(view, 'onkeydown', '__handleKeyDown');
+        view.stopListeningToPlatform(view, 'onkeypress', '__handleKeyPress');
+        view.stopListeningToPlatform(view, 'onkeyup', '__handleKeyUp');
     },
     
     /** @private */
@@ -8031,7 +8246,7 @@ new JS.Singleton('GlobalKeys', {
     initialize: function() {
         this.set_sprite(this.createSprite());
         
-        this.attachTo(dr.global.focus, '__handleFocused', 'onfocused');
+        this.listenTo(dr.global.focus, 'onfocused', '__handleFocused');
         
         this.sprite.__listenToDocument();
         
@@ -8146,9 +8361,9 @@ dr.KeyActivation = new JS.Module('KeyActivation', {
         
         this.callSuper(parent, attrs);
         
-        this.attachToPlatform(this, '__handleKeyDown', 'onkeydown');
-        this.attachToPlatform(this, '__handleKeyPress', 'onkeypress');
-        this.attachToPlatform(this, '__handleKeyUp', 'onkeyup');
+        this.listenToPlatform(this, 'onkeydown', '__handleKeyDown');
+        this.listenToPlatform(this, 'onkeypress', '__handleKeyPress');
+        this.listenToPlatform(this, 'onkeyup', '__handleKeyUp');
     },
     
     

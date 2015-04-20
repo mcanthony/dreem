@@ -38,11 +38,11 @@
         
         switch @count
           when 1
-            @set('width', 2 * @width)
-            @set('height', 2 * @height) 
+            @setAttribute('width', 2 * @width)
+            @setAttribute('height', 2 * @height) 
           when 2
-            @set('width', @width / 2) 
-            @set('height', @height / 2)
+            @setAttribute('width', @width / 2) 
+            @setAttribute('height', @height / 2)
           when 3
             @destroy()
       </handler>

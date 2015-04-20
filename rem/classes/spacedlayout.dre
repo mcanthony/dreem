@@ -155,18 +155,18 @@ SOFTWARE. -->
     @super()
     
     # Monitor each subview's measure and bounds offset
-    @attachTo(view, 'update', 'on' + @__measureAttrName)
-    @attachTo(view, 'update', 'on' + @__diffAttrName)
-    @attachTo(view, 'update', 'onlayouthint')
+    @listenTo(view, 'on' + @__measureAttrName, 'update')
+    @listenTo(view, 'on' + @__diffAttrName, 'update')
+    @listenTo(view, 'onlayouthint', 'update')
   </method>
   
   <method name="stopMonitoringSubview" args="view">
     @super()
     
     # No longer monitor each subview's measure and bounds offset
-    @detachFrom(view, 'update', 'on' + @__measureAttrName)
-    @detachFrom(view, 'update', 'on' + @__diffAttrName)
-    @detachFrom(view, 'update', 'onlayouthint')
+    @stopListening(view, 'on' + @__measureAttrName, 'update')
+    @stopListening(view, 'on' + @__diffAttrName, 'update')
+    @stopListening(view, 'onlayouthint', 'update')
   </method>
   
   <method name="updateSubview" args="count, view, attribute, value">

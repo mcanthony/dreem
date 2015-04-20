@@ -408,9 +408,6 @@ TODO:
   - auto w,h
   - align x,y
   
-  - borders
-  - padding
-  - transforms
   - z-order
   - rounded corners
   

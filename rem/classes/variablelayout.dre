@@ -163,7 +163,7 @@ SOFTWARE. -->
     * @param {dr.view} view
     */-->
   <method name="startMonitoringSubview" args="view">
-    @attachTo(view, 'update', 'onvisible')
+    @listenTo(view, 'onvisible', 'update')
   </method>
 
   <!--/**
@@ -173,7 +173,7 @@ SOFTWARE. -->
     * @param {dr.view} view
     */-->
   <method name="stopMonitoringSubview" args="view">
-    @detachFrom(view, 'update', 'onvisible')
+    @stopListening(view, 'onvisible', 'update')
   </method>
 
   <!--/**

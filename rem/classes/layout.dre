@@ -63,9 +63,9 @@ SOFTWARE. -->
 
     # Listen to the parent for added/removed views. Bind needed because the
     # callback scope is the monitored object not the monitoring object.
-    @attachTo(@parent, 'addSubview', 'onsubviewAdded')
-    @attachTo(@parent, 'removeSubview', 'onsubviewRemoved')
-    @attachTo(@parent, 'update', 'oninit')
+    @listenTo(@parent, 'onsubviewAdded', 'addSubview')
+    @listenTo(@parent, 'onsubviewRemoved', 'removeSubview')
+    @listenTo(@parent, 'oninit', 'update')
 
     @parent.fireNewEvent('layouts', @parent.layouts)
 
@@ -140,7 +140,7 @@ SOFTWARE. -->
     * @return {void}
     */-->
   <method name="startMonitoringSubviewForIgnore" args="view, func">
-    @attachTo(view, func, 'onignorelayout')
+    @listenTo(view, 'onignorelayout', func)
   </method>
 
   <!--/**
@@ -152,7 +152,7 @@ SOFTWARE. -->
     * @return {void}
     */-->
   <method name="stopMonitoringSubviewForIgnore" args="view, func">
-    @detachFrom(view, func, 'onignorelayout')
+    @stopListening(view, 'onignorelayout', func)
   </method>
 
   <!--/**
