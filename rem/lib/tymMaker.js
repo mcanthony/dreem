@@ -37,7 +37,7 @@ define(function(require, exports){
     // Classes
     node:true,
     view:true,
-    baselayout:true,
+    layout:true,
     button:true,
     animator:true,
     
@@ -71,7 +71,7 @@ define(function(require, exports){
     pkg.compiledClasses = {
       node:dr.Node,
       view:dr.View,
-      baselayout:dr.BaseLayout,
+      layout:dr.Layout,
       button:dr.Button,
       animator:dr.Animator
     };
@@ -401,12 +401,8 @@ define(function(require, exports){
 /*
 TODO:
   - Handle body text
-  - Do we need to register constraints for runtime view instantiation?
   
-  - Percent x,y,w,h
-    - SizeToViewport needs to be rewritten to support % values
   - auto w,h
-  - align x,y
   
   - z-order
   - rounded corners

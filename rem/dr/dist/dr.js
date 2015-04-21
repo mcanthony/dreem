@@ -477,6 +477,10 @@ dr = {
         return ++this.__GUID_COUNTER;
     },
     
+    /** Common noop function. Also used as a return value for setters to prevent
+        the default setAttribute behavior. */
+    noop: function() {},
+    
     /** Takes a '.' separated string such as "foo.bar.baz" and resolves it
         into the value found at that location relative to a starting scope.
         If no scope is provided global scope is used.
@@ -624,8 +628,6 @@ dr = {
     /** Called at the end of instantiation. Bind all the constraints registered
         during instantiation and notifies each root view that we are "ready". */
     notifyReady: function() {
-        dr.AccessorSupport.CONSTRAINTS.notifyReadyForConstraints();
-        
         var rootViews = dr.global.roots.getRoots(), len = rootViews.length, i = 0, rootView;
         for (; len > i;) {
             rootView = rootViews[i++];
@@ -3481,27 +3483,25 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
                 }
             },
             
-            REGISTERED_CONSTRAINTS: [],
-            
-            readyForConstraints:false,
-            
-            isReadyForConstraints: function() {
-                return this.readyForConstraints;
+            __registeredConstraints: [],
+            __lockCount: 0,
+            incrementLockCount: function() {
+                ++this.__lockCount;
             },
-            
-            notifyReadyForConstraints: function() {
-                this.readyForConstraints = true;
-                this.bindConstraints();
+            decrementLockCount: function() {
+                if (--this.__lockCount === 0) {
+                    // Bind constraints
+                    var rcs = this.__registeredConstraints;
+                    while (rcs.length) rcs.shift().bindConstraint(rcs.shift(), rcs.shift(), true);
+                }
             },
-            
             registerConstraint: function(node, attrName, expression) {
-                this.REGISTERED_CONSTRAINTS.push(node, attrName, expression);
-                if (this.isReadyForConstraints()) this.bindConstraints();
-            },
-            
-            bindConstraints: function() {
-                var rcs = this.REGISTERED_CONSTRAINTS;
-                while (rcs.length) rcs.shift().bindConstraint(rcs.shift(), rcs.shift(), true);
+                if (this.__lockCount === 0) {
+                    // Bind immediatly if no nodes are being instantiated.
+                    node.bindConstraint(attrName, expression);
+                } else {
+                    this.__registeredConstraints.push(node, attrName, expression);
+                }
             }
         }
     },
@@ -3750,15 +3750,10 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
         @return boolean True if the value was a constraint, false otherwise. */
     setupConstraint: function(attrName, value) {
         if (typeof value === 'string' && value.startsWith('${') && value.endsWith('}')) {
-            var CONSTRAINTS = dr.AccessorSupport.CONSTRAINTS,
-                expression = value.substring(2, value.length - 1);
-            if (CONSTRAINTS.isReadyForConstraints()) {
-                // Bind immediately if the view system is ready for constraints.
-                this.bindConstraint(attrName, expression, false);
-            } else {
-                // Defer constraint resolution until later.
-                CONSTRAINTS.registerConstraint(this, attrName, expression);
-            }
+            // Defer constraint resolution until later.
+            dr.AccessorSupport.CONSTRAINTS.registerConstraint(
+                this, attrName, value.substring(2, value.length - 1)
+            );
             return true;
         }
         return false;
@@ -4115,7 +4110,13 @@ dr.Eventable = new JS.Class('Eventable', {
         @param attrs:object A map of attribute names and values.
         @returns void */
     init: function(attrs) {
+        var CONSTRAINTS = dr.AccessorSupport.CONSTRAINTS;
+        CONSTRAINTS.incrementLockCount();
+        
         this.callSetters(attrs);
+        
+        CONSTRAINTS.decrementLockCount();
+        
         this.initing = false;
         this.inited = true;
     },
@@ -5173,12 +5174,17 @@ dr.Node = new JS.Class('Node', {
         @param attrs:object A map of attribute names and values.
         @returns void */
     initNode: function(parent, attrs) {
+        var CONSTRAINTS = dr.AccessorSupport.CONSTRAINTS;
+        CONSTRAINTS.incrementLockCount();
+        
         this.callSetters(attrs);
         this.doBeforeAdoption();
         this.set_parent(parent);
         this.doAfterAdoption();
         this.__makeChildren();
         this.__registerHandlers();
+        
+        CONSTRAINTS.decrementLockCount();
         
         this.initing = false;
         
@@ -5650,8 +5656,304 @@ dr.Node = new JS.Class('Node', {
 });
 
 
-/** Marks subclasses as layouts. */
-dr.BaseLayout = new JS.Class('BaseLayout', dr.Node, {});
+/** @class dr.layout {Layout}
+    @extends dr.baselayout
+    When a new layout is added, it will automatically create and add itself 
+    to a layouts array in its parent. In addition, an onlayouts event is 
+    fired in the parent when the layouts array changes. This allows the 
+    parent to access the layout(s) later.
+    
+    Here is a view that contains a spacedlayout.
+    
+        @example
+        <spacedlayout axis="y"></spacedlayout>
+        
+        <view bgcolor="oldlace" width="auto" height="auto">
+          <spacedlayout>
+            <method name="startMonitoringSubview" args="view">
+              output.setAttribute('text', output.text + "View Added: " + view.$tagname + ":" + view.bgcolor + "\n");
+              this.super();
+            </method>
+          </spacedlayout>
+          <view width="50" height="50" bgcolor="lightpink" opacity=".3"></view>
+          <view width="50" height="50" bgcolor="plum" opacity=".3"></view>
+          <view width="50" height="50" bgcolor="lightblue" opacity=".3"></view>
+        </view>
+        
+        <text id="output" multiline="true" width="300"></text>
+*/
+dr.Layout = new JS.Class('Layout', dr.Node, {
+    // Life Cycle //////////////////////////////////////////////////////////////
+    initNode: function(parent, attrs) {
+        // Remember initial lock state so we can restore it after initialization
+        // is complete. We will always lock a layout during initialization to
+        // prevent extraneous updates
+        var attrLocked;
+        if (attrs.locked != null) attrLocked = attrs.locked === 'true';
+        this.locked = true;
+        
+        // Holds the views managed by the layout in the order they will be
+        // layed out.
+        this.subviews = [];
+        
+        this.callSuper(parent, attrs);
+        
+        // Listen to the parent for added/removed views. Bind needed because the
+        // callback scope is the monitored object not the monitoring object.
+        parent = this.parent;
+        this.listenTo(parent, 'onsubviewAdded', 'addSubview');
+        this.listenTo(parent, 'onsubviewRemoved', 'removeSubview');
+        this.listenTo(parent, 'oninit', 'update');
+        
+        parent.fireNewEvent('layouts', parent.getLayouts());
+        
+        // Start monitoring existing subviews
+        var subviews = parent.getSubviews(), len = subviews.length, i = 0;
+        for (; len > i;) this.addSubview(subviews[i++]);
+        
+        // Restore initial lock state or unlock now that initialization is done.
+        this.locked = attrLocked != null ? attrLocked : false;
+        
+        // Finally, update the layout once
+        this.update();
+    },
+    
+    destroy: function() {
+        this.locked = true;
+        this.callSuper();
+    },
+    
+    
+    // Attributes //////////////////////////////////////////////////////////////
+    set_locked: function(v) {
+        // Update the layout immediately if changing to false
+        if (this.setActual('locked', v, 'boolean', false)) {
+            if (this.inited && !this.locked) this.update();
+        }
+    },
+    
+    
+    // Methods /////////////////////////////////////////////////////////////////
+    /** Adds the provided view to the subviews array of this layout, starts
+        monitoring the view for changes and updates the layout.
+        @param {dr.view} view The view to add to this layout.
+        @return {void} */
+    addSubview: function(view) {
+        var self = this,
+            func = this.__ignoreFunc = function(ignorelayout) {
+                if (self.__removeSubview(view) === -1) self.__addSubview(view);
+            };
+        this.startMonitoringSubviewForIgnore(view, func);
+        this.__addSubview(view);
+    },
+
+    /** @private */
+    __addSubview: function(view) {
+        if (!this.ignore(view)) {
+            this.subviews.push(view);
+            this.startMonitoringSubview(view);
+            if (!this.locked) this.update();
+        }
+    },
+  
+    /** Removes the provided View from the subviews array of this Layout,
+        stops monitoring the view for changes and updates the layout.
+        @param {dr.view} view The view to remove from this layout.
+        @return {number} the index of the removed subview or -1 if not removed. */
+    removeSubview: function(view) {
+        this.stopMonitoringSubviewForIgnore(view, this.__ignoreFunc);
+        return this.ignore(view) ? -1 : this.__removeSubview(view);
+    },
+
+    /** @private */
+    __removeSubview: function(view) {
+        var idx = this.subviews.indexOf(view);
+        if (idx !== -1) {
+            this.stopMonitoringSubview(view);
+            this.subviews.splice(idx, 1);
+            if (!this.locked) this.update();
+        }
+        return idx;
+    },
+
+    /** Use this method to add listeners for any properties that need to be
+        monitored on a subview that determine if it will be ignored by the layout.
+        Each listenTo should look like: this.listenTo(view, propname, func)
+        The default implementation monitors ignorelayout.
+        @param {dr.view} view The view to monitor.
+        @return {void} */
+    startMonitoringSubviewForIgnore: function(view, func) {
+        this.listenTo(view, 'onignorelayout', func);
+    },
+
+    /** Use this method to remove listeners for any properties that need to be
+        monitored on a subview that determine if it will be ignored by the layout.
+        Each stopListening should look like: this.stopListening(view, propname, func)
+        The default implementation monitors ignorelayout.
+        @param {dr.view} view The view to monitor.
+        @return {void} */
+    stopMonitoringSubviewForIgnore: function(view, func) {
+        this.stopListening(view, 'onignorelayout', func);
+    },
+
+    /** Checks if a subview can be added to this Layout or not. The default
+        implementation checks the 'ignorelayout' attributes of the subview.
+        @param {dr.view} view The view to check.
+        @return {boolean} True means the subview will be skipped, false otherwise. */
+    ignore: function(view) {
+        var ignore = view.ignorelayout;
+        if (typeof ignore === 'object') {
+            var name = this.name;
+            if (name) {
+                var v = ignore[name];
+                if (v != null) return v;
+            }
+            return ignore['*'];
+        }
+        return ignore;
+    },
+
+    /** Subclasses should implement this method to start listening to
+        events from the subview that should update the layout. The default
+        implementation does nothing.
+        @param {dr.view} view The view to start monitoring for changes.
+        @return {void} */
+    startMonitoringSubview: function(view) {
+        // Empty implementation by default
+    },
+
+    /** Calls startMonitoringSubview for all views. Used by layout
+        implementations when a change occurs to the layout that requires
+        refreshing all the subview monitoring.
+        @return {void} */
+    startMonitoringAllSubviews: function() {
+        var svs = this.subviews, i = svs.length;
+        while (i) this.startMonitoringSubview(svs[--i]);
+    },
+
+    /** Subclasses should implement this method to stop listening to
+        events from the subview that should update the layout. This
+        should remove all listeners that were setup in startMonitoringSubview.
+        The default implementation does nothing.
+        @param {dr.view} view The view to stop monitoring for changes.
+        @return {void} */
+    stopMonitoringSubview: function(view) {
+        // Empty implementation by default
+    },
+
+    /** Calls stopMonitoringSubview for all views. Used by Layout
+        implementations when a change occurs to the layout that requires
+        refreshing all the subview monitoring.
+        @return {void} */
+    stopMonitoringAllSubviews: function() {
+        var svs = this.subviews, i = svs.length;
+        while (i) this.stopMonitoringSubview(svs[--i]);
+    },
+
+    /** Checks if the layout can be updated right now or not. Should be called
+        by the "update" method of the layout to check if it is OK to do the
+        update. The default implementation checks if the layout is locked and
+        the parent is inited.
+        @return {boolean} true if not locked, false otherwise. */
+    canUpdate: function() {
+        return !this.locked && this.parent.inited;
+    },
+
+    /** @method update
+        Updates the layout. Subclasses should call canUpdate to check if it is
+        OK to update or not. The defualt implementation does nothing.
+        @return {void} */
+    update: function() {
+        // Empty implementation by default
+    }
+});
+
+
+/** A private layout used by the special value for width/height of 'auto'.
+    This layout sizes the view to fit its child views. */
+dr.AutoPropertyLayout = new JS.Class('AutoPropertyLayout', dr.Layout, {
+    // Attributes //////////////////////////////////////////////////////////////
+    set_axis: function(v) {this.setActual('axis', v, 'string', 'x');},
+    
+    
+    // Methods /////////////////////////////////////////////////////////////////
+    startMonitoringSubview: function(view) {
+        if (this.axis === 'x') {
+            this.listenTo(view, 'onx', 'update');
+            this.listenTo(view, 'onwidth', 'update');
+            this.listenTo(view, 'onboundsx', 'update');
+            this.listenTo(view, 'onboundswidth', 'update');
+        } else {
+            this.listenTo(view, 'ony', 'update');
+            this.listenTo(view, 'onheight', 'update');
+            this.listenTo(view, 'onboundsy', 'update');
+            this.listenTo(view, 'onboundsheight', 'update');
+        }
+        this.listenTo(view, 'onvisible', 'update');
+    },
+
+    stopMonitoringSubview: function(view) {
+        if (this.axis === 'x') {
+            this.stopListening(view, 'onx', 'update');
+            this.stopListening(view, 'onwidth', 'update');
+            this.stopListening(view, 'onboundsx', 'update');
+            this.stopListening(view, 'onboundswidth', 'update');
+        } else {
+            this.stopListening(view, 'ony', 'update');
+            this.stopListening(view, 'onheight', 'update');
+            this.stopListening(view, 'onboundsy', 'update');
+            this.stopListening(view, 'onboundsheight', 'update');
+        }
+        this.stopListening(view, 'onvisible', 'update');
+    },
+
+    update: function() {
+        if (!this.locked && this.axis) {
+            // Prevent inadvertent loops
+            this.locked = true;
+            
+            var svs = this.subviews,
+                i = svs.length,
+                maxFunc = Math.max,
+                parent = this.parent,
+                max = 0,
+                sv, val;
+            if (this.axis === 'x') {
+                // Find the farthest horizontal extent of any subview
+                while (i) {
+                    sv = svs[--i];
+                    if (!this.__skipX(sv)) max = maxFunc(max, sv.boundsx + maxFunc(0, sv.boundswidth));
+                }
+                val = max + parent.__fullBorderPaddingWidth;
+                if (parent.width !== val) parent.setAttribute('width', val, true);
+            } else{
+                // Find the farthest vertical extent of any subview
+                while (i) {
+                    sv = svs[--i]
+                    if (!this.__skipY(sv)) max = maxFunc(max, sv.boundsy + maxFunc(0, sv.boundsheight));
+                }
+                val = max + parent.__fullBorderPaddingHeight;
+                if (parent.height !== val) parent.setAttribute('height', val, true);
+            }
+            
+            this.locked = false;
+        }
+    },
+
+    /** No need to measure children that are not visible or that use a percent
+        position or size since this leads to circular sizing constraints.
+        Also skip children that use an align of bottom/right or center/middle
+        since those also lead to circular sizing constraints.
+        @private */
+    __skipX: function(view) {
+        return !view.visible || view.__isPercentConstraint_x || view.__isPercentConstraint_width || view.__noAutoForAlignConstraint_x;
+    },
+    
+    /** @private */
+    __skipY: function(view) {
+        return !view.visible || view.__isPercentConstraint_y || view.__isPercentConstraint_height || view.__noAutoForAlignConstraint_y;
+    }
+});
 
 
 /** A counter that can be incremented and decremented and will update an
@@ -5886,8 +6188,8 @@ dr.ThresholdCounter.createThresholdCounter(
         onvisible:boolean
         onsubviewAdded:dr.View Fired when a subview is added to this view.
         onsubviewRemoved:dr.View Fired when a subview is removed from this view.
-        onlayoutAdded:dr.BaseLayout Fired when a layout is added to this view.
-        onlayoutRemoved:dr.BaseLayout Fired when a layout is removed from this view.
+        onlayoutAdded:dr.Layout Fired when a layout is added to this view.
+        onlayoutRemoved:dr.Layout Fired when a layout is removed from this view.
     
     Attributes:
         Layout Related:
@@ -5955,7 +6257,7 @@ dr.ThresholdCounter.createThresholdCounter(
     Private Attributes:
         subviews:array The array of child dr.Views for this view. Should 
             be accessed through the getSubviews method.
-        layouts:array The array of child dr.BaseLayouts for this view. Should
+        layouts:array The array of child dr.Layouts for this view. Should
             be accessed through the getLayouts method.
 */
 dr.View = new JS.Class('View', dr.Node, {
@@ -6001,6 +6303,14 @@ dr.View = new JS.Class('View', dr.Node, {
     },
     
     /** @overrides dr.Node */
+    notifyReady: function() {
+        if (this.__autoLayoutwidth) this.__autoLayoutwidth.setAttribute('locked', false);
+        if (this.__autoLayoutheight) this.__autoLayoutheight.setAttribute('locked', false);
+        
+        this.callSuper();
+    },
+    
+    /** @overrides dr.Node */
     destroyBeforeOrphaning: function() {
         this.giveAwayFocus();
         this.callSuper();
@@ -6016,6 +6326,112 @@ dr.View = new JS.Class('View', dr.Node, {
     
     
     // Accessors ///////////////////////////////////////////////////////////////
+    setAttribute: function(attrName, value, isActual) {
+        if (isActual) {
+            this.callSuper(attrName, value, isActual);
+        } else {
+            var constraint;
+            switch (attrName) {
+                case 'x':
+                    constraint = this.__setupPercentConstraint('x', value, 'innerwidth');
+                    if (!constraint) constraint = this.__setupAlignConstraint('x', value);
+                    break;
+                case 'y':
+                    constraint = this.__setupPercentConstraint('y', value, 'innerheight');
+                    if (!constraint) constraint = this.__setupAlignConstraint('y', value);
+                    break;
+                case 'width':
+                    constraint = this.__setupPercentConstraint('width', value, 'innerwidth');
+                    if (!constraint) constraint = this.__setupAutoConstraint('width', value, 'x');
+                    break;
+                case 'height':
+                    constraint = this.__setupPercentConstraint('height', value, 'innerheight');
+                    if (!constraint) constraint = this.__setupAutoConstraint('height', value, 'y');
+                    break;
+            }
+            
+            if (constraint !== dr.noop) {
+                this.callSuper(attrName, constraint !== undefined ? constraint : value, isActual);
+            }
+        }
+    },
+    
+
+    /** Returns a constraint string if the provided value matches an
+        align special value.
+        @private */
+    __setupAlignConstraint: function(name, value) {
+        var key = '__noAutoForAlignConstraint_' + name;
+        this[key] = false;
+        if (typeof value === 'string') {
+            var normValue = value.toLowerCase(),
+                isX, axis, boundsdiff, boundssize, alignattr;
+            
+            if (name === 'x') {
+                isX = true;
+                axis = 'innerwidth';
+                boundsdiff = 'boundsxdiff';
+                boundssize = 'boundswidth';
+                alignattr = 'isaligned';
+            } else {
+                isX = false;
+                axis = 'innerheight';
+                boundsdiff = 'boundsydiff';
+                boundssize = 'boundsheight';
+                alignattr = 'isvaligned';
+            }
+            
+            if (normValue === 'begin' || (isX && normValue === 'left') || (!isX && normValue === 'top')) {
+                return "${this." + boundsdiff + "}";
+            } else if (normValue === 'middle' || normValue === 'center') {
+                this[key] = true;
+                return "${((this.parent." + axis + " - this." + boundssize + ") / 2) + this." + boundsdiff + "}";
+            } else if (normValue === 'end' || (isX && normValue === 'right') || (!isX && normValue === 'bottom')) {
+                this[key] = true;
+                return "${this.parent." + axis + " - this." + boundssize + " + this." + boundsdiff + "}";
+            } else if (normValue === 'none') {
+                return this[name];
+            }
+        }
+    },
+    
+    /** Returns a constraint string if the provided value matches a percent
+        special value.
+        @private */
+    __setupPercentConstraint: function(name, value, axis) {
+        var key = '__isPercentConstraint_' + name;
+        if (typeof value === 'string' && value.endsWith('%')) {
+            this[key] = true;
+            var scale = parseInt(value)/100;
+            // Handle root view case using dr.global.viewportResize
+            if (this.isA(dr.SizeToViewport)) {
+                axis = axis.substring(5);
+                return "${Math.max(dr.global.viewportResize." + axis + " * " + scale + ", this.min" + axis + ")}";
+            } else {
+                return "${this.parent." + axis + " * " + scale + "}";
+            }
+        } else {
+            this[key] = false;
+        }
+    },
+
+    /** @private */
+    __setupAutoConstraint: function(name, value, axis) {
+        var layoutKey = '__autoLayout' + name;
+            oldLayout = this[layoutKey];
+        if (oldLayout) {
+            oldLayout.destroy();
+            delete this[layoutKey];
+        }
+        
+        if (value === 'auto') {
+            this[layoutKey] = new dr.AutoPropertyLayout(this, {axis:axis, locked:this.initing === false ? 'false' : 'true'});
+            this[dr.AccessorSupport.generateConfigAttrName(name)] = value;
+            
+            return dr.noop;
+        }
+    },
+    
     /** Does lazy instantiation of the subviews array. */
     getSubviews: function() {
         return this.subviews || (this.subviews = []);
@@ -6302,8 +6718,8 @@ dr.View = new JS.Class('View', dr.Node, {
     set_opacity: function(v) {this.setActual('opacity', v, 'number', 1);},
     set_visible: function(v) {this.setActual('visible', v, 'boolean', true);},
     set_cursor: function(v) {this.setActual('cursor', v, 'string', 'auto');},
-    set_x: function(v) {this.setActual('x', v, 'number', 0);},
-    set_y: function(v) {this.setActual('y', v, 'number', 0);},
+    set_x: function(v) {this.setActual('x', v, 'number', this.x, this.__updateBounds.bind(this));},
+    set_y: function(v) {this.setActual('y', v, 'number', this.y, this.__updateBounds.bind(this));},
     
     set_width: function(v) {
         // Prevent width smaller than border and padding
@@ -6434,7 +6850,7 @@ dr.View = new JS.Class('View', dr.Node, {
             this.getSubviews().push(node);
             this.fireNewEvent('onsubviewAdded', node);
             this.subviewAdded(node);
-        } else if (node instanceof dr.BaseLayout) {
+        } else if (node instanceof dr.Layout) {
             this.getLayouts().push(node);
             this.fireNewEvent('onlayoutAdded', node);
             this.layoutAdded(node);
@@ -6457,7 +6873,7 @@ dr.View = new JS.Class('View', dr.Node, {
                 this.subviews.splice(idx, 1);
                 this.subviewRemoved(node);
             }
-        } else if (node instanceof dr.BaseLayout) {
+        } else if (node instanceof dr.Layout) {
             idx = this.getLayoutIndex(node);
             if (idx !== -1) {
                 this.fireNewEvent('onlayoutRemoved', node);
@@ -6934,13 +7350,13 @@ new JS.Singleton('GlobalViewportResize', {
     /** Gets the window's innerWidth.
         @returns the current width of the window. */
     getWidth: function() {
-        return this.__viewportWidth || (this.__viewportWidth = this.sprite.getViewportWidth());
+        return this.width || (this.width = this.sprite.getViewportWidth());
     },
     
     /** Gets the window's innerHeight.
         @returns the current height of the window. */
     getHeight: function() {
-        return this.__viewportHeight || (this.__viewportHeight = this.sprite.getViewportHeight());
+        return this.height || (this.height = this.sprite.getViewportHeight());
     },
     
     
@@ -6949,14 +7365,18 @@ new JS.Singleton('GlobalViewportResize', {
     __handleResizeEvent: function(w, h) {
         var event = this.EVENT, isChanged;
         if (w !== event.w) {
-            event.w = this.__viewportWidth = w;
+            event.w = this.width = w;
             isChanged = true;
         }
         if (h !== event.h) {
-            event.h = this.__viewportHeight = h;
+            event.h = this.height = h;
             isChanged = true;
         }
-        if (isChanged) this.fireEvent('onresize', event);
+        if (isChanged) {
+            this.fireEvent('onresize', event);
+            this.fireNewEvent('onwidth', this.width);
+            this.fireNewEvent('onheight', this.height);
+        }
     }
 });
 
@@ -6967,8 +7387,6 @@ new JS.Singleton('GlobalViewportResize', {
         None
     
     Attributes:
-        resizedimension:string The dimension to resize in. Supported values
-            are 'width', 'height' and 'both'. Defaults to 'both'.
         minwidth:number the minimum width below which this view will not 
             resize its width. Defaults to 0.
         minheight:number the minimum height below which this view will not
@@ -6982,41 +7400,13 @@ dr.SizeToViewport = new JS.Module('SizeToViewport', {
     /** @overrides */
     initNode: function(parent, attrs) {
         this.minwidth = this.minheight = 0;
-        if (attrs.resizedimension === undefined) attrs.resizedimension = 'both';
-        
-        this.listenTo(dr.global.viewportResize, 'onresize', '__handleResize');
         this.callSuper(parent, attrs);
     },
     
     
     // Accessors ///////////////////////////////////////////////////////////////
-    set_resizedimension: function(v) {
-        if (this.setActual('resizedimension', v, 'string', 'both')) {
-            this.__handleResize();
-        }
-    },
-    
-    set_minwidth: function(v) {
-        if (this.setActual('minwidth', v, 'number', 0)) {
-            this.__handleResize();
-        }
-    },
-    
-    set_minheight: function(v) {
-        if (this.setActual('minheight', v, 'number', 0)) {
-            this.__handleResize();
-        }
-    },
-    
-    
-    // Methods /////////////////////////////////////////////////////////////////
-    /** @private */
-    __handleResize: function(event) {
-        var v = dr.global.viewportResize.EVENT, // Ignore the provided event.
-            dim = this.resizedimension;
-        if (dim === 'width' || dim === 'both') this.set_width(Math.max(this.minwidth, v.w));
-        if (dim === 'height' || dim === 'both') this.set_height(Math.max(this.minheight, v.h));
-    }
+    set_minwidth: function(v) {this.setActual('minwidth', v, 'number', 0);},
+    set_minheight: function(v) {this.setActual('minheight', v, 'number', 0);}
 });
 
 

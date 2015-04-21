@@ -71,7 +71,7 @@ SOFTWARE. -->
           @__setterAttrName = 'y'
           @__alignattr = 'isvaligned'
       
-      @setAndFire('align', align)
+      @setActual('align', align, 'string')
       
       if @inited
         # Start monitoring again and update since we have new alignment. This needs
@@ -81,8 +81,6 @@ SOFTWARE. -->
         @update()
       else
         @__redoMonitoring = true
-    
-    return dr._noop
   </setter>
   
   <!--/**
@@ -97,7 +95,7 @@ SOFTWARE. -->
       # Stop monitoring since we will have different updateparent behavior
       @stopMonitoringAllSubviews()
       
-      @setAndFire('updateparent', updateparent)
+      @setActual('updateparent', updateparent, 'boolean')
       
       if @inited
         # Start monitoring again and update since we have new updateparent 
@@ -105,8 +103,6 @@ SOFTWARE. -->
         @startMonitoringAllSubviews()
       else
         @__redoMonitoring = true
-    
-    return dr._noop
   </setter>
   
   <handler event="oninit">
