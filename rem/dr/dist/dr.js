@@ -774,7 +774,7 @@ dr.Observable = new JS.Module('Observable', {
         @param observers:array (Optional) If provided the event will
             be sent to this specific list of observers and no others.
         @return void */
-    fireEvent: function(type, event, observers) {
+    sendExistingEvent: function(type, event, observers) {
         if (type) {
             // Determine observers to use
             observers = observers || (this.hasObservers(type) ? this.__obsbt[type] : null);
@@ -791,7 +791,7 @@ dr.Observable = new JS.Module('Observable', {
         @param observers:array (Optional) If provided the event will
             be sent to this specific list of observers and no others.
         @returns void */
-    fireNewEvent: function(type, value, observers) {
+    sendEvent: function(type, value, observers) {
         // Determine observers to use
         observers = observers || (this.hasObservers(type) ? this.__obsbt[type] : null);
         
@@ -805,7 +805,7 @@ dr.Observable = new JS.Module('Observable', {
         @param value:* The event value.
         @returns An event object */
     createEvent: function(type, value) {
-        return value; // Inlined in this.fireNewEvent
+        return value; // Inlined in this.sendEvent
     },
     
     /** Fire the event to the observers.
@@ -1065,7 +1065,7 @@ dr.global = new JS.Singleton('Global', {
             this.unregister(key);
         }
         this[key] = v;
-        this.fireNewEvent('onregister' + key, v);
+        this.sendEvent('onregister' + key, v);
     },
     
     /** Unegisters the global for the provided key. Fires an unregister<key>
@@ -1075,7 +1075,7 @@ dr.global = new JS.Singleton('Global', {
         if (this.hasOwnProperty(key)) {
             var v = this[key];
             delete this[key];
-            this.fireNewEvent('onunregister' + key, v);
+            this.sendEvent('onunregister' + key, v);
         } else {
             console.log("Warning: dr.global key not in use: ", key);
         }
@@ -1508,7 +1508,7 @@ new JS.Singleton('GlobalError', {
     notify: function(consoleFuncName, eventType, msg, err) {
         var stacktrace = dr.sprite.generateStacktrace(eventType, msg, err);
         
-        this.fireNewEvent('on' + (eventType || 'error'), {msg:msg, stacktrace:stacktrace});
+        this.sendEvent('on' + (eventType || 'error'), {msg:msg, stacktrace:stacktrace});
         if (this.consoleLogging && consoleFuncName) dr.sprite.console[consoleFuncName](stacktrace);
     }
 });
@@ -3647,7 +3647,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
     
     /** A generic setter function that can be called to set a value on this
         object. Will defer to a defined setter if it exists. The implementation
-        assumes this object is an Observable so it will have a 'fireNewEvent'
+        assumes this object is an Observable so it will have a 'sendEvent'
         method.
         @param attrName:string The name of the attribute to set.
         @param value:* The value to set.
@@ -3699,8 +3699,8 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
             if (beforeEventFunc) beforeEventFunc();
             
             // Fire an event if possible
-            if (this.initing === false && this.fireNewEvent) {
-                this.fireNewEvent('on' + attrName, this[attrName]);
+            if (this.initing === false && this.sendEvent) {
+                this.sendEvent('on' + attrName, this[attrName]);
             }
             return true;
         }
@@ -3719,8 +3719,8 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
             this[attrName] = value;
             
             // Fire an event if possible
-            if (fireEvent && this.initing === false && this.fireNewEvent) {
-                this.fireNewEvent('on' + attrName, this[attrName]);
+            if (fireEvent && this.initing === false && this.sendEvent) {
+                this.sendEvent('on' + attrName, this[attrName]);
             }
             
             return true;
@@ -4537,7 +4537,7 @@ new JS.Singleton('GlobalFocus', {
     // Accessors ///////////////////////////////////////////////////////////////
     /** Sets the currently focused view. */
     set_focusedView: function(v) {
-        if (dr.sprite.focus.set_focusedView(v)) this.fireNewEvent('onfocused', v);
+        if (dr.sprite.focus.set_focusedView(v)) this.sendEvent('onfocused', v);
     },
     
     
@@ -5196,7 +5196,7 @@ dr.Node = new JS.Class('Node', {
     /** Called by dr.RootView once the root view is ready. */
     notifyReady: function() {
         this.inited = true;
-        this.fireNewEvent('oninit', true);
+        this.sendEvent('oninit', true);
     },
     
     /** Provides a hook for subclasses to do things before this Node has its
@@ -5299,7 +5299,7 @@ dr.Node = new JS.Class('Node', {
             }
             
             // Fire an event
-            if (this.initing === false) this.fireNewEvent('onparent', newParent);
+            if (this.initing === false) this.sendEvent('onparent', newParent);
         }
     },
     
@@ -5327,7 +5327,7 @@ dr.Node = new JS.Class('Node', {
             delete global[existing];
             this.id = v;
             if (v) global[v] = this;
-            if (this.initing === false) this.fireNewEvent('onid', v);
+            if (this.initing === false) this.sendEvent('onid', v);
         }
     },
     
@@ -5705,7 +5705,7 @@ dr.Layout = new JS.Class('Layout', dr.Node, {
         this.listenTo(parent, 'onsubviewRemoved', 'removeSubview');
         this.listenTo(parent, 'oninit', 'update');
         
-        parent.fireNewEvent('layouts', parent.getLayouts());
+        parent.sendEvent('onlayouts', parent.getLayouts());
         
         // Start monitoring existing subviews
         var subviews = parent.getSubviews(), len = subviews.length, i = 0;
@@ -6023,7 +6023,7 @@ dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
                 
                 if (curValue !== value) {
                     this[counterAttrName] = value;
-                    this.fireNewEvent('on' + counterAttrName, value);
+                    this.sendEvent('on' + counterAttrName, value);
                     this.setActual(exceededAttrName, value >= this[thresholdAttrName], 'boolean'); // Check threshold
                 }
             };
@@ -6043,7 +6043,7 @@ dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
             mod[thresholdSetterName] = function(v) {
                 if (this[thresholdAttrName] === v) return;
                 this[thresholdAttrName] = v;
-                this.fireNewEvent('on' + thresholdAttrName, v);
+                this.sendEvent('on' + thresholdAttrName, v);
                 this.setActual(exceededAttrName, this[counterAttrName] >= v, 'boolean'); // Check threshold
             };
             
@@ -6111,7 +6111,7 @@ dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
             mod[incrName] = function() {
                 var value = this[counterAttrName] + 1;
                 this[counterAttrName] = value;
-                this.fireNewEvent('on' + counterAttrName, value);
+                this.sendEvent('on' + counterAttrName, value);
                 if (value === thresholdValue) this.setActual(exceededAttrName, true, 'boolean');
             };
             
@@ -6122,7 +6122,7 @@ dr.ThresholdCounter = new JS.Class('ThresholdCounter', {
                 if (curValue === 0) return;
                 var value = curValue - 1;
                 this[counterAttrName] = value;
-                this.fireNewEvent('on' + counterAttrName, value);
+                this.sendEvent('on' + counterAttrName, value);
                 if (curValue === thresholdValue) this.setActual(exceededAttrName, false, 'boolean');
             };
             
@@ -6524,7 +6524,7 @@ dr.View = new JS.Class('View', dr.Node, {
         if (this.scrollx !== x) this.set_scrollx(x);
         if (this.scrolly !== y) this.set_scrolly(y);
         
-        this.fireNewEvent('onscroll', {
+        this.sendEvent('onscroll', {
             scrollx:x,
             scrolly:y,
             scrollwidth:sprite.getScrollWidth(),
@@ -6848,11 +6848,11 @@ dr.View = new JS.Class('View', dr.Node, {
         if (node instanceof dr.View) {
             this.sprite.appendSprite(node.sprite);
             this.getSubviews().push(node);
-            this.fireNewEvent('onsubviewAdded', node);
+            this.sendEvent('onsubviewAdded', node);
             this.subviewAdded(node);
         } else if (node instanceof dr.Layout) {
             this.getLayouts().push(node);
-            this.fireNewEvent('onlayoutAdded', node);
+            this.sendEvent('onlayoutAdded', node);
             this.layoutAdded(node);
         }
     },
@@ -6868,7 +6868,7 @@ dr.View = new JS.Class('View', dr.Node, {
         if (node instanceof dr.View) {
             idx = this.getSubviewIndex(node);
             if (idx !== -1) {
-                this.fireNewEvent('onsubviewRemoved', node);
+                this.sendEvent('onsubviewRemoved', node);
                 this.sprite.removeSprite(node.sprite);
                 this.subviews.splice(idx, 1);
                 this.subviewRemoved(node);
@@ -6876,7 +6876,7 @@ dr.View = new JS.Class('View', dr.Node, {
         } else if (node instanceof dr.Layout) {
             idx = this.getLayoutIndex(node);
             if (idx !== -1) {
-                this.fireNewEvent('onlayoutRemoved', node);
+                this.sendEvent('onlayoutRemoved', node);
                 this.layouts.splice(idx, 1);
                 this.layoutRemoved(node);
             }
@@ -7210,7 +7210,7 @@ new JS.Singleton('GlobalRootViewRegistry', {
         // immediately.
         if (dr.ready) r.setAttribute('ready', true);
         
-        this.fireNewEvent('onrootAdded', r);
+        this.sendEvent('onrootAdded', r);
     },
     
     /** Remove a rootable from the global list of root views.
@@ -7222,7 +7222,7 @@ new JS.Singleton('GlobalRootViewRegistry', {
             root = roots[--i];
             if (root === r) {
                 roots.splice(i, 1);
-                this.fireNewEvent('onrootRemoved', root);
+                this.sendEvent('onrootRemoved', root);
                 break;
             }
         }
@@ -7373,9 +7373,9 @@ new JS.Singleton('GlobalViewportResize', {
             isChanged = true;
         }
         if (isChanged) {
-            this.fireEvent('onresize', event);
-            this.fireNewEvent('onwidth', this.width);
-            this.fireNewEvent('onheight', this.height);
+            this.sendExistingEvent('onresize', event);
+            this.sendEvent('onwidth', this.width);
+            this.sendEvent('onheight', this.height);
         }
     }
 });
@@ -7438,7 +7438,7 @@ dr.sprite.GlobalIdle = new JS.Class('sprite.GlobalIdle', {
                 var event = self.__event;
                 event.delta = time - lastTime;
                 event.time = time;
-                view.fireNewEvent('onidle', event);
+                view.sendEvent('onidle', event);
             }
             self.lastTime = time;
         };
@@ -7806,7 +7806,7 @@ dr.Animator = new JS.Class('Animator', dr.Node, {
                     // Advance again if time is remaining. This occurs when
                     // the timeDiff provided was greater than the animation
                     // duration and the animation loops.
-                    this.fireNewEvent('onrepeat', this.__loopCount);
+                    this.sendEvent('onrepeat', this.__loopCount);
                     this.__progress = reverse ? duration : 0;
                     this.__advance(remainderTime);
                 }
@@ -8019,7 +8019,7 @@ dr.Activateable = new JS.Module('Activateable', {
     /** Called when this view should be activated.
         @returns void */
     doActivated: function() {
-        this.fireNewEvent('onactivated', true);
+        this.sendEvent('onactivated', true);
     }
 });
 
@@ -8443,8 +8443,8 @@ dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
         // event immediately. Not an issue for other meta keys: shift, ctrl 
         // and option.
         if (this.isCommandKeyDown() && keyCode !== 16 && keyCode !== 17 && keyCode !== 18) {
-            this.view.fireNewEvent('onkeydown', keyCode);
-            this.view.fireNewEvent('onkeyup', keyCode);
+            this.view.sendEvent('onkeydown', keyCode);
+            this.view.sendEvent('onkeyup', keyCode);
             
             // Assume command key goes back up since it is common for the page
             // to lose focus after the command key is used. Do this for every 
@@ -8452,7 +8452,7 @@ dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
             // nice to have and doesn't typically result in loss of focus 
             // to the page.
             if (keyCode !== 90) {
-                this.view.fireNewEvent('onkeyup', this.KEYCODE_COMMAND);
+                this.view.sendEvent('onkeyup', this.KEYCODE_COMMAND);
                 this.__keysDown[this.KEYCODE_COMMAND] = false;
             }
         } else {
@@ -8468,14 +8468,14 @@ dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
                 }
             }
             
-            this.view.fireNewEvent('onkeydown', keyCode);
+            this.view.sendEvent('onkeydown', keyCode);
         }
     },
     
     /** @private */
     __handleKeyPress: function(platformEvent) {
         var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(platformEvent);
-        this.view.fireNewEvent('onkeypress', keyCode);
+        this.view.sendEvent('onkeypress', keyCode);
     },
     
     /** @private */
@@ -8483,7 +8483,7 @@ dr.sprite.GlobalKeys = new JS.Class('sprite.GlobalKeys', {
         var keyCode = dr.sprite.KeyObservable.getKeyCodeFromEvent(platformEvent);
         if (this.__shouldPreventDefault(keyCode, platformEvent.target)) dr.sprite.preventDefault(platformEvent);
         this.__keysDown[keyCode] = false;
-        this.view.fireNewEvent('onkeyup', keyCode);
+        this.view.sendEvent('onkeyup', keyCode);
     },
     
     /** @private */

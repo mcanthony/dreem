@@ -49,17 +49,16 @@ SOFTWARE. -->
 <class name="resizelayout" extends="spacedlayout" type="coffee">
   <setter name="updateparent" args="updateparent">
     # The updateparent attribute is unused in resizelayout.
-    return updateparent
   </setter>
   
   <method name="stopMonitoringAllSubviews" args="view">
     @super()
-    if @__innerAttrName? then @stopListening(@parent, @__innerAttrName, @update)
+    if @__innerAttrName? then @stopListening(@parent, 'on' + @__innerAttrName, @update)
   </method>
   
   <method name="startMonitoringAllSubviews" args="view">
     @super()
-    @listenTo(@parent, @__innerAttrName, @update)
+    @listenTo(@parent, 'on' + @__innerAttrName, @update)
   </method>
   
   <method name="startMonitoringSubview" args="view">
@@ -67,10 +66,10 @@ SOFTWARE. -->
     # layout resizes them so you would get an infinite loop.
     hint = view.getLayoutHint(@name, 'weight')
     if !(Number(hint) > 0)
-      @listenTo(view, @__measureAttrName, @update)
-      @listenTo(view, @__diffAttrName, @update)
-    @listenTo(view, 'visible', @update)
-    @listenTo(view, 'layouthint', @update)
+      @listenTo(view, 'on' + @__measureAttrName, @update)
+      @listenTo(view, 'on' + @__diffAttrName, @update)
+    @listenTo(view, 'onvisible', @update)
+    @listenTo(view, 'onlayouthint', @update)
   </method>
   
   <method name="stopMonitoringSubview" args="view">
@@ -78,10 +77,10 @@ SOFTWARE. -->
     # layout resizes them so you would get an infinite loop.
     hint = view.getLayoutHint(@name, 'weight')
     if !(Number(hint) > 0)
-      @stopListening(view, @__measureAttrName, @update)
-      @stopListening(view, @__diffAttrName, @update)
-    @stopListening(view, 'visible', @update)
-    @stopListening(view, 'layouthint', @update)
+      @stopListening(view, 'on' + @__measureAttrName, @update)
+      @stopListening(view, 'on' + @__diffAttrName, @update)
+    @stopListening(view, 'onvisible', @update)
+    @stopListening(view, 'onlayouthint', @update)
   </method>
   
   <method name="doBeforeUpdate">

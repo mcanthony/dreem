@@ -58,16 +58,16 @@ SOFTWARE. -->
       *     </view>
       */-->
 <class name="wrappinglayout" extends="variablelayout" type="coffee">
-  <method name="construct" args="el, attributes">
-    # Use whichever attribute or aliases attribute is not the default and
+  <method name="initNode" args="parent, attrs">
+    # Use whichever attribute or aliased attribute is not the default and
     # delete the unnecessary initial value.
-    if attributes.value isnt '0' and attributes.inset is '0'
-      attributes.inset = attributes.value
-    delete attributes.value
+    if attrs.value isnt '0' and attrs.inset is '0'
+      attrs.inset = attrs.value
+    delete attrs.value
     
-    if attributes.attribute isnt 'x' and attributes.axis is 'x'
-      attributes.axis = attributes.attribute
-    delete attributes.attribute
+    if attrs.attribute isnt 'x' and attrs.axis is 'x'
+      attrs.axis = attrs.attribute
+    delete attrs.attribute
     
     @super()
   </method>
@@ -94,7 +94,6 @@ SOFTWARE. -->
   <setter name="inset" args="inset">
     # An alias for value.
     @setAttribute('value', inset);
-    return inset
   </setter>
   
   <!--/**
@@ -151,7 +150,7 @@ SOFTWARE. -->
         @__isLineAligned = true
       else
         @__isLineAligned = false
-    return linealign
+    @setActual('linealign', linealign, 'string', 'none')
   </setter>
   
   <!--/**
@@ -167,7 +166,6 @@ SOFTWARE. -->
   <setter name="axis" args="axis">
     # An alias for attribute.
     @setAttribute('attribute', axis);
-    return axis
   </setter>
   
   <!--/**
@@ -204,7 +202,7 @@ SOFTWARE. -->
         @__otherDiffAttrName = 'boundsydiff'
         @__otherAttribute = 'y'
       
-      @setAndFire('attribute', attribute)
+      @setActual('attribute', attribute, 'string')
       
       if @inited
         # Start monitoring again and update since we have a new axis. This needs
@@ -214,8 +212,6 @@ SOFTWARE. -->
         @update()
       else
         @__redoMonitoring = true
-    
-    return dr._noop
   </setter>
   
   <handler event="oninit">
@@ -226,34 +222,34 @@ SOFTWARE. -->
   
   <method name="stopMonitoringAllSubviews" args="view">
     @super()
-    if @__innerAttrName? then @stopListening(@parent, @__innerAttrName, @update)
+    if @__innerAttrName? then @stopListening(@parent, 'on' + @__innerAttrName, @update)
   </method>
   
   <method name="startMonitoringAllSubviews" args="view">
     @super()
-    @listenTo(@parent, @__innerAttrName, @update)
+    @listenTo(@parent, 'on' + @__innerAttrName, @update)
   </method>
   
   <method name="startMonitoringSubview" args="view">
     @super()
     
     # Monitor each subview's measure and bounds offset along both axes
-    @listenTo(view, @__measureAttrName, @update)
-    @listenTo(view, @__diffAttrName, @update)
-    @listenTo(view, @__otherMeasureAttrName, @update)
-    @listenTo(view, @__otherDiffAttrName, @update)
-    @listenTo(view, 'layouthint', @update)
+    @listenTo(view, 'on' + @__measureAttrName, @update)
+    @listenTo(view, 'on' + @__diffAttrName, @update)
+    @listenTo(view, 'on' + @__otherMeasureAttrName, @update)
+    @listenTo(view, 'on' + @__otherDiffAttrName, @update)
+    @listenTo(view, 'onlayouthint', @update)
   </method>
   
   <method name="stopMonitoringSubview" args="view">
     @super()
     
     # No longer monitor each subview's measure and bounds offset along both axes
-    @stopListening(view, @__measureAttrName, @update)
-    @stopListening(view, @__diffAttrName, @update)
-    @stopListening(view, @__otherMeasureAttrName, @update)
-    @stopListening(view, @__otherDiffAttrName, @update)
-    @stopListening(view, 'layouthint', @update)
+    @stopListening(view, 'on' + @__measureAttrName, @update)
+    @stopListening(view, 'on' + @__diffAttrName, @update)
+    @stopListening(view, 'on' + @__otherMeasureAttrName, @update)
+    @stopListening(view, 'on' + @__otherDiffAttrName, @update)
+    @stopListening(view, 'onlayouthint', @update)
   </method>
   
   <method name="doBeforeUpdate">
@@ -429,8 +425,8 @@ SOFTWARE. -->
     # Track max size achieved during layout.
     @maxsize = Math.max(@maxsize, value + @outset - @__spacingAfter)
     
-    @sendEvent('linecount', @linecount)
-    @sendEvent('maxsize', @maxsize)
+    @sendEvent('onlinecount', @linecount)
+    @sendEvent('onmaxsize', @maxsize)
   </method>
   
   <method name="updateParent" args="attribute, value">
