@@ -3632,8 +3632,14 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
             }
         }
         
-        // Do normal setters
-        for (var attrName in attrs) this.setAttribute(attrName, attrs[attrName]);
+        // Do normal setters in alphabetical order
+        var keys = Object.keys(attrs).sort();
+        len = keys.length;
+        i = 0;
+        for (; len > i;) {
+            attrName = keys[i++];
+            this.setAttribute(attrName, attrs[attrName]);
+        }
         
         // Do late setters
         if (extractedLateAttrs) {

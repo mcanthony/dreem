@@ -267,7 +267,12 @@ define(function(require, exports){
         if(node.tag.charAt(0)!='$') loadClass(node.tag, node)
         
         var prune = false;
-        if (node.tag == 'class' || node.tag == 'mixin') {
+        
+        if (node.tag == 'replicator') {
+          if(node.attr && node.attr.classname){
+            loadClass(node.attr.classname, node)
+          }
+        } else if (node.tag == 'class' || node.tag == 'mixin') {
           var nameattr = node.attr && node.attr.name
           if(!nameattr){
             errors.push(this.originError('Class has no name ', node._))
