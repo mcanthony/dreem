@@ -13,7 +13,7 @@
       font-family:Arial, Helvetica, sans-serif;
       font-size:14px;
     }
-    method,handler,setter,class,node,dataset{display:none}
+    method,handler,setter,class,node,dataset,text{display:none}
   </style>
   <script type="text/javascript" src="../../lib/chai.js"></script>
   <script type="text/javascript" src="../../lib/smoke_helper.js"></script>
@@ -128,57 +128,6 @@
       </handler>
     </view>
 
-    <!-- Default attribute value events -->
-    <!--clickable:false, clip:false, scrollable:false, visible:true,
-          bordercolor:'transparent', borderstyle:'solid', border:0,
-          padding:0-->
-    <view x="2" width="55" height="20" bgcolor="red" clickable="false">
-      <handler event="onx" args="arg">
-        window.logdefaults += ",x:" + arg;
-      </handler>
-      <handler event="ony" args="arg">
-        window.logdefaults += ",y:" + arg;
-      </handler>
-      <handler event="onwidth" args="arg">
-        window.logdefaults += ",width:" + arg;
-      </handler>
-      <handler event="onheight" args="arg">
-        window.logdefaults += ",height:" + arg;
-      </handler>
-      <handler event="onclickable" args="arg">
-        window.logdefaults += ",clickable:" + arg;
-      </handler>
-      <handler event="onclip" args="arg">
-        window.logdefaults += ",clip:" + arg;
-      </handler>
-      <handler event="onscrollable" args="arg">
-        window.logdefaults += ",scrollable:" + arg;
-      </handler>
-      <handler event="onvisible" args="arg">
-        window.logdefaults += ",visible:" + arg;
-      </handler>
-      <handler event="onbordercolor" args="arg">
-        window.logdefaults += ",bordercolor:" + arg;
-      </handler>
-      <handler event="onborderstyle" args="arg">
-        window.logdefaults += ",borderstyle:" + arg;
-      </handler>
-      <handler event="onborder" args="arg">
-        window.logdefaults += ",border:" + arg;
-      </handler>
-      <handler event="onpadding" args="arg">
-        window.logdefaults += ",padding:" + arg;
-      </handler>
-      <handler event="onbgcolor" args="arg">
-        window.logdefaults += ",bgcolor:" + arg;
-      </handler>
-
-      <handler event="oninit">
-        assert.testCaseLabel = 'Default attribute value events';
-        assert.equal(window.logdefaults, 'undefined,x:2,width:55,height:20,bgcolor:red')
-      </handler>
-    </view>
-
     <!-- z, rotation & scale -->
     <view id="zrs" width="100" height="50" border="2px" bordercolor="lightblue" perspective="5">
       <view name="topView" x="10" y="10" width="5" height="5" bgcolor="orange" z="1" perspective="0"></view>
@@ -226,11 +175,6 @@
         assert.equal($(this.sprite.platformObject).css('cursor'), 'crosshair', 'sprite cursor should be crosshair when clickable is true');
       </handler>
     </view>
-    <view bgcolor="PaleVioletRed" width="100" height="50" clickable="true">
-      <handler event="oninit">
-        assert.equal($(this.sprite.platformObject).css('cursor'), 'pointer', 'sprite cursor should be pointer by default when clickable is true');
-      </handler>
-    </view>
     <view bgcolor="PaleVioletRed" width="100" height="50" cursor="crosshair" clickable="false">
       <handler event="oninit">
         this.setAttribute('clickable', true)
@@ -243,25 +187,6 @@
         this.setAttribute('cursor', 'progress')
         assert.equal(this.cursor, 'progress', 'cursor should be progress when set at runtime');
         assert.equal($(this.sprite.platformObject).css('cursor'), 'progress', 'sprite cursor should be progress when set at runtime');
-      </handler>
-    </view>
-
-    <!-- Box shadow -->
-    <view bgcolor="Orange" width="100" height="50" boxshadow="10px 10px 5px 0px #888888">
-      <handler event="oninit">
-        assert.equal($(this.sprite.platformObject).css('box-shadow'), 'rgb(136, 136, 136) 10px 10px 5px 0px', 'box-shadow style should be set on sprite');
-      </handler>
-    </view>
-
-    <!-- Click Test -->
-    <view bgcolor="pink" width="100" height="50">
-      <handler event="onclick">
-        this.setAttribute('bgcolor', 'AntiqueWhite');
-      </handler>
-      <handler event="oninit">
-        assert.equal(this.bgcolor, 'pink', 'Verify initial state.');
-        $(this.sprite.platformObject).trigger('click');
-        assert.equal(this.bgcolor, 'AntiqueWhite', 'onclick was executed.');
       </handler>
     </view>
     

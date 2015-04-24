@@ -97,7 +97,7 @@ define(function(require, exports){
         // Ignore comments
         return;
       } else if (tagName === '$text') {
-        console.log('Body Text: ', node.value);
+        parentInstance.setAttribute('$textcontent', node.value.trim());
         return;
       } else {
         console.log("Unexpected tag: ", tagName);
@@ -245,6 +245,7 @@ define(function(require, exports){
     // Try to build a class
     var klassjsxml = pkg.classes[tagName];
     if (!klassjsxml) throw new Error('Cannot find class ' + tagName);
+    if (klassjsxml === 2) throw new Error('Class still loading ' + tagName);
     delete pkg.classes[tagName];
     
     var isMixin = klassjsxml.tag === 'mixin',
@@ -375,6 +376,15 @@ define(function(require, exports){
     if (mixins) klassBody.include = mixins;
     var Klass = dr[tagName] = isMixin ? new JS.Module(tagName, klassBody) : new JS.Class(tagName, baseclass, klassBody);
     
+    // Create package object if necessary an store the class reference there too.
+    var packages = tagName.split('-'), packageName, curPackage = dr;
+    while (packages.length > 1) {
+      packageName = packages.shift();
+      if (curPackage[packageName] == null) curPackage[packageName] = {};
+      curPackage = curPackage[packageName];
+      if (packages.length === 1) curPackage[packages.shift()] = Klass;
+    }
+    
     // Build default class attributes
     var defaultAttrValues = {};
     if (baseclass && baseclass.defaultAttrValues) dr.extend(defaultAttrValues, baseclass.defaultAttrValues);
@@ -388,6 +398,7 @@ define(function(require, exports){
       }
     }
     if (klassDeclaredAttrValues) dr.extend(defaultAttrValues, klassDeclaredAttrValues);
+    defaultAttrValues.$tagname = tagName;
     dr.extend(defaultAttrValues, klassAttrs);
     delete defaultAttrValues.name; // Instances only
     delete defaultAttrValues.id; // Instances only
@@ -400,16 +411,14 @@ define(function(require, exports){
 
 /*
 TODO:
-  - Handle body text
-  
-  - auto w,h
-  
+  - Setter return values and default behavior
   - z-order
   - rounded corners
   
-  - layouts
+  - Input Text
+  - Bitmaps
   
-  - Setter return values and default behavior
-  
+  - Replication
+  - Data Sets
   - States
 */

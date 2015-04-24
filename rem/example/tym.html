@@ -12,7 +12,7 @@
       font-family:Arial, Helvetica, sans-serif;
       font-size:14px;
     }
-    method,handler,setter,class,node,dataset{display:none}
+    method,handler,setter,class,node,dataset,text{display:none}
   </style>
   <script type"text/javascript">
     var global = this;
@@ -80,7 +80,7 @@
       <view name="d" x="50" y="5" width="10" height="10" bgcolor="#9933cc"></view>
     </subfoo>
     
-    <item2 name="item2" y="200" x="${this.y / 10 + foo.width + foo.x}" bgcolor="green">asdf</item2>
+    <item2 name="item2" y="200" x="${this.y / 10 + foo.width + foo.x}" bgcolor="green"></item2>
     
     <item name="theItem" y="250" id="foo" bgcolor="orange">
       <attribute name="thing" type="number" value="5"></attribute>
@@ -107,7 +107,6 @@
       </setter>
       <animator attribute="x" to="100" repeat="2" running="true"></animator>
       <animator attribute="y" to="-25" relative="true" running="true"></animator>
-    blah
     </item>
     <handler event="onanother" args="another" reference="this.theItem">
       console.log('another', another);
@@ -116,8 +115,9 @@
       console.log('thing', thing);
     </handler>
     
-    <!--dreem-text text="hello there." x="50" y="100"></dreem-text>
-    <markup x="50" y="120">asdf asdf asdf</markup-->
+    <dreem-text text="hello there." x="50" y="100" bgcolor="white"></dreem-text>
+    <text x="50" y="150" bgcolor="orange">text as content</text>
+    <!--markup x="50" y="120">asdf asdf asdf</markup-->
   </view>
 </body>
 <!-- The MIT License (MIT)

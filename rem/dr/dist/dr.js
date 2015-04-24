@@ -537,7 +537,7 @@ dr = {
             'error'.
         @returns void */
     dumpStack: function(err, type) {
-        dr.global.error.notify(type || 'error', err, err, err);
+        dr.global.error.notify(type || 'error', err, err, typeof err === 'string' ? null : err);
     },
     
     // Misc
@@ -952,6 +952,11 @@ dr.Observer = new JS.Module('Observer', {
         return observables && observables.length > 0;
     },
     
+    /** A wrapper on listenTo where the 'once' argument is set to true. */
+    listenToOnce: function(observable, eventType, methodName) {
+        return this.listenTo(observable, eventType, methodName, true);
+    },
+    
     /** Registers this Observer with the provided Observable
         for the provided eventType.
         @param observable:dr.Observable the Observable to attach to.
@@ -1150,16 +1155,6 @@ dr.sprite = {
             )()
         };
     })(),
-
-    // Sprite Factory
-    createSprite: function(view, attrs) {
-        var spriteClass;
-        if (view.isA(dr.View)) {
-            spriteClass = dr.sprite.View;
-        }
-        
-        return new spriteClass(view, attrs);
-    },
 
     // Error Console
     set_stackTraceLimit: function(v) {
@@ -3513,10 +3508,10 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
     appendToLateAttrs: function() {Array.prototype.push.apply(this.lateAttrs || (this.lateAttrs = []), arguments);},
     prependToLateAttrs: function() {Array.prototype.unshift.apply(this.lateAttrs || (this.lateAttrs = []), arguments);},
     
-    coerce: function(value, type, defaultValue) {
+    coerce: function(attrName, value, type, defaultValue) {
         switch (type) {
             case 'number':
-                value = Number(value);
+                value = parseFloat(value);
                 if (isNaN(value)) {
                     if (defaultValue !== undefined) {
                         value = defaultValue;
@@ -3525,9 +3520,8 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
                     }
                 }
                 break;
-
             case 'positivenumber':
-                value = Number(value);
+                value = parseFloat(value);
                 if (isNaN(value)) {
                     if (defaultValue !== undefined) {
                         value = defaultValue;
@@ -3568,7 +3562,11 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
                 if (!value) value = dr.Animator.DEFAULT_EASING_FUNCTION;
                 break;
             case 'json':
-                value = JSON.parse(value);
+                try {
+                    value = JSON.parse(value);
+                } catch (e) {
+                    dr.dumpStack("error parsing json value '" + value + "' for attribute '" + attrName + "'");
+                }
                 break;
             case 'expression':
                 if (typeof value === 'string') {
@@ -3689,7 +3687,7 @@ dr.AccessorSupport = new JS.Module('AccessorSupport', {
             before the event may be fired.
         @returns boolean: True if the value was changed, false otherwise. */
     setActual: function(attrName, value, type, defaultValue, beforeEventFunc) {
-        if (this[attrName] !== (value = this.coerce(value, type, defaultValue))) {
+        if (this[attrName] !== (value = this.coerce(attrName, value, type, defaultValue))) {
             // Store value and invoke setter on sprite if it exists
             var setterName = dr.AccessorSupport.generateSetterName(attrName),
                 sprite = this.sprite;
@@ -4247,7 +4245,8 @@ dr.SpriteBacked = new JS.Module('SpriteBacked', {
     
     // Methods /////////////////////////////////////////////////////////////////
     createSprite: function(attrs) {
-        return dr.sprite.createSprite(this, attrs);
+        // Default implementation is a View sprite.
+        return new dr.sprite.View(this, attrs);
     }
 });
 
@@ -4760,7 +4759,7 @@ dr.sprite.View = new JS.Class('sprite.View', {
         s.marginLeft = s.marginTop = '0px';
         
         // Root views need to be attached to an existing dom element
-        if (attrs.__isRootView) document.getElementsByTagName('body')[0].appendChild(elem);
+        if (this.view.isA(dr.RootView)) document.getElementsByTagName('body')[0].appendChild(elem);
         
         return elem;
     },
@@ -4784,17 +4783,22 @@ dr.sprite.View = new JS.Class('sprite.View', {
     },
     
     set_width: function(v) {
-        this.styleObj.width = v + 'px';
+        this.styleObj.width = v + (v !== 'auto' ? 'px' : '');
         return v;
     },
     
     set_height: function(v, supressEvent) {
-        this.styleObj.height = v + 'px';
+        this.styleObj.height = v + (v !== 'auto' ? 'px' : '');
         return v;
     },
     
     set_bgcolor: function(v) {
         this.styleObj.backgroundColor = v;
+        return v;
+    },
+    
+    set_color: function(v) {
+        this.styleObj.color = v || 'inherit';
         return v;
     },
     
@@ -4936,7 +4940,7 @@ dr.sprite.View = new JS.Class('sprite.View', {
         var v = '';
         if (this.__scrollable) {
             v = 'auto';
-        } else if (this.__clip || this.__ellipsis) {
+        } else if (this.__clip) {
             v = 'hidden';
         }
         this.styleObj.overflow = v;
@@ -5007,6 +5011,11 @@ dr.sprite.View = new JS.Class('sprite.View', {
         return {x:x, y:y};
     },
     
+    /** Gets the bounding rect object with enties: x, y, width and height. */
+    getBounds: function() {
+        return this.platformObject.getBoundingClientRect();
+    },
+    
     /** Gets an array of ancestor platform objects including the platform
         object for this sprite.
         @param ancestor (optional) The platform element to stop
@@ -5066,6 +5075,8 @@ dr.sprite.View = new JS.Class('sprite.View', {
         name:string The name of this node. Used to reference this Node from
             its parent Node.
         id:string The unique ID of this node in the global namespace.
+        $textcontent:string The text found within the tags of an instance. Set
+            when an instances children are being constructed.
         
         Lifecycle Related:
             initing:boolean Set to true during initialization and then false
@@ -5156,6 +5167,7 @@ dr.Node = new JS.Class('Node', {
         
         this.inited = false;
         this.initing = true;
+        this.$textcontent = '';
         
         var defaultKlassAttrValues = this.klass.defaultAttrValues;
         if (defaultKlassAttrValues) attrs = dr.extend({}, defaultKlassAttrValues, attrs);
@@ -5177,6 +5189,12 @@ dr.Node = new JS.Class('Node', {
         var CONSTRAINTS = dr.AccessorSupport.CONSTRAINTS;
         CONSTRAINTS.incrementLockCount();
         
+        // Assign directly since this isn't a real attribute.
+        if (attrs.$tagname) {
+            this.$tagname = attrs.$tagname;
+            delete attrs.$tagname;
+        }
+        
         this.callSetters(attrs);
         this.doBeforeAdoption();
         this.set_parent(parent);
@@ -5196,7 +5214,7 @@ dr.Node = new JS.Class('Node', {
     /** Called by dr.RootView once the root view is ready. */
     notifyReady: function() {
         this.inited = true;
-        this.sendEvent('oninit', true);
+        this.sendEvent('oninit', this);
     },
     
     /** Provides a hook for subclasses to do things before this Node has its
@@ -5330,6 +5348,8 @@ dr.Node = new JS.Class('Node', {
             if (this.initing === false) this.sendEvent('onid', v);
         }
     },
+    
+    set_$textcontent: function(v) {this.setSimpleActual('$textcontent', v);},
     
     /** Gets the subnodes for this Node and does lazy instantiation of the 
         subnodes array if no child Nodes exist.
@@ -6711,6 +6731,9 @@ dr.View = new JS.Class('View', dr.Node, {
         this.sprite.updateTransform(xscale, yscale, rotation, z);
     },
 
+    // Text Attributes //
+    set_color: function(v) {this.setActual('color', v, 'color', 'inherit');},
+
     // Visual Attributes //
     set_clickable: function(v) {this.setActual('clickable', v, 'boolean', false);},
     set_clip: function(v) {this.setActual('clip', v, 'boolean', false);},
@@ -7250,11 +7273,6 @@ dr.RootView = new JS.Module('RootView', {
         dr.global.roots.addRoot(this);
     },
     
-    createSprite: function(attrs) {
-        attrs.__isRootView = true;
-        return dr.sprite.createSprite(this, attrs);
-    },
-    
     /** @overrides dr.View */
     destroyAfterOrphaning: function() {
         dr.global.roots.removeRoot(this);
@@ -7263,12 +7281,6 @@ dr.RootView = new JS.Module('RootView', {
     
     
     // Accessors ///////////////////////////////////////////////////////////////
-    /** @overrides dr.Node */
-    set_parent: function(parent) {
-        // A root view doesn't have a parent view.
-        this.callSuper(undefined);
-    },
-    
     set_ready: function(v) {
         if (this.setActual('ready', v, 'boolean', false)) {
             // Notify all descendants in a depth first manner since 
@@ -8988,6 +9000,124 @@ dr.Button = new JS.Module('Button', {
         @returns void */
     drawReadyState: function() {
         // Subclasses to implement as needed.
+    }
+});
+
+
+/** Provides an interface to platform specific Text functionality. */
+dr.sprite.Text = new JS.Class('sprite.Text', dr.sprite.View, {
+    // Life Cycle //////////////////////////////////////////////////////////////
+    createPlatformObject: function(attrs) {
+        var elem = this.callSuper(attrs);
+        
+        var s = elem.style;
+        s.fontFamily = "font-family:mission-gothic, 'Helvetica Neue', Helvetica, Arial, sans-serif";
+        s.fontSize = "20px";
+        
+        return elem;
+    },
+    
+    
+    // Attributes //////////////////////////////////////////////////////////////
+    set_text: function(v) {
+        if (v != null) {
+            var platformObject = this.platformObject, child;
+            for (child in platformObject.childNodes) {
+                if (child && child.nodeType === 3) platformObject.removeChild(child);
+            }
+            platformObject.appendChild(global.document.createTextNode(v))
+        }
+        return v;
+    },
+    
+    set_fontsize: function(v) {
+        this.styleObj.fontSize = v;
+        return v;
+    },
+    
+    set_fontfamily: function(v) {
+        this.styleObj.fontFamily = v;
+        return v;
+    },
+    
+    set_bold: function(v) {
+        this.styleObj.fontWeight = v ? 'bold' : 'normal';
+        return v;
+    },
+    
+    set_italic: function(v) {
+        this.styleObj.fontStyle = v ? 'italic' : 'normal';
+        return v;
+    },
+    
+    set_smallcaps: function(v) {
+        this.styleObj.fontVariant = v ? 'small-caps' : 'normal';
+        return v;
+    },
+    
+    set_underline: function(v) {
+        this.styleObj.textDecoration = v ? 'underline' : 'none';
+        return v;
+    },
+    
+    set_strike: function(v) {
+        this.styleObj.textDecoration = v ? 'line-through' : 'none';
+        return v;
+    },
+    
+    set_ellipsis: function(v) {
+        this.__ellipsis = v;
+        this.styleObj.textOverflow = v ? 'ellipsis' : 'clip';
+        this.__updateOverflow();
+        return v;
+    },
+    
+    set_multiline: function(v) {
+        this.__isMultiline = v;
+        this.__updateMultiline();
+        return v;
+    },
+    
+    set_width: function(v) {
+        this.__isAutoWidth = v === 'auto';
+        this.__updateMultiline();
+        return this.callSuper(v);
+    },
+    
+    
+    // Methods /////////////////////////////////////////////////////////////////
+    /** @private */
+    __updateMultiline: function() {
+        var whitespace;
+        if (this.__isMultiline) {
+            whitespace = this.__isAutoWidth ? 'pre' : 'pre-wrap';
+        } else {
+            whitespace = 'nowrap';
+        }
+        this.styleObj.whiteSpace = whitespace;
+    },
+    
+    /** @overrides */
+    __updateOverflow: function() {
+        if (this.__ellipsis) {
+            this.styleObj.overflow = 'hidden';
+        } else {
+            this.callSuper()
+        }
+    },
+    
+    getText: function() {
+        // Firefox doesn't support innerText and textContent gives us more than
+        // we want. Instead, walk the dom children and concat all the text nodes.
+        // The nodes get trimmed since line feeds and other junk whitespace will
+        // show up as text nodes.
+        var child = this.platformObject.firstChild,
+            texts = [];
+        while (child) {
+            if (child.nodeType === 3) texts.push(child.data.trim());
+            child = child.nextSibling;
+        }
+        return texts.join("")
     }
 });
 
