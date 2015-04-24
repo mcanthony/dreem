@@ -595,6 +595,10 @@ dr = {
     },
     
     // Dreem Instantiation
+    lookupClass: function(classname) {
+        return this.maker.lookupClass(classname, this.pkg);
+    },
+    
     makeChildren: function(target, json) {
         var maker = this.maker, pkg = this.pkg,
             i = 0, len = json.length;
@@ -896,7 +900,12 @@ dr.Observer = new JS.Module('Observer', {
             attrName = eventType.startsWith('on') ? eventType.substring(2) : eventType;
         }
         try {
-            this[methodName](observable.createEvent(eventType, observable.getAttribute(attrName)));
+            var event = observable.createEvent(eventType, observable.getAttribute(attrName));
+            if (typeof methodName === 'function') {
+                methodName.call(this, event);
+            } else {
+                this[methodName](event);
+            }
         } catch (err) {
             dr.dumpStack(err);
         }
@@ -5498,6 +5507,23 @@ dr.Node = new JS.Class('Node', {
         @returns Node or null if no klass is provided or match found. */
     searchAncestorsForClass: function(klass) {
         return klass ? this.searchAncestors(function(n) {return n instanceof klass;}) : null;
+    },
+    
+    /** Find the youngest ancestor Node that has a defined value for the
+        property.
+        @returns Node or undefined if no propertyName is provided or match found. */
+    getAncestorWithProperty: function(propertyName, propertyValue) {
+        if (propertyName) {
+            var func;
+            if (propertyValue !== undefined) {
+                func = function(n) {return n[propertyName] === propertyValue;};
+            } else {
+                func = function(n) {return n[propertyName] != null;};
+            }
+            return this.searchAncestors(func);
+        } else {
+            return null;
+        }
     },
     
     /** Get the youngest ancestor of this Node for which the matcher function 

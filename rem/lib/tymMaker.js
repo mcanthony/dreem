@@ -408,17 +408,3 @@ define(function(require, exports){
     return classTable[tagName] = Klass;
   }
 })
-
-/*
-TODO:
-  - Setter return values and default behavior
-  - z-order
-  - rounded corners
-  
-  - Input Text
-  - Bitmaps
-  
-  - Replication
-  - Data Sets
-  - States
-*/
