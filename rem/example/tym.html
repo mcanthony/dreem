@@ -25,7 +25,7 @@
 <body>
   <view width="100%" height="100%" minwidth="1000" bgcolor="#cc99cc" scrollable="true">
     <handler event="onscroll" args="scroll">
-      console.log('scroll event', scroll);
+      console.log('onscroll', scroll);
     </handler>
     
     <!--// Class Definitions //-->
@@ -46,12 +46,12 @@
             @destroy()
       </handler>
       <setter name="width" args="width">
-        console.log('setWidth on class', width);
+        console.log('SETTER:width on item class', width);
         this.callSuper(width);
         this.foo();
       </setter>
       <method name="foo" args="bar">
-        console.log('foo called.', this.width);
+        console.log('METHOD:foo', this.width);
       </method>
     </class>
     
@@ -87,16 +87,22 @@
       <attribute name="again" type="boolean" value="true"></attribute>
       
       <handler event="onactivated" args="activated">
-        console.log('activated', activated, this.thing, this.another, this.again);
+        console.log('HANDLER:activated', activated, this.thing, this.another, this.again);
       </handler>
       <handler event="onanother" args="another">
-        console.log('instance handler: another', another);
+        console.log('HANDLER:another', another);
       </handler>
       <handler event="onthing" args="thing">
-        console.log('instance handler: thing', thing);
+        console.log('HANDLER:thing', thing);
+      </handler>
+      <handler event="onthing,onanother  oninit" args="value">
+        console.log('MULTI HANDLER', value);
+      </handler>
+      <handler event="ondestroy" args="value">
+        console.log('HANDLER:destroy', value);
       </handler>
       <setter name="width" args="width">
-        console.log('setWidth on instance', width, this.inited);
+        console.log('SETTER:width on item instance', width, this.inited);
         if (this.inited) {
           this.setAttribute('opacity', this.opacity / 2);
           this.setAttribute('another', 'hi there');
@@ -108,10 +114,10 @@
       <animator attribute="y" to="-25" relative="true" running="true"></animator>
     </item>
     <handler event="onanother" args="another" reference="this.theItem">
-      console.log('another', another);
+      console.log('HANDLER:another by reference', another);
     </handler>
     <handler event="onthing" args="thing" reference="foo">
-      console.log('thing', thing);
+      console.log('HANDLER:thing by reference', thing);
     </handler>
     
     <dreem-text text="hello there." x="50" y="100" bgcolor="white"></dreem-text>

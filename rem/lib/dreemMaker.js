@@ -29,8 +29,8 @@ define(function(require, exports){
     dreemParser = require('./dreemParser.js');
 
   // Pull in the dr core
-  var dr = require('$ROOT/rem/dr/src/dr/core/all.js');
-  var JS = require('$ROOT/rem/lib/jsclass.js');
+  var dr = require('$ROOT/rem/dr/all.js');
+  var JS = require('$LIB/jsclass.js');
 
   /** Built in tags that dont resolve to class files or that resolve to 
       class files defined in the core. */

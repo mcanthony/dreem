@@ -77,7 +77,7 @@ define(function(require, exports){
     /* Supported languages, these are lazily loaded */
     Compiler.prototype.languages = {
       js:{
-        lib:define.expandVariables(define.LIB_DIR) + 'acorn.js',
+        lib:define.expandVariables(define.LIB) + 'acorn.js',
         compile:function(string, lib, args){
           // this returns a compiled function or an error
           if(!this.module){
@@ -95,7 +95,7 @@ define(function(require, exports){
         }
       },
       coffee:{
-        lib:define.expandVariables(define.LIB_DIR) + 'coffee-script.js',
+        lib:define.expandVariables(define.LIB) + 'coffee-script.js',
         compile:function(string, lib, args){
           // compile coffeescript
           if(!this.module){
