@@ -192,7 +192,7 @@ define(function(require, exports){
             // Allows descendants to know destruction is in process
             this.isBeingDestroyed = true;
             
-            this.fireNewEvent('ondestroy', this);
+            this.sendEvent('ondestroy', this);
             
             // Destroy subnodes depth first
             var subs = this.subnodes;
