@@ -192,6 +192,8 @@ define(function(require, exports){
             // Allows descendants to know destruction is in process
             this.isBeingDestroyed = true;
             
+            this.fireNewEvent('ondestroy', this);
+            
             // Destroy subnodes depth first
             var subs = this.subnodes;
             if (subs) {
@@ -232,6 +234,10 @@ define(function(require, exports){
         
         
         // Accessors ///////////////////////////////////////////////////////////////
+        set_classroot: function(v) {
+            this.setSimpleActual('classroot', v);
+        },
+        
         /** Sets the provided Node as the new parent of this Node. This is the
             most direct method to do reparenting. You can also use the addSubnode
             method but it's just a wrapper around this setter. */
@@ -264,6 +270,10 @@ define(function(require, exports){
                     newParent.getSubnodes().push(this);
                     if (this.name) newParent.__addNameRef(this);
                     newParent.subnodeAdded(this);
+                    
+                    if (this.initing === false || !this.classroot) {
+                        this.set_classroot(newParent.classroot);
+                    }
                 }
                 
                 // Fire an event

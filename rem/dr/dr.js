@@ -161,10 +161,12 @@ define(function(require, exports, module){
             return this.maker.lookupClass(classname, this.pkg);
         },
         
-        makeChildren: function(target, json) {
+        makeChildren: function(target, json, isClassroot) {
             var maker = this.maker, pkg = this.pkg,
                 i = 0, len = json.length;
+            if (isClassroot) maker.classroots.unshift(target);
             for (; len > i;) maker.walkDreemJSXML(json[i++], target, pkg);
+            if (isClassroot) maker.classroots.shift();
         },
         
         registerHandlers: function(target, handlers) {

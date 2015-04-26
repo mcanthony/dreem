@@ -54,6 +54,8 @@ define(function(require, exports){
     setter:true
   };
 
+  maker.classroots = [];
+
   maker.makeFromPackage = function(pkg) {
     // Compile methods
     try {
@@ -208,7 +210,7 @@ define(function(require, exports){
     
     // Setup __makeChildren method if instanceChildrenJson exist
     if (instanceChildrenJson) {
-      instanceMixin.__makeChildren = new Function('dr','this.callSuper(); dr.makeChildren(this, ' + JSON.stringify(instanceChildrenJson) + ');');
+      instanceMixin.__makeChildren = new Function('dr','this.callSuper(); dr.makeChildren(this, ' + JSON.stringify(instanceChildrenJson) + ', false);');
     }
     
     // Setup __registerHandlers method if klassHandlers exist
@@ -232,6 +234,7 @@ define(function(require, exports){
     mixins.push(instanceMixin);
     if (!parentInstance) mixins.push(dr.SizeToViewport); // Root View case
     
+    combinedAttrs.classroot = this.classroots[0] || null;
     new klass(parentInstance, combinedAttrs, mixins);
   };
   
@@ -352,7 +355,7 @@ define(function(require, exports){
     
     // Setup __makeChildren method if klassChildrenJson exist
     if (klassChildrenJson) {
-      klassBody.__makeChildren = new Function('dr','this.callSuper(); dr.makeChildren(this, ' + JSON.stringify(klassChildrenJson) + ');');
+      klassBody.__makeChildren = new Function('dr','this.callSuper(); dr.makeChildren(this, ' + JSON.stringify(klassChildrenJson) + ', true);');
     }
     
     // Setup __registerHandlers method if klassHandlers exist
