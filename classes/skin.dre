@@ -104,21 +104,20 @@
             @applyTo(subview)
 
         view.$appliedskin = @name
-        view.postSkinHack() if view.postSkinHack
 
     </method>
 </class>
 
 <skin name="default">
-  <text fontweight="200" clip="true" color="white" fontsize="20" fontfamily="'mission-gothic', 'Helvetica Neue', Helvetica, Arial, sans-serif"></text>
+  <text fontweight="200" clip="true" color="white" fontsize="20" fontfamily="'mission-gothic'"></text>
 
-  <inputtext bgcolor="rgb(63,63,63)" color="white" height="32" fontweight="300" fontsize="20" leftpadding="12" leftborder="2" bottomborder="2" bordercolor="white" fontfamily="'mission-gothic', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+  <inputtext bgcolor="rgb(63,63,63)" color="white" height="32" fontweight="300" fontsize="20" leftpadding="12" leftborder="2" bottomborder="2" bordercolor="white" fontfamily="'mission-gothic'">
     <art name="indicator" fill="white" x="-9" visible="true"></art>
   </inputtext>
 
   <labelbutton border="2" padding="3" textcolor="rgb(207,207,207)" defaultcolor="rgb(63,63,63)">
     <art visible="true" name="indicator" fill="white"></art>
-    <text color="rgb(207,207,207)" name="label" fontweight="200" texttransform="uppercase" fontsize="20" fontfamily="'mission-gothic', 'Helvetica Neue', Helvetica, Arial, sans-serif"></text>
+    <text color="rgb(207,207,207)" name="label" texttransform="uppercase" fontweight="200" fontsize="20" fontfamily="'mission-gothic'"></text>
   </labelbutton>
 
   <rangeslider bottomborder="2" bordercolor="white" lowselectcolor="#a0a0a0" highselectcolor="#a0a0a0">
@@ -133,11 +132,11 @@
   </slider>
 
   <checkbutton border="2" padding="3" textcolor="rgb(140,140,140)" innerspacing="3">
-    <text color="rgb(140,140,140)" name="label" texttransform="uppercase" fontweight="200" fontsize="20" fontfamily="'mission-gothic', 'Helvetica Neue', Helvetica, Arial, sans-serif"></text>
+    <text color="rgb(140,140,140)" name="label" texttransform="uppercase" fontweight="200" fontsize="20" fontfamily="'mission-gothic'"></text>
   </checkbutton>
 
   <labeltoggle border="2" padding="3" textcolor="rgb(207,207,207)" defaultcolor="rgb(63,63,63)">
     <art visible="true" name="indicator" fill="white"></art>
-    <text color="rgb(207,207,207)" name="label" texttransform="uppercase" fontweight="200" fontsize="20" fontfamily="'mission-gothic', 'Helvetica Neue', Helvetica, Arial, sans-serif"></text>
+    <text color="rgb(207,207,207)" name="label" texttransform="uppercase" fontweight="200" fontsize="20" fontfamily="'mission-gothic'"></text>
   </labeltoggle>
 </skin>

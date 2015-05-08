@@ -140,7 +140,7 @@ SOFTWARE. -->
     */-->
   <method name="sizeToDom">
     bounds = @sprite.getBounds()
-    
+
     @__internalUpdate = true
     unless @__hasSetWidth then @set_width(bounds.width, true)
     unless @__hasSetHeight then @set_height(bounds.height, true)
