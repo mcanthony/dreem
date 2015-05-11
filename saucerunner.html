@@ -11,20 +11,30 @@
     //this is for testing this runner itself, to run through all smokes run through the dreem server localhost:8080/saucerun
     files = [
       'http://localhost:8080/smoke/text.html',
-      'http://localhost:8080/smoke/inputtext.html',
-      'http://localhost:8080/smoke/ace.html',
-      'http://localhost:8080/smoke/animator.html',
-      'http://localhost:8080/smoke/animgroup.html',
-      'http://localhost:8080/smoke/art.html',
-      'http://localhost:8080/smoke/attributes.html',
-      'http://localhost:8080/smoke/bitmap.html',
-      'http://localhost:8080/smoke/button.html'
+      //'http://localhost:8080/smoke/inputtext.html',
+      //'http://localhost:8080/smoke/ace.html',
+      //'http://localhost:8080/smoke/animator.html',
+      //'http://localhost:8080/smoke/animgroup.html',
+      //'http://localhost:8080/smoke/art.html',
+      //'http://localhost:8080/smoke/attributes.html',
+      //'http://localhost:8080/smoke/bitmap.html',
+      //'http://localhost:8080/smoke/button.html'
     ];
 
     //to run all the smokes run from the server localhost:8080/saucerun, 
     //which populates this DYNAMIC_FILES collection with all files from the smoke directory
     var DYNAMIC_FILES = null;
     if (DYNAMIC_FILES) files = DYNAMIC_FILES;
+
+    var maxCheckOverride; //these determine how long to wait for test results - for the mobile platforms the tests need more time
+    var testTimeoutOverride; //these determine how long to wait for test results - for the mobile platforms the tests need more time
+    var qParams = window.location.search.slice(1).split('&');
+    for (var i in qParams) {
+      var qParam = qParams[i];
+      var paramPair = qParam.split('=');
+      if (paramPair[0] == 'maxChecks') maxCheckOverride = parseInt(paramPair[1]);
+      else if (paramPair[0] == 'testTimeout') testTimeoutOverride = parseInt(paramPair[1]);
+    }
     
     var successCount = 0;
     var failedCount = 0;
@@ -113,11 +123,14 @@
       testframe.style.position = "absolute";
       testframe.style.left = 0;
       testframe.style.top = 0;
-      testframe.src = currentTestName;
+      var testUrl = currentTestName + '?test';
+      if (testTimeoutOverride) testUrl += '&testTimeout=' + testTimeoutOverride;
+      testframe.src = testUrl;
       document.body.appendChild(testframe);
 
       testframe.onload = function() {
-        var maxChecks = 40;
+        var maxChecks = maxCheckOverride || 40;
+    
         var totalChecks = 0;
         var checker = function() {
           totalChecks++;
