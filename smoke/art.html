@@ -27,7 +27,7 @@
       this.test_inited = true;
     </handler>
     <handler event="onready">
-      this.drift = 50;
+      this.drift = 500;
       
       // oninit must already have run
       assert.equal(this.test_inited, true, 'onready running before oninit');
@@ -74,7 +74,7 @@
   <art width="100" height="100" src="/examples/img/cursorshapes.svg" path="0" stroke="coral" fill="coral">
     <animator start="0" from="0" to="3" attribute="animationframe" duration="1000" motion = "outBounce" repeat="1">
       <handler event="oninit">
-        this.drift = 50;
+        this.drift = 500;
         this.test_start = Date.now();
         this.test_timeout = this.duration + this.drift;
 
