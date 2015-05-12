@@ -8,7 +8,7 @@ module.exports = function(grunt) {
     'saucelabs-custom': {
       all: {
         options: {
-          "max-duration": 600,
+          "max-duration": 1200,
           "throttled": 3,
           "tunneled": true,
           urls: [
