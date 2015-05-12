@@ -62,10 +62,10 @@
           assert.equal(style['font-size'], '20px', 'Style property should be empty');
           assert.equal(jqel.css('font-size'), '20px', 'Effective style should be defined');
 
-          assert.equal(this.fontfamily.replace(/'/g, "").replace(/\"/g, '').replace(/ /g, ''), "mission-gothic,HelveticaNeue,Helvetica,Arial,sans-serif");
-          assert.equal(style['font-family'].replace(/'/g, "").replace(/\"/g, '').replace(/ /g, ''), "mission-gothic,HelveticaNeue,Helvetica,Arial,sans-serif");
+          assert.equal(this.fontfamily.replace(/'/g, "").replace(/\"/g, '').replace(/ /g, ''), "mission-gothic");
+          assert.equal(style['font-family'].replace(/'/g, "").replace(/\"/g, '').replace(/ /g, ''), "mission-gothic");
           var ff = jqel.css('font-family');
-          assert.equal(ff.replace(/'/g, "").replace(/\"/g, '').replace(/ /g, ''), "mission-gothic,HelveticaNeue,Helvetica,Arial,sans-serif");
+          assert.equal(ff.replace(/'/g, "").replace(/\"/g, '').replace(/ /g, ''), "mission-gothic");
 
           assert.equal(this.color, 'white');
           assert.equal(style['color'], 'white');
@@ -79,7 +79,7 @@
 
           assert.equal(style['font-weight'], '200');
           assert.equal(style['font-style'], '');
-          assert.equal(style['text-decoration'], 'none');
+          assert.equal(style['text-decoration'], '');
           assert.equal(style['font-variant'], '');
         </handler>
       </text>
