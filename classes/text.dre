@@ -110,7 +110,7 @@ SOFTWARE. -->
     return dr._noop
   </setter>
 
-  <attribute name="fontweight" type="number" value=""></attribute>
+  <attribute name="fontweight" type="string" value=""></attribute>
   <setter name="fontweight" args="v">
     if @fontweight isnt v
       @sprite.setAttribute('fontweight', v)
@@ -173,13 +173,14 @@ SOFTWARE. -->
         */-->
   <attribute name="underline" type="boolean" value="false"></attribute>
   <setter name="underline" args="underline">
-    @setAndFire('underline', underline)
-    if underline
-      if @strike then @setAttribute('strike', false)
-      @sprite.setAttribute('text-decoration', 'underline')
-    else if not @strike
-      @sprite.setAttribute('text-decoration', 'none')
-    if @inited then @sizeToDom()
+    if @underline isnt underline
+      @setAndFire('underline', underline)
+      if underline
+        if @strike then @setAttribute('strike', false)
+        @sprite.setAttribute('text-decoration', 'underline')
+      else if not @strike
+        @sprite.setAttribute('text-decoration', 'none')
+      if @inited then @sizeToDom()
     return dr._noop
   </setter>
 
@@ -189,13 +190,14 @@ SOFTWARE. -->
         */-->
   <attribute name="strike" type="boolean" value="false"></attribute>
   <setter name="strike" args="strike">
-    @setAndFire('strike', strike)
-    if strike
-      if @underline then @setAttribute('underline', false)
-      @sprite.setAttribute('text-decoration', 'line-through')
-    else if not @underline
-      @sprite.setAttribute('text-decoration', 'none')
-    if @inited then @sizeToDom()
+    if @strike isnt strike
+      @setAndFire('strike', strike)
+      if strike
+        if @underline then @setAttribute('underline', false)
+        @sprite.setAttribute('text-decoration', 'line-through')
+      else if not @underline
+        @sprite.setAttribute('text-decoration', 'none')
+      if @inited then @sizeToDom()
     return dr._noop
   </setter>
 
@@ -265,8 +267,8 @@ SOFTWARE. -->
 
   <method name="construct" args="el, attributes">
     # setup default to reduce events during initialization.
-    @fontsize = @fontfamily = ''
-    @bold = @italic = @smallcaps = @multiline = @ellipsis = false
+    @text = @fontsize = @fontfamily = @texttransform = @fontweight = ''
+    @strike = @underline = @bold = @italic = @smallcaps = @multiline = @ellipsis = false
 
     @super()
   </method>
@@ -279,6 +281,16 @@ SOFTWARE. -->
   <method name="_preventBadWhitespace">
     if @multiline then @sprite.setAttribute('whitespace', if @__hasSetWidth then 'pre-wrap' else 'pre')
   </method>
+
+  <handler event="oninit">
+    #on chrome the text objects need to be informed when the fonts on the page have finally finished loading so they can recalculate their proper size
+    if document.fonts && document.fonts.ready && document.fonts.ready.constructor == Promise
+      slf = @
+      document.fonts.ready.then () ->
+        slf.sizeToDom()
+
+  </handler>
+
 
   <!--/**
         * @method format
