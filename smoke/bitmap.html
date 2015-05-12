@@ -27,31 +27,31 @@
       assert.equal(size.height, 194)
     </handler>
   </bitmap>
-  
+
   <bitmap x="10" width="150" height="100" bgcolor="red" src="./shoarma.jpg" stretches="scale">
     <handler event="onload" args="size">
       assert.equal(size.width, 259)
       assert.equal(size.height, 194)
     </handler>
   </bitmap>
-  
+
   <bitmap x="10" width="150" height="100" bgcolor="red" src="./shoarma.jpg" naturalsize="true">
     <handler event="onload" args="size">
       assert.equal(this.width, 259)
       assert.equal(this.height, 194)
     </handler>
   </bitmap>
-  
+
   <handler event="oninit">
     var foo = this.foo;
     assert.equal(foo.width, 150);
     assert.equal(foo.height, 100);
     foo.setAttribute('src', './shoarma.jpg');
-    
+
     setTimeout(function() {
       assert.equal(foo.width, 259);
       assert.equal(foo.height, 194);
-    }, 100);
+    }, 500);
   </handler>
 </view>
 <!-- The MIT License (MIT)
