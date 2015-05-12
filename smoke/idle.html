@@ -22,9 +22,9 @@
     setTimeout(() =>
       assert.isNumber(this.time, 'dr.idle.onidle should send a number')
       # console.log('counter', this.counter)
-      assert.closeTo(this.counter, 7, 5)
       assert.equal(typeof this.lasttime, 'number')
-    , 100)
+      assert.notEqual(this.counter, 0, "The counter should have moved past 0")
+    , 500)
     this.testCallOnIdle()
   </handler>
 </view>
