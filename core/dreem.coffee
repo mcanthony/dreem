@@ -449,7 +449,7 @@ window.dr = do ->
           data: {url: window.location.pathname},
           success: (data) ->
             # we have a teem server!
-            showWarnings(data) if (data.length)
+            showWarnings(data) if (data.length && data[0].length)
             setTimeout(filereloader, 1000)
           error: (err) ->
             console.warn('Validation requires the Teem server')
