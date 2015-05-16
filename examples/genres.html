@@ -7,7 +7,7 @@
 <view id="container" bgcolor="#463630" width="100%" height="100%" scrollable="true">
   <dataset name="genres" url="./data/moviegenres.json"></dataset>
 
-  <class name="subgenre" x="10" bgcolor="gainsboro" width="300" height="16">
+  <class name="subgenre" x="10" bgcolor="gainsboro" width="290" height="auto">
     <text text="${this.parent.data}"></text>
   </class>
 
@@ -29,7 +29,13 @@
       }
     </method>
     <method name="show">
-      if (! this.repl) {
+      if (this.repl) {
+        // The container is already opened. Close it
+        if (parent.openedgenre)
+          parent.openedgenre.hide()
+        parent.openedgenre = null
+      }
+      else {
         this.repl = this.createChild({class: 'replicator', datapath: "/subgenres[*]/name", classname: "subgenre"})
         if (parent.openedgenre) {
           parent.openedgenre.hide()
@@ -47,7 +53,7 @@
 </view>
 <!-- The MIT License (MIT)
 
-Copyright ( c ) 2014 Teem2 LLC
+Copyright ( c ) 2014-2015 Teem2 LLC
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
