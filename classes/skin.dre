@@ -115,7 +115,7 @@
     <art name="indicator" fill="white" x="-9" visible="true"></art>
   </inputtext>
 
-  <labelbutton border="2" padding="3" textcolor="rgb(207,207,207)" defaultcolor="rgb(63,63,63)">
+  <labelbutton border="2" padding="3" textcolor="rgb(207,207,207)" defaultcolor="rgb(63,63,63)" indicatorsize="10">
     <art visible="true" name="indicator" fill="white"></art>
     <text color="rgb(207,207,207)" name="label" texttransform="uppercase" fontweight="200" fontsize="20" fontfamily="'mission-gothic'"></text>
   </labelbutton>
@@ -135,7 +135,7 @@
     <text color="rgb(140,140,140)" name="label" texttransform="uppercase" fontweight="200" fontsize="20" fontfamily="'mission-gothic'"></text>
   </checkbutton>
 
-  <labeltoggle border="2" padding="3" textcolor="rgb(207,207,207)" defaultcolor="rgb(63,63,63)">
+  <labeltoggle border="2" padding="3" textcolor="rgb(207,207,207)" defaultcolor="rgb(63,63,63)" indicatorsize="10">
     <art visible="true" name="indicator" fill="white"></art>
     <text color="rgb(207,207,207)" name="label" texttransform="uppercase" fontweight="200" fontsize="20" fontfamily="'mission-gothic'"></text>
   </labeltoggle>
