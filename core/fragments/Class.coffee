@@ -134,14 +134,15 @@ class Class
       # unpack instance children
       if viewel
         if instancebody
-          viewhtml = viewel.innerHTML.trim()
-          if viewhtml
-            # Append class children on instances instead of replacing them
-            viewel.innerHTML = instancebody + viewhtml
-            # console.log 'instancebody', instancebody, viewel.innerHTML, viewel
+          div = document.createElement('div');
+          div.innerHTML = instancebody;
+          elements = div.childNodes;
+          if viewel.firstChild
+            for element in elements
+              viewel.insertBefore(element, viewel.firstChild) if element
           else
-            # console.log 'normal'
-            viewel.innerHTML = instancebody
+            for element in elements
+              viewel.appendChild(element) if element
 
         unless skipchildren
           children = (child for child in dom.getChildElements(viewel) when child.localName not in specialtags)
