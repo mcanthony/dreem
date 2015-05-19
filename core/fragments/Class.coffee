@@ -136,7 +136,7 @@ class Class
         if instancebody
           div = document.createElement('div');
           div.innerHTML = instancebody;
-          elements = div.childNodes;
+          elements = (e for e in div.childNodes).reverse()
           if viewel.firstChild
             for element in elements
               viewel.insertBefore(element, viewel.firstChild) if element
