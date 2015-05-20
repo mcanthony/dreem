@@ -4193,7 +4193,7 @@
               url: window.location.pathname
             },
             success: function(data) {
-              if (data.length) {
+              if (data.length && data[0].length) {
                 showWarnings(data);
               }
               return setTimeout(filereloader, 1000);
@@ -4896,7 +4896,7 @@
         console.warn('overwriting class', name);
       }
       dr[name] = klass = function(instanceel, instanceattributes, internal, skipchildren) {
-        var attributes, children, k, len3, parent, ref1, sendInit, viewel, viewhtml;
+        var attributes, children, div, e, element, elements, k, l, len3, len4, len5, m, parent, ref1, sendInit, viewel;
         attributes = clone(classattributes);
         _processAttrs(instanceattributes, attributes);
         if (attributes.$instanceattributes == null) {
@@ -4920,20 +4920,41 @@
         }
         if (viewel) {
           if (instancebody) {
-            viewhtml = viewel.innerHTML.trim();
-            if (viewhtml) {
-              viewel.innerHTML = instancebody + viewhtml;
+            div = document.createElement('div');
+            div.innerHTML = instancebody;
+            elements = ((function() {
+              var k, len3, ref2, results;
+              ref2 = div.childNodes;
+              results = [];
+              for (k = 0, len3 = ref2.length; k < len3; k++) {
+                e = ref2[k];
+                results.push(e);
+              }
+              return results;
+            })()).reverse();
+            if (viewel.firstChild) {
+              for (k = 0, len3 = elements.length; k < len3; k++) {
+                element = elements[k];
+                if (element) {
+                  viewel.insertBefore(element, viewel.firstChild);
+                }
+              }
             } else {
-              viewel.innerHTML = instancebody;
+              for (l = 0, len4 = elements.length; l < len4; l++) {
+                element = elements[l];
+                if (element) {
+                  viewel.appendChild(element);
+                }
+              }
             }
           }
           if (!skipchildren) {
             children = (function() {
-              var k, len3, ref2, ref3, results;
+              var len5, m, ref2, ref3, results;
               ref2 = dom.getChildElements(viewel);
               results = [];
-              for (k = 0, len3 = ref2.length; k < len3; k++) {
-                child = ref2[k];
+              for (m = 0, len5 = ref2.length; m < len5; m++) {
+                child = ref2[m];
                 if (ref3 = child.localName, indexOf.call(specialtags, ref3) < 0) {
                   results.push(child);
                 }
@@ -4941,8 +4962,8 @@
               return results;
             })();
             if (!skipinitchildren) {
-              for (k = 0, len3 = children.length; k < len3; k++) {
-                child = children[k];
+              for (m = 0, len5 = children.length; m < len5; m++) {
+                child = children[m];
                 dom.initElement(child, parent);
               }
             }

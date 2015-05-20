@@ -125,13 +125,13 @@ SOFTWARE. -->
     @replicator.updateData(newdata)
   </handler>
 
-  <!--<art name="indicator" y="${this.parent.height - this.height - 5}" height="10" width="10" z="1" inline="true" visible="false" clickable="false">-->
-      <!--&lt;!&ndash;-->
-      <!--<svg name="triangle" height="100" width="100">-->
-          <!--<polygon name="polygon" points="0,100 0,0 100,100"/>-->
-      <!--</svg>-->
-      <!--&ndash;&gt;-->
-  <!--</art>-->
+  <art name="indicator" y="${this.parent.height - this.height - 5}" height="10" width="10" z="1" inline="true" visible="false" clickable="false">
+      <!--
+      <svg name="triangle" height="100" width="100">
+          <polygon name="polygon" points="0,100 0,0 100,100"/>
+      </svg>
+      -->
+  </art>
 
   <handler event="oninit">
     @text ?= @sprite.getText()
