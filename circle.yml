@@ -24,5 +24,6 @@ deployment:
   production:
     branch: [master, circleci_deploy]
     commands:
-      - 'git tag green_${CIRCLE_BUILD_NUM}'
+      - git tag green_${CIRCLE_BUILD_NUM}
+      - git push --tags
   
