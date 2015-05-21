@@ -1,0 +1,24 @@
+echo ""
+echo "....CREATING NEW Release Candidate: v${1}rc${2}"
+echo ""
+
+git checkout dev
+
+git fetch --tags origin
+tags=`git tag | grep "^green" | xargs`
+#echo $tags
+
+if [ "$tags" != "" ]; then
+  arr=(${tags/\s/ })
+  
+  len=${#arr[@]}
+  last_pos=$((len - 1))
+  
+  latest_green=${arr[${last_pos}]}
+  #echo $latest_green
+  
+  git co $latest_green
+   
+  git tag v${1}rc${2}
+  git push --tags
+fi
