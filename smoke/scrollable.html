@@ -248,7 +248,7 @@
 
       var self = this;
       setTimeout(function() {
-        assert.equal(2, container.scrollEventCount, 'An initial onscroll event should have happened.');
+        assert.include([2,3], container.scrollEventCount, 'An initial onscroll event should have happened.');
 
         self.continueTesting2()
       }, 200);
