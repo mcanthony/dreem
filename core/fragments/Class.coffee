@@ -136,13 +136,16 @@ class Class
         if instancebody
           div = document.createElement('div');
           div.innerHTML = instancebody;
-          elements = (e for e in div.childNodes).reverse()
-          if viewel.firstChild
+          elements = (e for e in div.childNodes)
+          fc = viewel.firstChild
+          if fc
             for element in elements
-              viewel.insertBefore(element, viewel.firstChild) if element
+              if element
+                viewel.insertBefore(element, fc)
           else
             for element in elements
-              viewel.appendChild(element) if element
+              if element
+                viewel.appendChild(element)
 
         unless skipchildren
           children = (child for child in dom.getChildElements(viewel) when child.localName not in specialtags)

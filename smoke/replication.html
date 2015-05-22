@@ -12,20 +12,20 @@
   <class name="weather" width="auto" height="auto" bgcolor="lightblue">
     <view width="auto" height="auto">
       <spacedlayout spacing="15"></spacedlayout>
-      <replicator datapath="/weather[0]/main" classname="dreem-text"></replicator>
-      <replicator datapath="/main/temp" classname="dreem-text"></replicator>
-      <replicator datapath="/wind/speed" classname="dreem-text"></replicator>
-      <replicator datapath="/wind/deg" classname="dreem-text"></replicator>
+      <replicator datapath="/weather[0]/main" classname="text"></replicator>
+      <replicator datapath="/main/temp" classname="text"></replicator>
+      <replicator datapath="/wind/speed" classname="text"></replicator>
+      <replicator datapath="/wind/deg" classname="text"></replicator>
     </view>
   </class>
 
   <class name="weather2" width="auto" height="auto" bgcolor="lightgreen">
     <view width="auto" height="auto">
       <spacedlayout spacing="15"></spacedlayout>
-      <replicator datapath="/weather[0]/main" classname="dreem-text"></replicator>
-      <replicator datapath="/main/temp" classname="dreem-text"></replicator>
-      <replicator datapath="/wind/speed" classname="dreem-text"></replicator>
-      <replicator datapath="/wind/deg" classname="dreem-text"></replicator>
+      <replicator datapath="/weather[0]/main" classname="text"></replicator>
+      <replicator datapath="/main/temp" classname="text"></replicator>
+      <replicator datapath="/wind/speed" classname="text"></replicator>
+      <replicator datapath="/wind/deg" classname="text"></replicator>
     </view>
   </class>
 
@@ -79,12 +79,12 @@
 
     <replicator datapath="$tempdata" classname="weather2"></replicator>
 
-    <replicator datapath="$tempdata/main/temp" classname="inputtext"></replicator>
+    <replicator datapath="$tempdata/main/temp" classname="text"></replicator>
 
     <handler event="oninit">
       assert.equal(this.subviews.length, 3)
       assert.equal(this.subnodes.length, 10)
-      assert.equal(this.subviews[2].text, '63.88')
+      assert.equal(this.subviews[this.subviews.length - 1].text, '63.88')
     </handler>
   </view>
 
@@ -138,12 +138,12 @@
 
     <replicator datapath="$tempdata2" classname="weather2"></replicator>
 
-    <replicator datapath="$tempdata2/main/temp" classname="inputtext"></replicator>
+    <replicator datapath="$tempdata2/main/temp" classname="text"></replicator>
 
     <handler event="oninit">
       assert.equal(this.subviews.length, 3)
       assert.equal(this.subnodes.length, 10)
-      assert.equal(this.subviews[2].text, '63.88')
+      assert.equal(this.subviews[this.subviews.length - 1].text, '63.88')
     </handler>
   </view>
 
@@ -156,17 +156,17 @@
 
     <replicator name="repl" datapath="$tempdata3" classname="weather2"></replicator>
 
-    <replicator datapath="$tempdata3/main/temp" classname="inputtext"></replicator>
+    <replicator datapath="$tempdata3/main/temp" classname="text"></replicator>
 
     <handler event="ondata" reference="this.tempdata3">
       var _this = this;
       dr.idle.callOnIdle(function() {
         assert.equal(_this.subviews.length, 3)
         assert.equal(_this.subnodes.length, 10)
-        assert.equal(_this.subviews[2].text, '63.88');
+        assert.equal(_this.subviews[_this.subviews.length - 1].text, '63.88');
 
         dr.idle.callOnIdle(function() {
-          assert.equal(_this.subviews[2].width, 100);
+          assert.equal(_this.subviews[_this.subviews.length - 1].width, 45);
         })
       })
     </handler>
@@ -175,7 +175,7 @@
   <!-- Filtering -->
   <view>
     <spacedlayout spacing="15"></spacedlayout>
-    <replicator id="repl" classname="dreem-text" data="['a',1,'b',2,'c',3,4,5]" filterexpression="\d"></replicator>
+    <replicator id="repl" classname="text" data="['a',1,'b',2,'c',3,4,5]" filterexpression="\d"></replicator>
     <handler event="oninit">
       assert.deepEqual(repl.data, [1,2,3,4,5]);
       repl.setAttribute('filterexpression', '[^\\d]');
@@ -186,7 +186,7 @@
   <!-- Filter function -->
   <view>
     <spacedlayout spacing="15"></spacedlayout>
-    <replicator name="repl" classname="dreem-text" data="['x',1,'y',2,'z',3,4,5]">
+    <replicator name="repl" classname="text" data="['x',1,'y',2,'z',3,4,5]">
       <method name="filterfunction" args="obj, accum">
         accum.unshift(obj);
         return accum;
@@ -196,17 +196,17 @@
       assert.deepEqual(this.repl.data, [5,4,3,'z',2,'y',1,'x']);
     </handler>
   </view>
-  
+
   <!-- Filter function with a class to replicate on. -->
   <dataset name="sample">
     {"text" : [ {"a":"a"}, {"a":"b"}, {"a":"c"}, {"a":"d"} ]}
   </dataset>
   <class name="testview" extends="view" bgcolor="#ffcccc" width="20" height="20">
-    <replicator classname="dreem-text" datapath="/a"></replicator>
+    <replicator classname="text" datapath="/a"></replicator>
   </class>
   <view height="20">
     <spacedlayout spacing="1"></spacedlayout>
-    
+
     <replicator name="repl" classname="testview" datapath="$sample/text[*][@]">
       <method name="filterfunction" args="obj, accum">
         accum.unshift(obj);

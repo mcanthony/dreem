@@ -4896,7 +4896,7 @@
         console.warn('overwriting class', name);
       }
       dr[name] = klass = function(instanceel, instanceattributes, internal, skipchildren) {
-        var attributes, children, div, e, element, elements, k, l, len3, len4, len5, m, parent, ref1, sendInit, viewel;
+        var attributes, children, div, e, element, elements, fc, k, l, len3, len4, len5, m, parent, ref1, sendInit, viewel;
         attributes = clone(classattributes);
         _processAttrs(instanceattributes, attributes);
         if (attributes.$instanceattributes == null) {
@@ -4922,7 +4922,7 @@
           if (instancebody) {
             div = document.createElement('div');
             div.innerHTML = instancebody;
-            elements = ((function() {
+            elements = (function() {
               var k, len3, ref2, results;
               ref2 = div.childNodes;
               results = [];
@@ -4931,12 +4931,13 @@
                 results.push(e);
               }
               return results;
-            })()).reverse();
-            if (viewel.firstChild) {
+            })();
+            fc = viewel.firstChild;
+            if (fc) {
               for (k = 0, len3 = elements.length; k < len3; k++) {
                 element = elements[k];
                 if (element) {
-                  viewel.insertBefore(element, viewel.firstChild);
+                  viewel.insertBefore(element, fc);
                 }
               }
             } else {
