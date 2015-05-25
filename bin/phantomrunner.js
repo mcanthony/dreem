@@ -25,7 +25,9 @@ for(var i = 0; i < list.length; i++){
 }
 
 var runTest = function (file, callback) {
-  var out = []
+  var out = [];
+  var errors = [];
+
   var tId;
   var processOutput = function() {
     var expectedarry = page.evaluateJavaScript(function () {
@@ -42,12 +44,18 @@ var runTest = function (file, callback) {
     var gotoutput = out.join("\n")
     var expectedoutput = expectedarry.join("\n")
     if (gotoutput !== expectedoutput) {
-      console.log('ERROR: unexpected output expected::::');
+      console.log('ERROR: unexpected output:');
+      console.log('+++expected++++++++++++++++++++++++++++++++');
       console.log(expectedoutput)
-      console.log('but got::::::::::::::::::::::::::::::');
+      console.log('---actual----------------------------------');
       console.log(gotoutput)
+      console.log('===========================================');
       console.log("\n")
     }
+    if (errors.length > 0 && (gotoutput !== expectedoutput || expectedarry.length == 0)) {
+      console.error(errors.join("\n"))
+    }
+
     page.close();
     callback();
   }
@@ -70,7 +78,8 @@ var runTest = function (file, callback) {
         msgStack.push(' -> ' + (t.file || t.sourceURL) + ': ' + t.line + (t.function ? ' (in function ' + t.function +')' : ''));
       });
     }
-    console.error(msgStack.join('\n'));
+    out.push(msg)
+    errors.push(msgStack.join('\n'))
     updateTimer(0);
     exitCode = 1;
   };
