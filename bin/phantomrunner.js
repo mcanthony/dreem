@@ -25,29 +25,53 @@ for(var i = 0; i < list.length; i++){
 }
 
 var runTest = function (file, callback) {
-  var out = []
+  var out = [];
+  var errors = [];
+
   var tId;
   var processOutput = function() {
-    var expectedarry = page.evaluateJavaScript(function () {
-      var retarry = [];
-      $('expectedoutput').contents().filter(function(){
-        return this.nodeType == 8;
-      }).each(function(i, e){
-          retarry.push($.trim(e.nodeValue))
-        });
 
-      return retarry;
-    });
+    // Below shouldn't have to duplicate this code, but can't find a way to use or pass phantom.version.major
+    // in/into the 'evaluateJavaScript' without it blowing up (even building a string beforehand), but it works fine like this.
+    // This maybe a bug in phantomjs, or maybe I'm dumb, but either way, if this can be cleaned up in the future, pls do.
+    var jsfunction;
+    if (phantom.version.major == 1) {
+      jsfunction = function () {
+        var retarry = [];
+        $('expectedoutput[excludever!="1"]').contents().filter(function(){
+          return this.nodeType == 8;
+        }).each(function(i, e) { retarry.push($.trim(e.nodeValue)) });
+        return retarry;
+      };
+    } else {
+      jsfunction = function () {
+        var retarry = [];
+        $('expectedoutput[excludever!="2"]').contents().filter(function(){
+          return this.nodeType == 8;
+        }).each(function(i, e) { retarry.push($.trim(e.nodeValue)) });
+        return retarry;
+      };
+    }
+    // (once we move completely to phantomjs2.0, the above can be removed and replaced with a single function
+    // checking expectedoutput without the excludever clause)
+
+    var expectedarry = page.evaluateJavaScript(jsfunction);
 
     var gotoutput = out.join("\n")
     var expectedoutput = expectedarry.join("\n")
     if (gotoutput !== expectedoutput) {
-      console.log('ERROR: unexpected output expected::::');
+      console.log('ERROR: unexpected output:');
+      console.log('+++expected++++++++++++++++++++++++++++++++');
       console.log(expectedoutput)
-      console.log('but got::::::::::::::::::::::::::::::');
+      console.log('---actual----------------------------------');
       console.log(gotoutput)
+      console.log('===========================================');
       console.log("\n")
     }
+    if (errors.length > 0 && (gotoutput !== expectedoutput || expectedarry.length == 0)) {
+      console.error(errors.join("\n"))
+    }
+
     page.close();
     callback();
   }
@@ -70,7 +94,8 @@ var runTest = function (file, callback) {
         msgStack.push(' -> ' + (t.file || t.sourceURL) + ': ' + t.line + (t.function ? ' (in function ' + t.function +')' : ''));
       });
     }
-    console.error(msgStack.join('\n'));
+    out.push(msg)
+    errors.push(msgStack.join('\n'))
     updateTimer(0);
     exitCode = 1;
   };

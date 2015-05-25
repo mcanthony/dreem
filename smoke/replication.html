@@ -152,23 +152,23 @@
     <dataset name="tempdata3" url="/examples/data/weather.json"></dataset>
 
     <spacedlayout axis="y" spacing="15"></spacedlayout>
-    <replicator datapath="$tempdata3" classname="weather"></replicator>
+    <replicator name="a" datapath="$tempdata3" classname="weather"></replicator>
 
     <replicator name="repl" datapath="$tempdata3" classname="weather2"></replicator>
 
-    <replicator datapath="$tempdata3/main/temp" classname="text"></replicator>
+    <replicator name="b" datapath="$tempdata3/main/temp" classname="text"></replicator>
 
     <handler event="ondata" reference="this.tempdata3">
       var _this = this;
-      dr.idle.callOnIdle(function() {
-        assert.equal(_this.subviews.length, 3)
+      setTimeout(function() {
+        assert.equal(_this.subviews.length, 3, "in idle")
         assert.equal(_this.subnodes.length, 10)
         assert.equal(_this.subviews[_this.subviews.length - 1].text, '63.88');
 
         dr.idle.callOnIdle(function() {
           assert.equal(_this.subviews[_this.subviews.length - 1].width, 45);
         })
-      })
+      }, 500)
     </handler>
   </view>
 
