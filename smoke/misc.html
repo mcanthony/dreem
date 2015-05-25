@@ -1,7 +1,12 @@
 <html>
-<expectedoutput>
+<expectedoutput excludever="1">
   <!--
   Invalid tag undefined [object HTMLUnknownElement]
+  -->
+</expectedoutput>
+<expectedoutput excludever="2">
+  <!--
+  Invalid tag undefined [object HTMLElement]
   -->
 </expectedoutput>
 <head>
@@ -29,7 +34,7 @@
   <view>
     <labeltoggle></labeltoggle>
   </view>
-  
+
   <!-- embedded <'s in the code -->
   <view>
     <handler event="oninit">

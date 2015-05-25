@@ -30,16 +30,32 @@ var runTest = function (file, callback) {
 
   var tId;
   var processOutput = function() {
-    var expectedarry = page.evaluateJavaScript(function () {
-      var retarry = [];
-      $('expectedoutput').contents().filter(function(){
-        return this.nodeType == 8;
-      }).each(function(i, e){
-          retarry.push($.trim(e.nodeValue))
-        });
 
-      return retarry;
-    });
+    // Below shouldn't have to duplicate this code, but can't find a way to use or pass phantom.version.major
+    // in/into the 'evaluateJavaScript' without it blowing up (even building a string beforehand), but it works fine like this.
+    // This maybe a bug in phantomjs, or maybe I'm dumb, but either way, if this can be cleaned up in the future, pls do.
+    var jsfunction;
+    if (phantom.version.major == 1) {
+      jsfunction = function () {
+        var retarry = [];
+        $('expectedoutput[excludever!="1"]').contents().filter(function(){
+          return this.nodeType == 8;
+        }).each(function(i, e) { retarry.push($.trim(e.nodeValue)) });
+        return retarry;
+      };
+    } else {
+      jsfunction = function () {
+        var retarry = [];
+        $('expectedoutput[excludever!="2"]').contents().filter(function(){
+          return this.nodeType == 8;
+        }).each(function(i, e) { retarry.push($.trim(e.nodeValue)) });
+        return retarry;
+      };
+    }
+    // (once we move completely to phantomjs2.0, the above can be removed and replaced with a single function
+    // checking expectedoutput without the excludever clause)
+
+    var expectedarry = page.evaluateJavaScript(jsfunction);
 
     var gotoutput = out.join("\n")
     var expectedoutput = expectedarry.join("\n")
