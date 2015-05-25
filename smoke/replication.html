@@ -166,7 +166,7 @@
         assert.equal(_this.subviews[_this.subviews.length - 1].text, '63.88');
 
         dr.idle.callOnIdle(function() {
-          assert.equal(_this.subviews[_this.subviews.length - 1].width, 45);
+          assert.closeTo(_this.subviews[_this.subviews.length - 1].width, 45, 6);
         })
       }, 500)
     </handler>
