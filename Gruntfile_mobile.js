@@ -12,7 +12,7 @@ module.exports = function(grunt) {
           "throttled": 3,
           "tunneled": true,
           urls: [
-            'http://localhost:8080/saucerun?maxChecks=70&testTimeout=2000'
+            'http://localhost:8080/saucerun?testTimeout=2000'
           ],
           testname: 'DREEM smoke test mobile',
 
