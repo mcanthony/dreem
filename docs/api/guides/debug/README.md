@@ -4,6 +4,8 @@
 Logging Internals
 -----------------
 
+This example shows how to log all setAttribute() calls for a replicator to console.log():
+
     @example
     
     <class name="logger" extends="node">
