@@ -117,7 +117,7 @@
 ;
 
   window.dr = (function() {
-    var ArtSprite, AutoPropertyLayout, BitmapSprite, COMMENT_NODE, Class, Eventable, Events, Idle, InputTextSprite, Keyboard, Layout, Module, Mouse, Node, Path, Sprite, StartEventable, State, TextSprite, View, Window, _initConstraints, _processAttrs, callOnIdle, capabilities, clone, closeTo, compiler, constraintScopes, debug, dom, eventq, exports, handlerq, idle, ignoredAttributes, instantiating, matchEvent, matchPercent, mixOf, mouseEvents, noop, querystring, showWarnings, specialtags, starttime, tagPackageSeparator, test, warnings;
+    var ArtSprite, AutoPropertyLayout, BitmapSprite, COMMENT_NODE, Class, Eventable, Events, Idle, InputTextSprite, Keyboard, Layout, Module, Mouse, Node, Path, Sprite, StartEventable, State, TextSprite, View, Window, _initConstraints, _processAttrs, callOnIdle, capabilities, clone, closeTo, compiler, constraintScopes, debug, dom, eventq, exports, handlerq, idle, ignoredAttributes, instantiating, matchEvent, matchPercent, mixOf, mouseEvents, noop, querystring, reverseSort, showWarnings, specialtags, starttime, tagPackageSeparator, test, warnings;
     COMMENT_NODE = window.Node.COMMENT_NODE;
     noop = function() {};
     closeTo = function(a, b, epsilon) {
@@ -146,6 +146,15 @@
         }
       }
       return Mixed;
+    };
+    reverseSort = function(a, b) {
+      if (a &lt; b) {
+        return 1;
+      }
+      if (b &lt; a) {
+        return -1;
+      }
+      return 0;
     };
     matchPercent = /%$/;
     Events = 
@@ -1176,7 +1185,7 @@
         name = ref2[k];
         this.setAttribute(name, attributes[name]);
       }
-      ref3 = (function() {
+      ref3 = ((function() {
         var results;
         results = [];
         for (name in attributes) {
@@ -1185,7 +1194,7 @@
           }
         }
         return results;
-      })();
+      })()).sort(reverseSort);
       for (l = 0, len2 = ref3.length; l &lt; len2; l++) {
         name = ref3[l];
         this.bindAttribute(name, attributes[name], tagname);
@@ -4201,7 +4210,7 @@
               url: window.location.pathname
             },
             success: function(data) {
-              if (data.length) {
+              if (data.length &amp;&amp; data[0].length) {
                 showWarnings(data);
               }
               return setTimeout(filereloader, 1000);
@@ -4904,7 +4913,7 @@
         console.warn(&#39;overwriting class&#39;, name);
       }
       dr[name] = klass = function(instanceel, instanceattributes, internal, skipchildren) {
-        var attributes, children, k, len3, parent, ref1, sendInit, viewel, viewhtml;
+        var attributes, children, div, e, element, elements, fc, k, l, len3, len4, len5, m, parent, ref1, sendInit, viewel;
         attributes = clone(classattributes);
         _processAttrs(instanceattributes, attributes);
         if (attributes.$instanceattributes == null) {
@@ -4928,20 +4937,42 @@
         }
         if (viewel) {
           if (instancebody) {
-            viewhtml = viewel.innerHTML.trim();
-            if (viewhtml) {
-              viewel.innerHTML = instancebody + viewhtml;
+            div = document.createElement(&#39;div&#39;);
+            div.innerHTML = instancebody;
+            elements = (function() {
+              var k, len3, ref2, results;
+              ref2 = div.childNodes;
+              results = [];
+              for (k = 0, len3 = ref2.length; k &lt; len3; k++) {
+                e = ref2[k];
+                results.push(e);
+              }
+              return results;
+            })();
+            fc = viewel.firstChild;
+            if (fc) {
+              for (k = 0, len3 = elements.length; k &lt; len3; k++) {
+                element = elements[k];
+                if (element) {
+                  viewel.insertBefore(element, fc);
+                }
+              }
             } else {
-              viewel.innerHTML = instancebody;
+              for (l = 0, len4 = elements.length; l &lt; len4; l++) {
+                element = elements[l];
+                if (element) {
+                  viewel.appendChild(element);
+                }
+              }
             }
           }
           if (!skipchildren) {
             children = (function() {
-              var k, len3, ref2, ref3, results;
+              var len5, m, ref2, ref3, results;
               ref2 = dom.getChildElements(viewel);
               results = [];
-              for (k = 0, len3 = ref2.length; k &lt; len3; k++) {
-                child = ref2[k];
+              for (m = 0, len5 = ref2.length; m &lt; len5; m++) {
+                child = ref2[m];
                 if (ref3 = child.localName, indexOf.call(specialtags, ref3) &lt; 0) {
                   results.push(child);
                 }
@@ -4949,8 +4980,8 @@
               return results;
             })();
             if (!skipinitchildren) {
-              for (k = 0, len3 = children.length; k &lt; len3; k++) {
-                child = children[k];
+              for (m = 0, len5 = children.length; m &lt; len5; m++) {
+                child = children[m];
                 dom.initElement(child, parent);
               }
             }
