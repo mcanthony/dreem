@@ -14,12 +14,12 @@ echo ""
 
 read answer
 
-if [ "$answer" == "N" ]; then
+if [ "$answer" == "N" -o "$answer" == "n" ]; then
   echo "Ok, try again. Input in this format: ./bin/tagrc <version> <rc>"
   echo "For example: ./bin/tagrc 0.1.0 1"
 fi
 
-if [ "$answer" != "Y" ]; then
+if [ "$answer" != "Y" -a "$answer" != "y" ]; then
   exit 2
 fi
 
