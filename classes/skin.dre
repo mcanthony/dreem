@@ -3,7 +3,7 @@
    * @extends dr.view
    * @aside guide skin
    *
-   * A Skin a collection of cascading attribute configuration templates that can applied on top of Dreem objects.
+   * A skin is a collection of cascading attribute configuration templates that can applied on top of Dreem objects.
    *
    *     @example
    *     <skin name="example">

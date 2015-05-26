@@ -1,5 +1,8 @@
 source 'https://rubygems.org'
 
+gem 'ap'
+gem 'coderay'
+
 gem 'jsduck'
 
 gem 'rspec'
