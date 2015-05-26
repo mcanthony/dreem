@@ -284,10 +284,14 @@ SOFTWARE. -->
 
   <handler event="oninit">
     #on chrome the text objects need to be informed when the fonts on the page have finally finished loading so they can recalculate their proper size
+    slf = @
     if document.fonts && document.fonts.ready && document.fonts.ready.constructor == Promise
-      slf = @
       document.fonts.ready.then () ->
         slf.sizeToDom()
+    else
+      setTimeout ( ->
+        slf.sizeToDom()
+      ), 200
 
   </handler>
 
