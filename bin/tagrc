@@ -1,6 +1,27 @@
 echo ""
+
+if [[ "$2" == "" ]]; then
+  echo "Please supply a version number and release candidate number."
+  echo "Input in this format: ./bin/tagrc <version> <rc>"
+  echo "For example: ./bin/tagrc 0.1.0 1"
+  echo ""
+  exit 2
+fi
+
 echo "....CREATING NEW Release Candidate: v${1}rc${2}"
+echo "....Is this correct? [Y|N]"
 echo ""
+
+read answer
+
+if [ "$answer" == "N" ]; then
+  echo "Ok, try again. Input in this format: ./bin/tagrc <version> <rc>"
+  echo "For example: ./bin/tagrc 0.1.0 1"
+fi
+
+if [ "$answer" != "Y" ]; then
+  exit 2
+fi
 
 git checkout dev
 
@@ -15,10 +36,11 @@ if [ "$tags" != "" ]; then
   last_pos=$((len - 1))
   
   latest_green=${arr[${last_pos}]}
-  #echo $latest_green
+  echo $latest_green
   
-  git co $latest_green
+  git checkout $latest_green
    
-  git tag v${1}rc${2}
-  git push --tags
+  git branch v${1}rc${2}
+  git checkout v${1}rc${2}
+  git push origin v${1}rc${2}
 fi
