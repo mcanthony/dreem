@@ -21,10 +21,6 @@
       * 
       */
 /**
-    * Reduce number of sizeToDom calls during initialization.
-    * @private
-    */
-/**
     * @method sizeToDom
     * Sizes this view to the current size of the DOM elements within it.
     * @returns {void}

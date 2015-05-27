@@ -458,6 +458,10 @@ table.CodeRay td { padding: 2px 4px; vertical-align: top; }
 <a href="#n304" name="n304">304</a>
 <a href="#n305" name="n305">305</a>
 <a href="#n306" name="n306">306</a>
+<a href="#n307" name="n307">307</a>
+<a href="#n308" name="n308">308</a>
+<a href="#n309" name="n309">309</a>
+<strong><a href="#n310" name="n310">310</a></strong>
 </pre></td>
   <td class="code"><pre><span class="comment">&lt;!-- The MIT License (MIT)
 
@@ -745,10 +749,14 @@ SOFTWARE. --&gt;</span>
 
   <span class="tag">&lt;handler</span> <span class="attribute-name">event</span>=<span class="string"><span class="delimiter">&quot;</span><span class="content">oninit</span><span class="delimiter">&quot;</span></span><span class="tag">&gt;</span>
     #on chrome the text objects need to be informed when the fonts on the page have finally finished loading so they can recalculate their proper size
+    slf = @
     if document.fonts <span class="error">&amp;</span><span class="error">&amp;</span> document.fonts.ready <span class="error">&amp;</span><span class="error">&amp;</span> document.fonts.ready.constructor == Promise
-      slf = @
       document.fonts.ready.then () -<span class="error">&gt;</span>
         slf.sizeToDom()
+    else
+      setTimeout ( -<span class="error">&gt;</span>
+        slf.sizeToDom()
+      ), 200
 
   <span class="tag">&lt;/handler&gt;</span>
 

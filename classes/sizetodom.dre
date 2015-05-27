@@ -116,7 +116,7 @@ SOFTWARE. -->
     return @super()
   </setter>
 
-  <!--/**
+  <!--/*
     * Reduce number of sizeToDom calls during initialization.
     * @private
     */-->

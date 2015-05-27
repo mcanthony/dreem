@@ -56,9 +56,9 @@
     * Set this to true to started recording the input stream, set to false to stop. When recording is stopped the recording will be retained in memory until another recording is started. The URL to access the recording is saved in the playbackurl attribute. The {@link #recording recording} attribute indicates when the device is actually recording.  
     */
 /**
-    * @attribute {LocalMediaStream} mediastream
+    * @attribute {Object} mediastream
     * @readonly
-    * The input stream from the microphone.
+    * The input stream (LocalMediaStream) from the microphone.
     */
 /**
     * @attribute {Boolean} [streaming=false]
