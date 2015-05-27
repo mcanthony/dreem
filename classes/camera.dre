@@ -47,9 +47,9 @@ SOFTWARE. -->
   <attribute name="audio" type="boolean" value="true"></attribute>
   
   <!--/**
-    * @attribute {LocalMediaStream} mediastream
+    * @attribute {Object} mediastream
     * @readonly
-    * The input stream from the camera.
+    * The input stream (LocalMediaStream) from the camera.
     */-->
   <attribute name="mediastream" type="expression" value="null"/>
   <!--/**

@@ -13,9 +13,9 @@
     * Set this to false if you don't want audio captured in the stream. 
     */
 /**
-    * @attribute {LocalMediaStream} mediastream
+    * @attribute {Object} mediastream
     * @readonly
-    * The input stream from the camera.
+    * The input stream (LocalMediaStream) from the camera.
     */
 /**
     * @attribute {Boolean} [streaming=false]

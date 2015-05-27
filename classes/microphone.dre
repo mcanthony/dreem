@@ -102,9 +102,9 @@ SOFTWARE. -->
   </setter>
   
   <!--/**
-    * @attribute {LocalMediaStream} mediastream
+    * @attribute {Object} mediastream
     * @readonly
-    * The input stream from the microphone.
+    * The input stream (LocalMediaStream) from the microphone.
     */-->
   <attribute name="mediastream" type="expression" value="null"/>
   <!--/**

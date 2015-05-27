@@ -479,7 +479,6 @@ class View extends Node
     @sprite = null
 
   defaultSetAttributeBehavior: (name, value) ->
-    #xxxx
     existing = @[name]
     super
     value = @[name]
