@@ -109,7 +109,9 @@ var runTest = function (file, callback) {
     page.injectJs('./lib/es5-shim.min.js');
   };
   page.onResourceError = function(resourceError) {
-    console.log('RESOURCE ERROR: ' + resourceError.errorString + ', URL: ' + resourceError.url + ', File: ' + file);
+    var err = 'RESOURCE ERROR: ' + resourceError.errorString + ', URL: ' + resourceError.url + ', File: ' + file;
+    errors.push(err)
+    out.push(err)
     updateTimer(0);
   };
   page.onConsoleMessage = function(msg, lineNum, sourceId) {
@@ -118,7 +120,6 @@ var runTest = function (file, callback) {
       return;
     }
     out.push(msg)
-//    console.log(msg)
   };
   page.open('http://127.0.0.1:8080' + path + file + '?test');
 }
