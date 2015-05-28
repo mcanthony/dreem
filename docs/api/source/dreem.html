@@ -4072,7 +4072,7 @@
         };
 
 <span id='dr-include'>        /**
-</span>         * @class dr.include {Util}
+</span>         * @class dr.include {Core Dreem}
          *
          * The &#39;&amp;lt;include&amp;gt;&#39; tag is a special built-in that allows you to import another .dre file directly in place.
          *
@@ -6358,180 +6358,220 @@
 </span>     * @attribute {&quot;js&quot;/&quot;coffee&quot;} type
      * The compiler to use for this method. Inherits from the immediate class if unspecified.
      */
-
-<span id='dr-setter'>    /**
-</span>     * @class dr.setter
-     * Declares a setter in a node, view, class or other class instance. Setters can only be created with the &amp;lt;setter&gt;&amp;lt;/setter&gt; tag syntax.
-     *
-     * Setters allow the default behavior of attribute changes to be changed.
-     *
-     * Like dr.method, if a setter overrides an existing setter any existing (super) setter(s) will be called first automatically.
-     * @ignore
-     */
-
-<span id='dr-setter-attribute-name'>    /**
-</span>     * @attribute {String} name (required)
-     * The name of the method.
-     */
-
-<span id='dr-setter-attribute-args'>    /**
-</span>     * @attribute {String[]} args
-     * A comma separated list of method arguments.
-     */
-
-<span id='dr-setter-attribute-type'>    /**
-</span>     * @attribute {&quot;js&quot;/&quot;coffee&quot;} type
-     * The compiler to use for this method. Inherits from the immediate class if unspecified.
-     */
-
-<span id='dr-handler'>    /**
-</span>     * @class dr.handler {Core Dreem, Events}
-     * Declares a handler in a node, view, class or other class instance. Handlers can only be created with the `&lt;handler&gt;&lt;/handler&gt;` tag syntax.
-     *
-     * Handlers are called when an event fires with new value, if available.
-     *
-     * Here is a simple handler that listens for an onx event in the local scope. The handler runs when x changes:
-     *
-     *     &lt;handler event=&quot;onx&quot;&gt;
-     *       // do something now that x has changed
-     *     &lt;/handler&gt;
-     *
-     * When a handler uses the args attribute, it can recieve the value that changed:
-     *
-     * Sometimes it&#39;s nice to use a single method to respond to multiple events:
-     *
-     *     &lt;handler event=&quot;onx&quot; method=&quot;handlePosition&quot;&gt;&lt;/handler&gt;
-     *     &lt;handler event=&quot;ony&quot; method=&quot;handlePosition&quot;&gt;&lt;/handler&gt;
-     *     &lt;method name=&quot;handlePosition&quot;&gt;
-     *       // do something now that x or y have changed
-     *     &lt;/method&gt;
-     *
-     *
-     * When a handler uses the args attribute, it can receive the value that changed:
-     *
-     *     @example
-     *
-     *     &lt;handler event=&quot;onwidth&quot; args=&quot;widthValue&quot;&gt;
-     *        exampleLabel.setAttribute(&quot;text&quot;, &quot;Parent view received width value of &quot; + widthValue)
-     *     &lt;/handler&gt;
-     *
-     *     &lt;text id=&quot;exampleLabel&quot; x=&quot;50&quot; y=&quot;5&quot; text=&quot;no value yet&quot; color=&quot;coral&quot; outline=&quot;1px dotted coral&quot; padding=&quot;10&quot;&gt;&lt;/text&gt;
-     *     &lt;text x=&quot;50&quot; y=&quot;${exampleLabel.y + exampleLabel.height + 20}&quot; text=&quot;no value yet&quot; color=&quot;white&quot; bgcolor=&quot;#DDAA00&quot; padding=&quot;10&quot;&gt;
-     *       &lt;handler event=&quot;onwidth&quot; args=&quot;wValue&quot;&gt;
-     *          this.setAttribute(&quot;text&quot;, &quot;This label received width value of &quot; + wValue)
-     *       &lt;/handler&gt;
-     *     &lt;/text&gt;
-     *
-     *
-     * It&#39;s also possible to listen for events on another scope. This handler listens for onidle events on dr.idle instead of the local scope:
-     *
-     *     @example
-     *
-     *     &lt;handler event=&quot;onidle&quot; args=&quot;time&quot; reference=&quot;dr.idle&quot;&gt;
-     *       exampleLabel.setAttribute(&#39;text&#39;, &#39;received time from dr.idle.onidle: &#39; + Math.round(time));
-     *     &lt;/handler&gt;
-     *     &lt;text id=&quot;exampleLabel&quot; x=&quot;50&quot; y=&quot;5&quot; text=&quot;no value yet&quot; color=&quot;coral&quot; outline=&quot;1px dotted coral&quot; padding=&quot;10px&quot;&gt;&lt;/text&gt;
-     *
-     *
-     */
-
-<span id='dr-handler-attribute-event'>    /**
-</span>     * @attribute {String} event (required)
-     * The name of the event to listen for, e.g. &#39;onwidth&#39;.
-     */
-
-<span id='dr-handler-attribute-reference'>    /**
-</span>     * @attribute {String} reference
-     * If set, the handler will listen for an event in another scope.
-     */
-
-<span id='dr-handler-attribute-method'>    /**
-</span>     * @attribute {String} method
-     * If set, the handler call a local method. Useful when multiple handlers need to do the same thing.
-     */
-
-<span id='dr-handler-attribute-args'>    /**
-</span>     * @attribute {String[]} args
-     * A comma separated list of method arguments.
-     */
-
-<span id='dr-handler-attribute-type'>    /**
-</span>     * @attribute {&quot;js&quot;/&quot;coffee&quot;} type
-     * The compiler to use for this method. Inherits from the immediate class if unspecified.
-     */
-
-<span id='dr-attribute'>    /**
-</span>     * @class dr.attribute {Core Dreem, Events}
-     * @aside guide constraints
-     *
-     * Adds a variable to a node, view, class or other class instance. Attributes can only be created with the &amp;lt;attribute&gt;&amp;lt;/attribute&gt; tag syntax.
-     *
-     * Attributes allow classes to declare new variables with a specific type and default value.
-     *
-     * Attributes automatically send events when their value changes.
-     *
-     * Here we create a new class with a custom attribute representing a person&#39;s mood, along with two instances. One instance has the default mood of &#39;happy&#39;, the other sets the mood attribute to &#39;sad&#39;. Note there&#39;s nothing visible in this example yet:
-     *
-     *     &lt;class name=&quot;person&quot;&gt;
-     *       &lt;attribute name=&quot;mood&quot; type=&quot;string&quot; value=&quot;happy&quot;&gt;&lt;/attribute&gt;
-     *     &lt;/class&gt;
-     *
-     *     &lt;person&gt;&lt;/person&gt;
-     *     &lt;person mood=&quot;sad&quot;&gt;&lt;/person&gt;
-     *
-     * Let&#39;s had a handler to make our color change with the mood. Whenever the mood attribute changes, the color changes with it:
-     *
-     *     @example
-     *     &lt;class name=&quot;person&quot; width=&quot;100&quot; height=&quot;100&quot;&gt;
-     *       &lt;attribute name=&quot;mood&quot; type=&quot;string&quot; value=&quot;happy&quot;&gt;&lt;/attribute&gt;
-     *       &lt;handler event=&quot;onmood&quot; args=&quot;mood&quot;&gt;
-     *         var color = &#39;orange&#39;;
-     *         if (mood !== &#39;happy&#39;) {
-     *           color = &#39;blue&#39;
-     *         }
-     *         this.setAttribute(&#39;bgcolor&#39;, color);
-     *       &lt;/handler&gt;
-     *     &lt;/class&gt;
-     *
-     *     &lt;spacedlayout&gt;&lt;/spacedlayout&gt;
-     *     &lt;person&gt;&lt;/person&gt;
-     *     &lt;person mood=&quot;sad&quot;&gt;&lt;/person&gt;
-     *
-     * You can add as many attributes as you like to a class. Here, we add a numeric attribute for size, which changes the height and width attributes via a constraint:
-     *
-     *     @example
-     *     &lt;class name=&quot;person&quot; width=&quot;${this.size}&quot; height=&quot;${this.size}&quot;&gt;
-     *       &lt;attribute name=&quot;mood&quot; type=&quot;string&quot; value=&quot;happy&quot;&gt;&lt;/attribute&gt;
-     *       &lt;handler event=&quot;onmood&quot; args=&quot;mood&quot;&gt;
-     *         var color = &#39;orange&#39;;
-     *         if (mood !== &#39;happy&#39;) {
-     *           color = &#39;blue&#39;
-     *         }
-     *         this.setAttribute(&#39;bgcolor&#39;, color);
-     *       &lt;/handler&gt;
-     *       &lt;attribute name=&quot;size&quot; type=&quot;number&quot; value=&quot;20&quot;&gt;&lt;/attribute&gt;
-     *     &lt;/class&gt;
-     *
-     *     &lt;spacedlayout&gt;&lt;/spacedlayout&gt;
-     *     &lt;person&gt;&lt;/person&gt;
-     *     &lt;person mood=&quot;sad&quot; size=&quot;50&quot;&gt;&lt;/person&gt;
-     */
-
-<span id='dr-attribute-attribute-name'>    /**
-</span>     * @attribute {String} name (required)
-     * The name of the attribute
-     */
-
-<span id='dr-attribute-attribute-type'>    /**
-</span>     * @attribute {&quot;string&quot;/&quot;number&quot;/&quot;boolean&quot;/&quot;json&quot;/&quot;expression&quot;} [type=string] (required)
-     * The type of the attribute. Used to convert from a string to an appropriate representation of the type.
-     */
-
-<span id='dr-attribute-attribute-value'>    /**
-</span>     * @attribute {String} value (required)
-     * The initial value for the attribute
-     */
   })();
+
+
+<span id='dr-setter'>  /**
+</span>   * @class dr.setter {Core Dreem}
+   * Declares a setter in a node, view, class or other class instance. Setters can only be created with the &amp;lt;setter&gt;&amp;lt;/setter&gt; tag syntax.
+   *
+   * Setters allow the default behavior of attribute changes to be changed.
+   *
+   * Specialized handling required when attributes are set can be defined with the builtin &#39;&amp;lt;setter&amp;gt;&#39; tag.  The return value of
+   * a &#39;&amp;lt;setter&amp;gt;&#39; will be the value set in the attribute.
+   *
+   *     &lt;node id=&quot;movie&quot;&gt;
+   *       &lt;attribute name=&quot;title&quot; type=&quot;string&quot; value=&quot;&quot;&gt;&lt;/attribute&gt;
+   *
+   *       &lt;setter name=&quot;title&quot; args=&quot;t&quot; type=&quot;coffee&quot;&gt;
+   *           t = t.replace(/^The\s+/, &#39;&#39;) if t;
+   *           return t;
+   *       &lt;/setter&gt;
+   *
+   *     &lt;/node&gt;
+   *
+   * In some cases you may need the value of an attribute to be set by the setter itself and not by the returned value, for
+   * these cases a &#39;noop&#39; object can be returned, indicating that no special action should be taken to automatically set the attribute.
+   *
+   *     &lt;node id=&quot;asyncMovie&quot;&gt;
+   *       &lt;attribute name=&quot;title&quot; type=&quot;string&quot; value=&quot;&quot;&gt;&lt;/attribute&gt;
+   *
+   *       &lt;setter name=&quot;title&quot; args=&quot;t&quot;&gt;
+   *           var slf = this;
+   *           this.performNetworkOperation(t, function(returnedValue){
+   *             slf.title = returnedValue;
+   *           });
+   *           return noop;
+   *       &lt;/setter&gt;
+   *
+   *     &lt;/node&gt;
+   */
+
+
+<span id='dr-setter-attribute-name'>  /**
+</span>   * @attribute {String} name (required)
+   * The name of the method.
+   */
+
+
+<span id='dr-setter-attribute-args'>  /**
+</span>   * @attribute {String[]} args
+   * A comma separated list of method arguments.
+   */
+
+
+<span id='dr-setter-attribute-type'>  /**
+</span>   * @attribute {&quot;js&quot;/&quot;coffee&quot;} type
+   * The compiler to use for this method. Inherits from the immediate class if unspecified.
+   */
+
+
+<span id='dr-handler'>  /**
+</span>   * @class dr.handler {Core Dreem, Events}
+   * Declares a handler in a node, view, class or other class instance. Handlers can only be created with the `&lt;handler&gt;&lt;/handler&gt;` tag syntax.
+   *
+   * Handlers are called when an event fires with new value, if available.
+   *
+   * Here is a simple handler that listens for an onx event in the local scope. The handler runs when x changes:
+   *
+   *     &lt;handler event=&quot;onx&quot;&gt;
+   *       // do something now that x has changed
+   *     &lt;/handler&gt;
+   *
+   * When a handler uses the args attribute, it can recieve the value that changed:
+   *
+   * Sometimes it&#39;s nice to use a single method to respond to multiple events:
+   *
+   *     &lt;handler event=&quot;onx&quot; method=&quot;handlePosition&quot;&gt;&lt;/handler&gt;
+   *     &lt;handler event=&quot;ony&quot; method=&quot;handlePosition&quot;&gt;&lt;/handler&gt;
+   *     &lt;method name=&quot;handlePosition&quot;&gt;
+   *       // do something now that x or y have changed
+   *     &lt;/method&gt;
+   *
+   *
+   * When a handler uses the args attribute, it can receive the value that changed:
+   *
+   *     @example
+   *
+   *     &lt;handler event=&quot;onwidth&quot; args=&quot;widthValue&quot;&gt;
+   *        exampleLabel.setAttribute(&quot;text&quot;, &quot;Parent view received width value of &quot; + widthValue)
+   *     &lt;/handler&gt;
+   *
+   *     &lt;text id=&quot;exampleLabel&quot; x=&quot;50&quot; y=&quot;5&quot; text=&quot;no value yet&quot; color=&quot;coral&quot; outline=&quot;1px dotted coral&quot; padding=&quot;10&quot;&gt;&lt;/text&gt;
+   *     &lt;text x=&quot;50&quot; y=&quot;${exampleLabel.y + exampleLabel.height + 20}&quot; text=&quot;no value yet&quot; color=&quot;white&quot; bgcolor=&quot;#DDAA00&quot; padding=&quot;10&quot;&gt;
+   *       &lt;handler event=&quot;onwidth&quot; args=&quot;wValue&quot;&gt;
+   *          this.setAttribute(&quot;text&quot;, &quot;This label received width value of &quot; + wValue)
+   *       &lt;/handler&gt;
+   *     &lt;/text&gt;
+   *
+   *
+   * It&#39;s also possible to listen for events on another scope. This handler listens for onidle events on dr.idle instead of the local scope:
+   *
+   *     @example
+   *
+   *     &lt;handler event=&quot;onidle&quot; args=&quot;time&quot; reference=&quot;dr.idle&quot;&gt;
+   *       exampleLabel.setAttribute(&#39;text&#39;, &#39;received time from dr.idle.onidle: &#39; + Math.round(time));
+   *     &lt;/handler&gt;
+   *     &lt;text id=&quot;exampleLabel&quot; x=&quot;50&quot; y=&quot;5&quot; text=&quot;no value yet&quot; color=&quot;coral&quot; outline=&quot;1px dotted coral&quot; padding=&quot;10px&quot;&gt;&lt;/text&gt;
+   *
+   *
+   */
+
+
+<span id='dr-handler-attribute-event'>  /**
+</span>   * @attribute {String} event (required)
+   * The name of the event to listen for, e.g. &#39;onwidth&#39;.
+   */
+
+
+<span id='dr-handler-attribute-reference'>  /**
+</span>   * @attribute {String} reference
+   * If set, the handler will listen for an event in another scope.
+   */
+
+
+<span id='dr-handler-attribute-method'>  /**
+</span>   * @attribute {String} method
+   * If set, the handler call a local method. Useful when multiple handlers need to do the same thing.
+   */
+
+
+<span id='dr-handler-attribute-args'>  /**
+</span>   * @attribute {String[]} args
+   * A comma separated list of method arguments.
+   */
+
+
+<span id='dr-handler-attribute-type'>  /**
+</span>   * @attribute {&quot;js&quot;/&quot;coffee&quot;} type
+   * The compiler to use for this method. Inherits from the immediate class if unspecified.
+   */
+
+
+<span id='dr-attribute'>  /**
+</span>   * @class dr.attribute {Core Dreem, Events}
+   * @aside guide constraints
+   *
+   * Adds a variable to a node, view, class or other class instance. Attributes can only be created with the &amp;lt;attribute&gt;&amp;lt;/attribute&gt; tag syntax.
+   *
+   * Attributes allow classes to declare new variables with a specific type and default value.
+   *
+   * Attributes automatically send events when their value changes.
+   *
+   * Here we create a new class with a custom attribute representing a person&#39;s mood, along with two instances. One instance has the default mood of &#39;happy&#39;, the other sets the mood attribute to &#39;sad&#39;. Note there&#39;s nothing visible in this example yet:
+   *
+   *     &lt;class name=&quot;person&quot;&gt;
+   *       &lt;attribute name=&quot;mood&quot; type=&quot;string&quot; value=&quot;happy&quot;&gt;&lt;/attribute&gt;
+   *     &lt;/class&gt;
+   *
+   *     &lt;person&gt;&lt;/person&gt;
+   *     &lt;person mood=&quot;sad&quot;&gt;&lt;/person&gt;
+   *
+   * Let&#39;s had a handler to make our color change with the mood. Whenever the mood attribute changes, the color changes with it:
+   *
+   *     @example
+   *     &lt;class name=&quot;person&quot; width=&quot;100&quot; height=&quot;100&quot;&gt;
+   *       &lt;attribute name=&quot;mood&quot; type=&quot;string&quot; value=&quot;happy&quot;&gt;&lt;/attribute&gt;
+   *       &lt;handler event=&quot;onmood&quot; args=&quot;mood&quot;&gt;
+   *         var color = &#39;orange&#39;;
+   *         if (mood !== &#39;happy&#39;) {
+   *           color = &#39;blue&#39;
+   *         }
+   *         this.setAttribute(&#39;bgcolor&#39;, color);
+   *       &lt;/handler&gt;
+   *     &lt;/class&gt;
+   *
+   *     &lt;spacedlayout&gt;&lt;/spacedlayout&gt;
+   *     &lt;person&gt;&lt;/person&gt;
+   *     &lt;person mood=&quot;sad&quot;&gt;&lt;/person&gt;
+   *
+   * You can add as many attributes as you like to a class. Here, we add a numeric attribute for size, which changes the height and width attributes via a constraint:
+   *
+   *     @example
+   *     &lt;class name=&quot;person&quot; width=&quot;${this.size}&quot; height=&quot;${this.size}&quot;&gt;
+   *       &lt;attribute name=&quot;mood&quot; type=&quot;string&quot; value=&quot;happy&quot;&gt;&lt;/attribute&gt;
+   *       &lt;handler event=&quot;onmood&quot; args=&quot;mood&quot;&gt;
+   *         var color = &#39;orange&#39;;
+   *         if (mood !== &#39;happy&#39;) {
+   *           color = &#39;blue&#39;
+   *         }
+   *         this.setAttribute(&#39;bgcolor&#39;, color);
+   *       &lt;/handler&gt;
+   *       &lt;attribute name=&quot;size&quot; type=&quot;number&quot; value=&quot;20&quot;&gt;&lt;/attribute&gt;
+   *     &lt;/class&gt;
+   *
+   *     &lt;spacedlayout&gt;&lt;/spacedlayout&gt;
+   *     &lt;person&gt;&lt;/person&gt;
+   *     &lt;person mood=&quot;sad&quot; size=&quot;50&quot;&gt;&lt;/person&gt;
+   */
+
+
+<span id='dr-attribute-attribute-name'>  /**
+</span>   * @attribute {String} name (required)
+   * The name of the attribute
+   */
+
+
+<span id='dr-attribute-attribute-type'>  /**
+</span>   * @attribute {&quot;string&quot;/&quot;number&quot;/&quot;boolean&quot;/&quot;json&quot;/&quot;expression&quot;} [type=string] (required)
+   * The type of the attribute. Used to convert from a string to an appropriate representation of the type.
+   */
+
+
+<span id='dr-attribute-attribute-value'>  /**
+</span>   * @attribute {String} value (required)
+   * The initial value for the attribute
+   */
 
   dr.writeCSS();
 
