@@ -313,6 +313,35 @@ window.dr = do ->
             out[name] = el
         out
 
+      ###*
+      # @class dr.include {Util}
+      #
+      # The '&lt;include&gt;' tag is a special built-in that allows you to import another .dre file directly in place.
+      #
+      # For example, take the given file, found at '/examples/content.dre':
+      #
+      #     <view y="30" height="100" width="300" border="1" bordercolor="lightgray" color="white">
+      #       Text Content Here
+      #     </view>
+      #
+      # Here it is included in the 'main' view, as though it were inlined into the original object.
+      #
+      #     @example
+      #
+      #     <view id="main">
+      #
+      #       <text name="title" text="Content Title"></text>
+      #
+      #       <include href="../../examples/content.dre">
+      #
+      #     </view>
+      #
+      ###
+      ###*
+      # @attribute {String} href URL to the '.dre' file to include.
+      #
+      ###
+
       findIncludeURLs = (urls={}) ->
         for el in jqel.find('include')
           url = el.attributes.href.value
@@ -362,7 +391,7 @@ window.dr = do ->
             for xhr in args
               # console.log 'inserting html', args, xhr[0]
               jqel.prepend(xhr[0])
-              
+
               # Remove top level comment nodes from included files
               jqel.contents().each(() ->
                 if @nodeType is COMMENT_NODE then $(this).remove()
@@ -593,7 +622,7 @@ window.dr = do ->
         "background-color:pink"
         "margin:0"
       ]
-      style.innerHTML = 
+      style.innerHTML =
         '.sprite{' + spriteStyle.join(';') + '}' +
         '.sprite-text{' + spriteTextStyle.join(';') + '}' +
         '.sprite-inputtext{' + spriteInputTextStyle.join(';') + '}' +

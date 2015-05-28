@@ -4070,6 +4070,36 @@
           }
           return out;
         };
+
+<span id='dr-include'>        /**
+</span>         * @class dr.include {Util}
+         *
+         * The &#39;&amp;lt;include&amp;gt;&#39; tag is a special built-in that allows you to import another .dre file directly in place.
+         *
+         * For example, take the given file, found at &#39;/examples/content.dre&#39;:
+         *
+         *     &lt;view y=&quot;30&quot; height=&quot;100&quot; width=&quot;300&quot; border=&quot;1&quot; bordercolor=&quot;lightgray&quot; color=&quot;white&quot;&gt;
+         *       Text Content Here
+         *     &lt;/view&gt;
+         *
+         * Here it is included in the &#39;main&#39; view, as though it were inlined into the original object.
+         *
+         *     @example
+         *
+         *     &lt;view id=&quot;main&quot;&gt;
+         *
+         *       &lt;text name=&quot;title&quot; text=&quot;Content Title&quot;&gt;&lt;/text&gt;
+         *
+         *       &lt;include href=&quot;../../examples/content.dre&quot;&gt;
+         *
+         *     &lt;/view&gt;
+         *
+         */
+
+<span id='dr-include-attribute-href'>        /**
+</span>         * @attribute {String} href URL to the &#39;.dre&#39; file to include.
+         *
+         */
         findIncludeURLs = function(urls) {
           var el, j, len, ref, url;
           if (urls == null) {
