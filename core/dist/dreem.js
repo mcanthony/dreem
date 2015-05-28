@@ -1,19 +1,19 @@
 
 /*
  * The MIT License (MIT)
-
+ *
  * Copyright ( c ) 2015 Teem2 LLC
-
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -939,11 +939,11 @@
  * @class dr.node {Core Dreem}
  * @extends Eventable
  * The nonvisual base class for everything in dreem. Handles parent/child relationships between tags.
-
+ *
  * Nodes can contain methods, handlers, setters, [constraints](#!/guide/constraints), attributes and other node instances.
-
+ *
  * Here we define a data node that contains movie data.
-
+ *
  *     <node id="data">
  *       <node>
  *         <attribute name="title" type="string" value="Bill and Teds Excellent Adventure"></attribute>
@@ -958,9 +958,39 @@
  *         <attribute name="length" type="number" value="94"></attribute>
  *       </node>
  *     </node>
-
+ *
+ *
+ * Specialized handling required when attributes are set can be defined with '&lt;setter&gt;' tags.  The return value of
+ * a '&lt;setter&gt;' will be the value set in the attribute.
+ *
+ *     <node id="movie">
+ *       <attribute name="title" type="string" value=""></attribute>
+ *
+ *       <setter name="title" args="t" type="coffee">
+ *           t = t.replace(/^The\s+/, '') if t;
+ *           return t;
+ *       </setter>
+ *
+ *     </node>
+ *
+ * In some cases you may need the value of an attribute to be set by the setter itself and not by the returned value, for
+ * these cases a 'noop' object can be returned, indicating that no special action should be taken to automatically set the attribute.
+ *
+ *     <node id="asyncMovie">
+ *       <attribute name="title" type="string" value=""></attribute>
+ *
+ *       <setter name="title" args="t">
+ *           var slf = this;
+ *           this.performNetworkOperation(t, function(returnedValue){
+ *             slf.title = returnedValue;
+ *           });
+ *           return noop;
+ *       </setter>
+ *
+ *     </node>
+ *
  * This node defines a set of math helper methods. The node provides a tidy container for these related utility functions.
-
+ *
  *     <node id="utils">
  *       <method name="add" args="a,b">
  *         return a+b;
@@ -969,31 +999,31 @@
  *         return a-b;
  *       </method>
  *     </node>
-
+ *
  * You can also create a sub-class of node to contain non visual functionality. Here is an example of an inches to metric conversion class that is instantiated with the inches value and can convert it to either cm or m.
-
+ *
  *     @example
-
+ *
  *     <class name="inchesconverter" extends="node">
  *       <attribute name="inchesval" type="number" value="0"></attribute>
-
+ *
  *       <method name="centimetersval">
  *         return this.inchesval*2.54;
  *       </method>
-
+ *
  *       <method name="metersval">
  *         return (this.inchesval*2.54)/100;
  *       </method>
  *     </class>
-
+ *
  *     <inchesconverter id="conv" inchesval="2"></inchesconverter>
-
+ *
  *     <spacedlayout axis="y"></spacedlayout>
  *     <text text="${conv.inchesval + ' inches'}"></text>
  *     <text text="${conv.centimetersval() + ' cm'}"></text>
  *     <text text="${conv.metersval() + ' m'}"></text>
-
-
+ *
+ *
  */
 
 (function() {
@@ -2345,64 +2375,64 @@
  * @class dr.view {UI Components}
  * @extends dr.node
  * The visual base class for everything in dreem. Views extend dr.node to add the ability to set and animate visual attributes, and interact with the mouse.
-
+ *
  * Views are positioned inside their parent according to their x and y coordinates.
-
+ *
  * Views can contain methods, handlers, setters, constraints, attributes and other view, node or class instances.
-
+ *
  * Views can be easily converted to reusable classes/tags by changing their outermost &lt;view> tags to &lt;class> and adding a name attribute.
-
+ *
  * Views support a number of builtin attributes. Setting attributes that aren't listed explicitly will pass through to the underlying Sprite implementation.
-
+ *
  * Views currently integrate with jQuery, so any changes made to their CSS via jQuery will automatically cause them to update.
-
+ *
  * Note that dreem apps must be contained inside a top-level &lt;view>&lt;/view> tag.
-
+ *
  * The following example shows a pink view that contains a smaller blue view offset 10 pixels from the top and 10 from the left.
-
+ *
  *     @example
  *     <view width="200" height="100" bgcolor="lightpink">
-
+ *
  *       <view width="50" height="50" x="10" y="10" bgcolor="lightblue"></view>
-
+ *
  *     </view>
-
+ *
  * Here the blue view is wider than its parent pink view, and because the clip attribute of the parent is set to false it extends beyond the parents bounds.
-
+ *
  *     @example
  *     <view width="200" height="100" bgcolor="lightpink" clip="false">
-
+ *
  *       <view width="250" height="50" x="10" y="10" bgcolor="lightblue"></view>
-
+ *
  *     </view>
-
+ *
  * Now we set the clip attribute on the parent view to true, causing the overflowing child view to be clipped at its parent's boundary.
-
+ *
  *     @example
  *     <view width="200" height="100" bgcolor="lightpink" clip="true">
-
+ *
  *       <view width="250" height="50" x="10" y="10" bgcolor="lightblue"></view>
-
+ *
  *     </view>
-
+ *
  * Here we demonstrate how unsupported attributes are passed to the underlying sprite system. We make the child view semi-transparent by setting opacity. Although this is not in the list of supported attributes it is still applied.
-
+ *
  *     @example
  *     <view width="200" height="100" bgcolor="lightpink">
-
+ *
  *       <view width="250" height="50" x="10" y="10" bgcolor="lightblue" opacity=".5"></view>
-
+ *
  *     </view>
-
+ *
  * It is convenient to [constrain](#!/guide/constraints) a view's size and position to attributes of its parent view. Here we'll position the inner view so that its inset by 10 pixels in its parent.
-
+ *
  *     @example
  *     <view width="200" height="100" bgcolor="lightpink">
-
+ *
  *       <view width="${this.parent.width-this.inset*2}" height="${this.parent.height-this.inset*2}" x="${this.inset}" y="${this.inset}" bgcolor="lightblue">
  *         <attribute name="inset" type="number" value="10"></attribute>
  *       </view>
-
+ *
  *     </view>
  */
 
@@ -2660,7 +2690,7 @@
     /**
      * @attribute {Number} [z=0]
      * Sets this view's z position (higher values are on top of other views)
-
+     *
      * *(note: setting a 'z' value for a view implicitly sets its parent's 'transform-style' to 'preserve-3d')*
      */
 
@@ -4566,11 +4596,11 @@
  * @class dr.state {Core Dreem}
  * @extends dr.node
  * Allows a group of attributes, methods, handlers and instances to be removed and applied as a group.
-
+ *
  * Like views and nodes, states can contain methods, handlers, setters, constraints, attributes and other view, node or class instances.
-
+ *
  * Currently, states must end with the string 'state' in their name to work properly.
-
+ *
  *     @example
  *     <spacedlayout axis="y"></spacedlayout>
  *     <view id="square" width="100" height="100" bgcolor="lightgrey">
@@ -4584,9 +4614,9 @@
  *         square.setAttribute('ispink', true);
  *       </handler>
  *     </labelbutton>
-
+ *
  * You can set the 'applied' attribute to true to activate a state.
-
+ *
  *     @example
  *     <view id="square" width="200" height="100" bgcolor="lightgrey">
  *       <state name="pinkstate">
@@ -4596,7 +4626,7 @@
  *         this.pinkstate.setAttribute('applied', true);
  *       </handler>
  *     </view>
-
+ *
  */
 
 (function() {
@@ -4791,49 +4821,49 @@
 /**
  * @class dr.class {Core Dreem}
  * Allows new tags to be created. Classes only be created with the &lt;class>&lt;/class> tag syntax.
-
+ *
  * Classes can extend any other class, and they extend dr.view by default.
-
+ *
  * Once declared, classes invoked with the declarative syntax, e.g. &lt;classname>&lt;/classname>.
-
+ *
  * If a class can't be found in the document, dreem will automatically attempt to load it from the classes/* directory.
-
+ *
  * Like views and nodes, classes can contain methods, handlers, setters, constraints, attributes and other view, node or class instances.
-
+ *
  * Here is a class called 'tile' that extends dr.view. It sets the bgcolor, width, and height attributes. An instance of tile is created using declarative syntax.
-
+ *
  *     @example
  *     <class name="tile" extends="view" bgcolor="thistle" width="100" height="100"></class>
-
+ *
  *     <tile></tile>
-
+ *
  * Now we'll extend the tile class with a class called 'labeltile', which contains a label inside of the box. We'll declare one each of tile and labeltile, and position them with a spacedlayout.
-
+ *
  *     @example
  *     <class name="tile" extends="view" bgcolor="thistle" width="100" height="100"></class>
-
+ *
  *     <class name="labeltile" extends="tile">
  *       <text text="Tile"></text>
  *     </class>
-
+ *
  *     <spacedlayout></spacedlayout>
  *     <tile></tile>
  *     <labeltile></labeltile>
-
+ *
  * Attributes that are declared inside of a class definition can be set when the instance is declared. Here we bind the label text to the value of an attribute called label.
-
+ *
  *     @example
  *     <class name="tile" extends="view" bgcolor="thistle" width="100" height="100"></class>
-
+ *
  *     <class name="labeltile" extends="tile">
  *       <attribute name="label" type="string" value=""></attribute>
  *       <text text="${this.parent.label}"></text>
  *     </class>
-
+ *
  *     <spacedlayout></spacedlayout>
  *     <tile></tile>
  *     <labeltile label="The Tile"></labeltile>
-
+ *
  */
 
 (function() {
@@ -5022,14 +5052,14 @@
  * @class dr.layout {Layout}
  * @extends dr.node
  * The base class for all layouts.
-
+ *
  * When a new layout is added, it will automatically create and add itself to a layouts array in its parent. In addition, an onlayouts event is fired in the parent when the layouts array changes. This allows the parent to access the layout(s) later.
-
+ *
  * Here is a view that contains a spacedlayout.
-
+ *
  *     @example
  *     <spacedlayout axis="y"></spacedlayout>
-
+ *
  *     <view bgcolor="oldlace" width="auto" height="auto">
  *       <spacedlayout>
  *         <method name="startMonitoringSubview" args="view">
@@ -5042,9 +5072,9 @@
  *       <view width="50" height="50" bgcolor="lightblue" opacity=".3"></view>
  *       <view width="50" height="50" bgcolor="blue" opacity=".3"></view>
  *     </view>
-
+ *
  *     <text id="output" multiline="true" width="300"></text>
-
+ *
  */
 
 (function() {
@@ -5693,12 +5723,12 @@
  * @class dr.idle {Util}
  * @extends Eventable
  * Sends onidle events when the application is active and idle.
-
+ *
  *     @example
  *     <handler event="onidle" reference="dr.idle" args="idleStatus">
  *       milis.setAttribute('text', idleStatus);
  *     </handler>
-
+ *
  *     <spacedlayout axis="y" spacing="5"></spacedlayout>
  *     <text text="Milliseconds since app started: "></text>
  *     <text id="milis"></text>
@@ -5771,21 +5801,21 @@
  * @class dr.mouse {Input}
  * @extends Eventable
  * Sends mouse events. Often used to listen to onmouseover/x/y events to follow the mouse position.
-
+ *
  * Here we attach events handlers to the onx and ony events of dr.mouse, and set the x,y coordinates of a square view so it follows the mouse.
-
+ *
  *     @example
  *     <view id="mousetracker" width="20" height="20" bgcolor="MediumTurquoise"></view>
-
+ *
  *     <handler event="onx" args="x" reference="dr.mouse">
  *       mousetracker.setAttribute('x', x - mousetracker.width);
  *     </handler>
-
+ *
  *     <handler event="ony" args="y" reference="dr.mouse">
  *       mousetracker.setAttribute('y', y - mousetracker.height);
  *     </handler>
-
-
+ *
+ *
  */
 
 (function() {
@@ -5998,16 +6028,16 @@
  * @class dr.window {Util}
  * @extends Eventable
  * Sends window resize events. Often used to dynamically reposition views as the window size changes.
-
+ *
  *     <handler event="onwidth" reference="dr.window" args="newWidth">
  *       //adjust views
  *     </handler>
-
+ *
  *     <handler event="onheight" reference="dr.window" args="newHeight">
  *       //adjust views
  *     </handler>
-
-
+ *
+ *
  */
 
 (function() {
@@ -6087,12 +6117,12 @@
  * @class dr.keyboard {Input}
  * @extends Eventable
  * Sends keyboard events.
-
+ *
  * You might want to listen for keyboard events globally. In this example, we display the code of the key being pressed. Note that you'll need to click on the example to activate it before you will see keyboard events.
-
+ *
  *     @example
  *     <text id="keycode" text="Key Code:"></text>
-
+ *
  *     <handler event="onkeyup" args="keys" reference="dr.keyboard">
  *       keycode.setAttribute('text', 'Key Code: ' + keys.keyCode);
  *     </handler>
@@ -6169,7 +6199,7 @@
     /**
      * @class dr {Core Dreem}
      * Holds builtin and user-created classes and public APIs.
-
+     *
      * All classes listed here can be invoked with the declarative syntax, e.g. &lt;node>&lt;/node> or &lt;view>&lt;/view>
      */
     return exports = {
@@ -6206,40 +6236,40 @@
     /**
      * @class dr.method {Core Dreem}
      * Declares a member function in a node, view, class or other class instance. Methods can only be created with the &lt;method>&lt;/method> tag syntax.
-
+     *
      * If a method overrides an existing method, any existing (super) method(s) will be called first automatically.
-
+     *
      * Let's define a method called changeColor in a view that sets the background color to pink.
-
+     *
      *     @example
-
+     *
      *     <view id="square" width="100" height="100">
      *       <method name="changeColor">
      *         this.setAttribute('bgcolor', 'pink');
      *       </method>
      *     </view>
-
+     *
      *     <handler event="oninit">
      *       square.changeColor();
      *     </handler>
-
+     *
      * Here we define the changeColor method in a class called square. We create an instance of the class and call the method on the intance.
-
+     *
      *     @example
      *     <class name="square" width="100" height="100">
      *       <method name="changeColor">
      *         this.setAttribute('bgcolor', 'pink');
      *       </method>
      *     </class>
-
+     *
      *     <square id="square1"></square>
-
+     *
      *     <handler event="oninit">
      *       square1.changeColor();
      *     </handler>
-
+     *
      * Now we'll subclass the square class with a bluesquare class, and override the changeColor method to color the square blue. We also add an inner square who's color is set in the changeColor method of the square superclass. Notice that the color of this square is set when the method is called on the subclass.
-
+     *
      *     @example
      *     <class name="square" width="100" height="100">
      *       <view name="inner" width="25" height="25"></view>
@@ -6248,23 +6278,23 @@
      *         this.setAttribute('bgcolor', 'pink');
      *       </method>
      *     </class>
-
+     *
      *     <class name="bluesquare" extends="square">
      *       <method name="changeColor">
      *         this.setAttribute('bgcolor', 'blue');
      *       </method>
      *     </class>
-
+     *
      *     <spacedlayout></spacedlayout>
-
+     *
      *     <square id="square1"></square>
      *     <bluesquare id="square2"></bluesquare>
-
+     *
      *     <handler event="oninit">
      *       square1.changeColor();
      *       square2.changeColor();
      *     </handler>
-
+     *
      */
 
     /**
@@ -6285,9 +6315,9 @@
     /**
      * @class dr.setter
      * Declares a setter in a node, view, class or other class instance. Setters can only be created with the &lt;setter>&lt;/setter> tag syntax.
-
+     *
      * Setters allow the default behavior of attribute changes to be changed.
-
+     *
      * Like dr.method, if a setter overrides an existing setter any existing (super) setter(s) will be called first automatically.
      * @ignore
      */
@@ -6310,52 +6340,52 @@
     /**
      * @class dr.handler {Core Dreem, Events}
      * Declares a handler in a node, view, class or other class instance. Handlers can only be created with the `<handler></handler>` tag syntax.
-
+     *
      * Handlers are called when an event fires with new value, if available.
-
+     *
      * Here is a simple handler that listens for an onx event in the local scope. The handler runs when x changes:
-
+     *
      *     <handler event="onx">
      *       // do something now that x has changed
      *     </handler>
-
+     *
      * When a handler uses the args attribute, it can recieve the value that changed:
-
+     *
      * Sometimes it's nice to use a single method to respond to multiple events:
-
+     *
      *     <handler event="onx" method="handlePosition"></handler>
      *     <handler event="ony" method="handlePosition"></handler>
      *     <method name="handlePosition">
      *       // do something now that x or y have changed
      *     </method>
-
-
+     *
+     *
      * When a handler uses the args attribute, it can receive the value that changed:
-
+     *
      *     @example
-
+     *
      *     <handler event="onwidth" args="widthValue">
      *        exampleLabel.setAttribute("text", "Parent view received width value of " + widthValue)
      *     </handler>
-
+     *
      *     <text id="exampleLabel" x="50" y="5" text="no value yet" color="coral" outline="1px dotted coral" padding="10"></text>
      *     <text x="50" y="${exampleLabel.y + exampleLabel.height + 20}" text="no value yet" color="white" bgcolor="#DDAA00" padding="10">
      *       <handler event="onwidth" args="wValue">
      *          this.setAttribute("text", "This label received width value of " + wValue)
      *       </handler>
      *     </text>
-
-
+     *
+     *
      * It's also possible to listen for events on another scope. This handler listens for onidle events on dr.idle instead of the local scope:
-
+     *
      *     @example
-
+     *
      *     <handler event="onidle" args="time" reference="dr.idle">
      *       exampleLabel.setAttribute('text', 'received time from dr.idle.onidle: ' + Math.round(time));
      *     </handler>
      *     <text id="exampleLabel" x="50" y="5" text="no value yet" color="coral" outline="1px dotted coral" padding="10px"></text>
-
-
+     *
+     *
      */
 
     /**
@@ -6386,24 +6416,24 @@
     /**
      * @class dr.attribute {Core Dreem, Events}
      * @aside guide constraints
-
+     *
      * Adds a variable to a node, view, class or other class instance. Attributes can only be created with the &lt;attribute>&lt;/attribute> tag syntax.
-
+     *
      * Attributes allow classes to declare new variables with a specific type and default value.
-
+     *
      * Attributes automatically send events when their value changes.
-
+     *
      * Here we create a new class with a custom attribute representing a person's mood, along with two instances. One instance has the default mood of 'happy', the other sets the mood attribute to 'sad'. Note there's nothing visible in this example yet:
-
+     *
      *     <class name="person">
      *       <attribute name="mood" type="string" value="happy"></attribute>
      *     </class>
-
+     *
      *     <person></person>
      *     <person mood="sad"></person>
-
+     *
      * Let's had a handler to make our color change with the mood. Whenever the mood attribute changes, the color changes with it:
-
+     *
      *     @example
      *     <class name="person" width="100" height="100">
      *       <attribute name="mood" type="string" value="happy"></attribute>
@@ -6415,13 +6445,13 @@
      *         this.setAttribute('bgcolor', color);
      *       </handler>
      *     </class>
-
+     *
      *     <spacedlayout></spacedlayout>
      *     <person></person>
      *     <person mood="sad"></person>
-
+     *
      * You can add as many attributes as you like to a class. Here, we add a numeric attribute for size, which changes the height and width attributes via a constraint:
-
+     *
      *     @example
      *     <class name="person" width="${this.size}" height="${this.size}">
      *       <attribute name="mood" type="string" value="happy"></attribute>
@@ -6434,7 +6464,7 @@
      *       </handler>
      *       <attribute name="size" type="number" value="20"></attribute>
      *     </class>
-
+     *
      *     <spacedlayout></spacedlayout>
      *     <person></person>
      *     <person mood="sad" size="50"></person>

@@ -22,6 +22,36 @@
 #       </node>
 #     </node>
 #
+#
+# Specialized handling required when attributes are set can be defined with '&lt;setter&gt;' tags.  The return value of
+# a '&lt;setter&gt;' will be the value set in the attribute.
+#
+#     <node id="movie">
+#       <attribute name="title" type="string" value=""></attribute>
+#
+#       <setter name="title" args="t" type="coffee">
+#           t = t.replace(/^The\s+/, '') if t;
+#           return t;
+#       </setter>
+#
+#     </node>
+#
+# In some cases you may need the value of an attribute to be set by the setter itself and not by the returned value, for
+# these cases a 'noop' object can be returned, indicating that no special action should be taken to automatically set the attribute.
+#
+#     <node id="asyncMovie">
+#       <attribute name="title" type="string" value=""></attribute>
+#
+#       <setter name="title" args="t">
+#           var slf = this;
+#           this.performNetworkOperation(t, function(returnedValue){
+#             slf.title = returnedValue;
+#           });
+#           return noop;
+#       </setter>
+#
+#     </node>
+#
 # This node defines a set of math helper methods. The node provides a tidy container for these related utility functions.
 #
 #     <node id="utils">
