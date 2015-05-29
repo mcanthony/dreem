@@ -37,11 +37,7 @@ SOFTWARE.
       var i = rules.length, rule;
       while (i) {
         rule = rules[--i];
-        if (rule.length > 1) {
-          rule[i] = rule.shift() + '{' + rule.join(';') + '}';
-        } else {
-          rule[i] = '';
-        }
+        rules[i] = rule.length > 1 ? rule.shift() + '{' + rule.join(';') + '}' : '';
       }
       
       s.innerHTML = rules.join('');
