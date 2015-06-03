@@ -1,4 +1,9 @@
 <html>
+<expectedoutput>
+  <!--
+  Does not have appropriate mousewheel API to test with, please test manually.
+  -->
+</expectedoutput>
 <head>
   <title>dr33m | mousewheel Smoke Tests</title>
   <script>var BOILERPLATE_OPTS = {type:'smoke'};</script>
@@ -14,9 +19,13 @@
     </handler>
 
     <handler event="oninit">
-      var ev = new WheelEvent("wheel", {deltaX: 5, deltaY: -8, wheelDeltaX: 5, wheelDeltaY: -8});
-      var cb = document.getElementById('mousepanel');
-      cb.dispatchEvent(ev);
+      if (typeof(WheelEvent) === 'function') {
+        var ev = new WheelEvent("wheel", {deltaX: 5, deltaY: -8, wheelDeltaX: 5, wheelDeltaY: -8});
+        var cb = document.getElementById('mousepanel');
+        cb.dispatchEvent(ev);
+      } else {
+        console.log('Does not have appropriate mousewheel API to test with, please test manually.')
+      }
 
     </handler>
 

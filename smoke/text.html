@@ -414,7 +414,7 @@ refusing to create a class that would overwrite the builtin tag b
 
           assert.equal(this.multiline, false);
           assert.equal($(this.sprite.el).css('white-space'), 'nowrap');
-          assert.closeTo(this.width, 120, 11, 'width check');
+          assert.closeTo(this.width, 130, 11, 'width check');
           assert.closeTo(this.height, 24, 10, 'height check');
 
           // Change to fixed width
@@ -438,7 +438,7 @@ refusing to create a class that would overwrite the builtin tag b
 
           assert.equal(this.multiline, true);
           assert.equal($(this.sprite.el).css('white-space'), 'pre');
-          assert.closeTo(this.width, 90, 10);
+          assert.closeTo(this.width, 100, 10);
           assert.closeTo(this.height, 48, 10);
 
           // Change to back single line
@@ -446,7 +446,7 @@ refusing to create a class that would overwrite the builtin tag b
 
           assert.equal(this.multiline, false);
           assert.equal($(this.sprite.el).css('white-space'), 'nowrap');
-          assert.closeTo(this.width, 120, 11, 'check width after changed back to single line');
+          assert.closeTo(this.width, 130, 11, 'check width after changed back to single line');
           assert.closeTo(this.height, 24, 10  , 'check height after changed back to single line');
 
           // Change to back multiline
@@ -454,19 +454,19 @@ refusing to create a class that would overwrite the builtin tag b
 
           assert.equal(this.multiline, true)
           assert.equal($(this.sprite.el).css('white-space'), 'pre');
-          assert.closeTo(this.width, 90, 10);
+          assert.closeTo(this.width, 100, 10);
           assert.closeTo(this.height, 48, 10);
 
           // Make bold and observe a resize
           this.setAttribute('bold', true);
 
-          assert.closeTo(this.width, 100, 10);
+          assert.closeTo(this.width, 105, 10);
           assert.closeTo(this.height, 48, 10);
 
           // Change fontsize and observe a resize
           this.setAttribute('fontsize', 32);
 
-          assert.closeTo(this.width, 150, 10);
+          assert.closeTo(this.width, 175, 10);
           assert.closeTo(this.height, 72, 12, 'height check after fontsize change');
         </handler>
       </text>
