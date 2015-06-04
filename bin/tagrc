@@ -26,7 +26,7 @@ fi
 git checkout dev
 
 git fetch --tags origin
-tags=`git tag | grep "^green" | xargs`
+tags=`git tag | grep "^nightly" | xargs`
 #echo $tags
 
 if [ "$tags" != "" ]; then
@@ -35,10 +35,10 @@ if [ "$tags" != "" ]; then
   len=${#arr[@]}
   last_pos=$((len - 1))
   
-  latest_green=${arr[${last_pos}]}
-  echo $latest_green
+  latest_nightly=${arr[${last_pos}]}
+  echo $latest_nightly
   
-  git checkout $latest_green
+  git checkout $latest_nightly
    
   git branch v${1}-rc.${2}
   git checkout v${1}-rc.${2}

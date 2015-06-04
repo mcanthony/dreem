@@ -20,6 +20,6 @@ deployment:
   production:
     branch: [dev]
     commands:
-      - git tag "green_$(date +'%Y-%m-%d_%H-%M-%S')"
+      - git tag "nightly_$(date +'%Y-%m-%d_%H-%M-%S')"
       - git push --tags
   
