@@ -8,7 +8,21 @@ if [[ "$2" == "" ]]; then
   exit 2
 fi
 
-echo "....CREATING NEW Release Candidate: v${1}-rc.${2}"
+if [[ "$2" != "1" ]]; then
+  declare -i prevRC
+  prevRC=$2-1
+  echo $prevRC
+  
+  fromBranch=v${1}-rc.${prevRC}
+else
+  declare -i prevRC
+  prevRC=0
+  echo $prevRC
+  
+  fromBranch=dev
+fi
+  
+echo "....CREATING NEW Release Candidate: v${1}-rc.${2} from branch ${fromBranch}"
 echo "....Is this correct? [Y|N]"
 echo ""
 
@@ -23,24 +37,32 @@ if [ "$answer" != "Y" -a "$answer" != "y" ]; then
   exit 2
 fi
 
-git checkout dev
+git fetch origin
 
-git fetch --tags origin
-tags=`git tag | grep "^nightly" | xargs`
-#echo $tags
-
-if [ "$tags" != "" ]; then
-  arr=(${tags/\s/ })
+if [[ "$fromBranch" == "dev" ]]; then
+  git fetch --tags origin
+  tags=`git tag | grep "^nightly" | xargs`
+  #echo $tags
   
-  len=${#arr[@]}
-  last_pos=$((len - 1))
-  
-  latest_nightly=${arr[${last_pos}]}
-  echo $latest_nightly
-  
-  git checkout $latest_nightly
-   
-  git branch v${1}-rc.${2}
-  git checkout v${1}-rc.${2}
-  git push origin v${1}-rc.${2}
+  if [ "$tags" != "" ]; then
+    arr=(${tags/\s/ })
+    
+    len=${#arr[@]}
+    last_pos=$((len - 1))
+    
+    latest_nightly=${arr[${last_pos}]}
+    echo $latest_nightly
+    
+    fromBranch = $latest_nightly
+  fi
 fi
+
+if [[ "$fromBranch" == "dev" ]]; then
+  echo "CANNOT CREATE RC:: No passing build found!"
+  exit 1
+fi
+
+git checkout $fromBranch 
+git branch v${1}-rc.${2}
+git checkout v${1}-rc.${2}
+git push origin v${1}-rc.${2}
