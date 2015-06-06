@@ -111,6 +111,10 @@ class Mouse extends StartEventable
     view = event.target.$view
     type = event.type
     # console.log 'event', type, view
+
+    @wheelx = 0
+    @wheely = 0
+
     if view
       if type is 'mousedown'
         @_lastMouseDown = view
@@ -123,6 +127,40 @@ class Mouse extends StartEventable
       @sendEvent('mouseupoutside', @_lastMouseDown)
       @_lastMouseDown.sendEvent('mouseupoutside', @_lastMouseDown)
       @_lastMouseDown = null
+      return
+    else if type is 'wheel'
+      ev = event.originalEvent
+      if ev.wheelDeltaX
+        @wheelx = ev.wheelDeltaX;
+      else
+        @wheelx = ev.deltaX;
+      if ev.wheelDeltaY
+        @wheely = ev.wheelDeltaY;
+      else
+        @wheely = ev.deltaY;
+
+      if view
+        view.sendEvent("mousewheel", {deltax: @wheelx, deltay: @wheely})
+        view.sendEvent('wheelx', @wheelx)
+        view.sendEvent('wheely', @wheely)
+      ###*
+      # @event onmousewheel
+      # Fired when the mouse wheel
+      # @param {Object} deltas The x and y deltas of the mouse wheel
+      ###
+      @sendEvent("mousewheel", {deltax: @wheelx, deltay: @wheely})
+      ###*
+      # @event onwheelx
+      # @attribute {Number} wheelx The x delta of the mouse wheel
+      # @readonly
+      ###
+      @sendEvent("wheelx", @wheelx)
+      ###*
+      # @event onwheely
+      # @attribute {Number} wheely The y delta of the mouse wheel
+      # @readonly
+      ###
+      @sendEvent("wheely", @wheely)
       return
     else if view
       view.sendEvent(type, view)

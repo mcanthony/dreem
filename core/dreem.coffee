@@ -780,7 +780,7 @@ window.dr = do ->
   Idle = `~["include","fragments/Idle.coffee"]~`
 
   # singleton that listens for mouse events. Holds data about the most recent left and top mouse coordinates
-  mouseEvents = ['click', 'mouseover', 'mouseout', 'mousedown', 'mouseup']
+  mouseEvents = ['click', 'mouseover', 'mouseout', 'mousedown', 'mouseup', 'wheel']
 
   Mouse = `~["include","fragments/Mouse.coffee"]~`
   Window = `~["include","fragments/Window.coffee"]~`

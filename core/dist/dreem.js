@@ -5825,7 +5825,7 @@
 
 }).call(this);
 ;
-    mouseEvents = ['click', 'mouseover', 'mouseout', 'mousedown', 'mouseup'];
+    mouseEvents = ['click', 'mouseover', 'mouseout', 'mousedown', 'mouseup', 'wheel'];
     Mouse = 
 /**
  * @class dr.mouse {Input}
@@ -5979,9 +5979,11 @@
     };
 
     Mouse.prototype.handle = function(event) {
-      var type, view;
+      var ev, type, view;
       view = event.target.$view;
       type = event.type;
+      this.wheelx = 0;
+      this.wheely = 0;
       if (view) {
         if (type === 'mousedown') {
           this._lastMouseDown = view;
@@ -5996,6 +5998,51 @@
         this.sendEvent('mouseupoutside', this._lastMouseDown);
         this._lastMouseDown.sendEvent('mouseupoutside', this._lastMouseDown);
         this._lastMouseDown = null;
+        return;
+      } else if (type === 'wheel') {
+        ev = event.originalEvent;
+        if (ev.wheelDeltaX) {
+          this.wheelx = ev.wheelDeltaX;
+        } else {
+          this.wheelx = ev.deltaX;
+        }
+        if (ev.wheelDeltaY) {
+          this.wheely = ev.wheelDeltaY;
+        } else {
+          this.wheely = ev.deltaY;
+        }
+        if (view) {
+          view.sendEvent("mousewheel", {
+            deltax: this.wheelx,
+            deltay: this.wheely
+          });
+          view.sendEvent('wheelx', this.wheelx);
+          view.sendEvent('wheely', this.wheely);
+        }
+
+        /**
+         * @event onmousewheel
+         * Fired when the mouse wheel
+         * @param {Object} deltas The x and y deltas of the mouse wheel
+         */
+        this.sendEvent("mousewheel", {
+          deltax: this.wheelx,
+          deltay: this.wheely
+        });
+
+        /**
+         * @event onwheelx
+         * @attribute {Number} wheelx The x delta of the mouse wheel
+         * @readonly
+         */
+        this.sendEvent("wheelx", this.wheelx);
+
+        /**
+         * @event onwheely
+         * @attribute {Number} wheely The y delta of the mouse wheel
+         * @readonly
+         */
+        this.sendEvent("wheely", this.wheely);
         return;
       } else if (view) {
         view.sendEvent(type, view);

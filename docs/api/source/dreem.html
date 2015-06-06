@@ -5842,7 +5842,7 @@
 
 }).call(this);
 ;
-    mouseEvents = [&#39;click&#39;, &#39;mouseover&#39;, &#39;mouseout&#39;, &#39;mousedown&#39;, &#39;mouseup&#39;];
+    mouseEvents = [&#39;click&#39;, &#39;mouseover&#39;, &#39;mouseout&#39;, &#39;mousedown&#39;, &#39;mouseup&#39;, &#39;wheel&#39;];
     Mouse = 
 <span id='dr-mouse'>/**
 </span> * @class dr.mouse {Input}
@@ -5996,9 +5996,11 @@
     };
 
     Mouse.prototype.handle = function(event) {
-      var type, view;
+      var ev, type, view;
       view = event.target.$view;
       type = event.type;
+      this.wheelx = 0;
+      this.wheely = 0;
       if (view) {
         if (type === &#39;mousedown&#39;) {
           this._lastMouseDown = view;
@@ -6013,6 +6015,53 @@
         this.sendEvent(&#39;mouseupoutside&#39;, this._lastMouseDown);
         this._lastMouseDown.sendEvent(&#39;mouseupoutside&#39;, this._lastMouseDown);
         this._lastMouseDown = null;
+        return;
+      } else if (type === &#39;wheel&#39;) {
+        this.wheelx = 0;
+        this.wheely = 0;
+        ev = event.originalEvent;
+        if (ev.wheelDeltaX) {
+          this.wheelx = ev.wheelDeltaX;
+        } else {
+          this.wheelx = ev.deltaX;
+        }
+        if (ev.wheelDeltaY) {
+          this.wheely = ev.wheelDeltaY;
+        } else {
+          this.wheely = ev.deltaY;
+        }
+        if (view) {
+          view.sendEvent(&quot;mousewheel&quot;, {
+            deltax: this.wheelx,
+            deltay: this.wheely
+          });
+          view.sendEvent(&#39;wheelx&#39;, this.wheelx);
+          view.sendEvent(&#39;wheely&#39;, this.wheely);
+        }
+
+<span id='dr-mouse-event-onmousewheel'>        /**
+</span>         * @event onmousewheel
+         * Fired when the mouse wheel
+         * @param {Object} deltas The x and y deltas of the mouse wheel
+         */
+        this.sendEvent(&quot;mousewheel&quot;, {
+          deltax: this.wheelx,
+          deltay: this.wheely
+        });
+
+<span id='dr-mouse-attribute-wheelx'>        /**
+</span>         * @event onwheelx
+         * @attribute {Number} wheelx The x delta of the mouse wheel
+         * @readonly
+         */
+        this.sendEvent(&quot;wheelx&quot;, this.wheelx);
+
+<span id='dr-mouse-attribute-wheely'>        /**
+</span>         * @event onwheely
+         * @attribute {Number} wheely The y delta of the mouse wheel
+         * @readonly
+         */
+        this.sendEvent(&quot;wheely&quot;, this.wheely);
         return;
       } else if (view) {
         view.sendEvent(type, view);
