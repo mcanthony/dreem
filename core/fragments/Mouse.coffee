@@ -124,6 +124,27 @@ class Mouse extends StartEventable
       @_lastMouseDown.sendEvent('mouseupoutside', @_lastMouseDown)
       @_lastMouseDown = null
       return
+    else if type is 'wheel'
+      wheelx = 0
+      wheely = 0
+      ev = event.originalEvent
+      if ev.wheelDeltaX
+        wheelx = ev.wheelDeltaX;
+      else
+        wheelx = ev.deltaX;
+      if ev.wheelDeltaY
+        wheely = ev.wheelDeltaY;
+      else
+        wheely = ev.deltaY;
+
+      if view
+        view.sendEvent("mousewheel", {deltax: wheelx, deltay: wheely})
+        view.sendEvent('wheelx', wheelx)
+        view.sendEvent('wheely', wheely)
+      @sendEvent("mousewheel", {deltax: wheelx, deltay: wheely})
+      @sendEvent("wheelx", wheelx)
+      @sendEvent("wheely", wheely)
+      return
     else if view
       view.sendEvent(type, view)
 

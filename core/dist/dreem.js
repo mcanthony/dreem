@@ -5825,7 +5825,7 @@
 
 }).call(this);
 ;
-    mouseEvents = ['click', 'mouseover', 'mouseout', 'mousedown', 'mouseup'];
+    mouseEvents = ['click', 'mouseover', 'mouseout', 'mousedown', 'mouseup', 'wheel'];
     Mouse = 
 /**
  * @class dr.mouse {Input}
@@ -5979,7 +5979,7 @@
     };
 
     Mouse.prototype.handle = function(event) {
-      var type, view;
+      var ev, type, view, wheelx, wheely;
       view = event.target.$view;
       type = event.type;
       if (view) {
@@ -5996,6 +5996,35 @@
         this.sendEvent('mouseupoutside', this._lastMouseDown);
         this._lastMouseDown.sendEvent('mouseupoutside', this._lastMouseDown);
         this._lastMouseDown = null;
+        return;
+      } else if (type === 'wheel') {
+        wheelx = 0;
+        wheely = 0;
+        ev = event.originalEvent;
+        if (ev.wheelDeltaX) {
+          wheelx = ev.wheelDeltaX;
+        } else {
+          wheelx = ev.deltaX;
+        }
+        if (ev.wheelDeltaY) {
+          wheely = ev.wheelDeltaY;
+        } else {
+          wheely = ev.deltaY;
+        }
+        if (view) {
+          view.sendEvent("mousewheel", {
+            deltax: wheelx,
+            deltay: wheely
+          });
+          view.sendEvent('wheelx', wheelx);
+          view.sendEvent('wheely', wheely);
+        }
+        this.sendEvent("mousewheel", {
+          deltax: wheelx,
+          deltay: wheely
+        });
+        this.sendEvent("wheelx", wheelx);
+        this.sendEvent("wheely", wheely);
         return;
       } else if (view) {
         view.sendEvent(type, view);
