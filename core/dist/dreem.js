@@ -5979,9 +5979,11 @@
     };
 
     Mouse.prototype.handle = function(event) {
-      var ev, type, view, wheelx, wheely;
+      var ev, type, view;
       view = event.target.$view;
       type = event.type;
+      this.wheelx = 0;
+      this.wheely = 0;
       if (view) {
         if (type === 'mousedown') {
           this._lastMouseDown = view;
@@ -5998,33 +6000,49 @@
         this._lastMouseDown = null;
         return;
       } else if (type === 'wheel') {
-        wheelx = 0;
-        wheely = 0;
         ev = event.originalEvent;
         if (ev.wheelDeltaX) {
-          wheelx = ev.wheelDeltaX;
+          this.wheelx = ev.wheelDeltaX;
         } else {
-          wheelx = ev.deltaX;
+          this.wheelx = ev.deltaX;
         }
         if (ev.wheelDeltaY) {
-          wheely = ev.wheelDeltaY;
+          this.wheely = ev.wheelDeltaY;
         } else {
-          wheely = ev.deltaY;
+          this.wheely = ev.deltaY;
         }
         if (view) {
           view.sendEvent("mousewheel", {
-            deltax: wheelx,
-            deltay: wheely
+            deltax: this.wheelx,
+            deltay: this.wheely
           });
-          view.sendEvent('wheelx', wheelx);
-          view.sendEvent('wheely', wheely);
+          view.sendEvent('wheelx', this.wheelx);
+          view.sendEvent('wheely', this.wheely);
         }
+
+        /**
+         * @event onmousewheel
+         * Fired when the mouse wheel
+         * @param {Object} deltas The x and y deltas of the mouse wheel
+         */
         this.sendEvent("mousewheel", {
-          deltax: wheelx,
-          deltay: wheely
+          deltax: this.wheelx,
+          deltay: this.wheely
         });
-        this.sendEvent("wheelx", wheelx);
-        this.sendEvent("wheely", wheely);
+
+        /**
+         * @event onwheelx
+         * @attribute {Number} wheelx The x delta of the mouse wheel
+         * @readonly
+         */
+        this.sendEvent("wheelx", this.wheelx);
+
+        /**
+         * @event onwheely
+         * @attribute {Number} wheely The y delta of the mouse wheel
+         * @readonly
+         */
+        this.sendEvent("wheely", this.wheely);
         return;
       } else if (view) {
         view.sendEvent(type, view);
