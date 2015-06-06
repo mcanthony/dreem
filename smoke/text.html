@@ -466,7 +466,7 @@ refusing to create a class that would overwrite the builtin tag b
           // Change fontsize and observe a resize
           this.setAttribute('fontsize', 32);
 
-          assert.closeTo(this.width, 175, 10);
+          assert.closeTo(this.width, 170, 11, 'after font size the size should change');
           assert.closeTo(this.height, 72, 12, 'height check after fontsize change');
         </handler>
       </text>
