@@ -9,18 +9,22 @@ if [[ "$2" == "" ]]; then
   exit 2
 fi
 
-if [[ "$2" != "1" ]]; then
-  declare -i prevRC
-  prevRC=$2-1
-  echo $prevRC
-  
-  fromBranch=v${1}-rc.${prevRC}
+if [[ "$3" != "" ]]; then
+  fromBranch=$3
 else
-  declare -i prevRC
-  prevRC=0
-  echo $prevRC
-  
-  fromBranch=dev
+  if [[ "$2" != "1" ]]; then
+    declare -i prevRC
+    prevRC=$2-1
+    echo $prevRC
+    
+    fromBranch=v${1}-rc.${prevRC}
+  else
+    declare -i prevRC
+    prevRC=0
+    echo $prevRC
+    
+    fromBranch=dev
+  fi
 fi
   
 echo "....CREATING NEW Release Candidate: v${1}-rc.${2} from branch ${fromBranch}"
@@ -54,7 +58,7 @@ if [[ "$fromBranch" == "dev" ]]; then
     latest_nightly=${arr[${last_pos}]}
     echo $latest_nightly
     
-    fromBranch = $latest_nightly
+    fromBranch=$latest_nightly
   fi
 fi
 
