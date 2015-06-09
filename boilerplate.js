@@ -86,7 +86,7 @@ SOFTWARE.
 //  console.log('Dreem root is: ', DREEM_ROOT)
 
   DREEM_SERVER_AVAILABLE = false;
-  var compatibleServerVersions = ["1.0.0", "1.0.1"];
+  var compatibleServerVersions = ["1.0.0", "1.0.1", "1.0.2"];
   var request = new XMLHttpRequest();
   request.open('GET', DREEM_ROOT + 'info', false);
   request.onreadystatechange = function() {

@@ -29,7 +29,6 @@ getting started on Windows
 
 On some Windows installations it may ne necessary to install the ruby [Development Kit, described here](https://github.com/oneclick/rubyinstaller/wiki/Development-Kit).  
 
-
 adding your own dreem code
 --------------------------
 
@@ -62,7 +61,7 @@ For Sublime Text, use the preferences -> browse packages menu, back out a folder
 building the documentation
 --------------------------
 
-The API docs are built with [https://github.com/senchalabs/jsduck](https://github.com/senchalabs/jsduck). Install jsduck as a ruby gem using bundler by running
+The API docs are always available [here](http://teem2.github.io/dreem/docs/api/), but can be built manually with [https://github.com/senchalabs/jsduck](https://github.com/senchalabs/jsduck). Install jsduck as a ruby gem using bundler by running the following:
 
     gem install bundler
     bundle install
