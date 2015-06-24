@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 rm -rf ./docs/api/
 ./docs/lib/config.rb
 rm -rf ./docs/classdocs/*.js
